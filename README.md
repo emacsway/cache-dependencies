@@ -29,12 +29,12 @@ it gets varied arg and deletes all caches with this arg.
         ((MyModel, lambda obj: ('MyModel_{0}'.format(obj.pk)) )),
     ]
 
-    registry.register_list(caches)
+    registry.register(caches)
 
 #### template
     {% load cache_tags %}
     {% cachetags 600 cache_of_2_args object.pk page_number %}
-    {# cachetags expire_timeout cache_name [vary_on args|...] #}
+    {# cachetags timeout cache_name [vary_on args|...] #}
        ..............
     {% endcachetags %}
 
