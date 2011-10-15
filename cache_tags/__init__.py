@@ -53,7 +53,8 @@ def set_cache(name, value, tags=(), timeout=None, version=None):
             else:
                 tag_version = tag_caches[tag_prepared]
             tag_versions[tag] = tag_version
-        cache.set_many(tag_new_dict, TAG_TIMEOUT)
+        if len(tag_new_dict):
+            cache.set_many(tag_new_dict, TAG_TIMEOUT)
 
     data = {
         'tag_versions': tag_versions,
