@@ -10,27 +10,27 @@ register = Library()
 
 
 class CacheNode(Node):
-    def __init__(self, nodelist, expire_time_var, fragment_name, vary_on):
+    def __init__(self, nodelist, timeout_var, fragment_name, vary_on):
         self.nodelist = nodelist
-        self.expire_time_var = Variable(expire_time_var)
+        self.timeout_var = Variable(timeout_var)
         self.fragment_name = fragment_name
         self.vary_on = vary_on
 
     def render(self, context):
         try:
-            expire_time = self.expire_time_var.resolve(context)
+            timeout = self.timeout_var.resolve(context)
         except VariableDoesNotExist:
             raise TemplateSyntaxError(
                 '"cache" tag got an unknkown variable: {0}'.format(
-                    self.expire_time_var.var
+                    self.timeout_var.var
                 )
             )
         try:
-            expire_time = int(expire_time)
+            timeout = int(timeout)
         except (ValueError, TypeError):
             raise TemplateSyntaxError(
                 '"cache" tag got a non-integer timeout value: {0}'.fomat(
-                    expire_time
+                    timeout
                 )
             )
 
@@ -38,8 +38,10 @@ class CacheNode(Node):
             return self.nodelist.render(context)
         vary_on = [resolve_variable(x, context) for x in self.vary_on]
 
-        return view_set_cache(self.fragment_name, expire_time,
-                              tags=vary_on, cache_func=render_nodelist)
+        return view_set_cache(self.fragment_name,
+                              tags=vary_on,
+                              cache_func=render_nodelist,
+                              timeout=timeout)
 
 
 def do_cache(parser, token):
@@ -50,7 +52,7 @@ def do_cache(parser, token):
     Usage::
 
         {% load cache_tags_cache %}
-        {% cachetags expire_time cache_name [var1]  [var2] ... %}
+        {% cachetags timeout cache_name [var1]  [var2] ... %}
             .. some expensive processing ..
         {% cachetags %}
     """

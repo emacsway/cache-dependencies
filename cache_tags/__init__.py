@@ -19,11 +19,12 @@ if hasattr(random, 'SystemRandom'):
     randrange = random.SystemRandom().randrange
 else:
     randrange = random.randrange
-    MAX_SESSION_KEY = 18446744073709551616L     # 2 << 63
+
+MAX_TAG_KEY = 18446744073709551616L     # 2 << 63
 
 
-def view_set_cache(name, expire_time=None, tags=[],
-                   cache_func=lambda: None, version=None):
+def view_set_cache(name, tags=[], cache_func=lambda: None,
+                   timeout=None, version=None):
     """
     Returns cache value if exists
     Otherwise calls cache_funcs, sets cache value to it and returns it.
@@ -31,11 +32,11 @@ def view_set_cache(name, expire_time=None, tags=[],
     value = get_cache(name, version=version)
     if value is None:
         value = cache_func()
-        set_cache(name, value, expire_time, tags, version)
+        set_cache(name, value, tags, timeout, version)
     return value
 
 
-def set_cache(name, value, expire_time, tags=(), version=None):
+def set_cache(name, value, tags=(), timeout=None, version=None):
     """Sets cache value and tags."""
     tag_versions = {}
     for tag in tags:
@@ -49,7 +50,7 @@ def set_cache(name, value, expire_time, tags=(), version=None):
         'tag_versions': tag_versions,
         'value': value,
     }
-    cache.set(name, data, expire_time, version)
+    cache.set(name, data, timeout, version)
 
 
 def get_cache(name, default=None, version=None):
@@ -65,13 +66,13 @@ def get_cache(name, default=None, version=None):
         tag_current_version = cache.get(prepare_tag_name(tag), None)
         if tag_current_version != tag_version:
             return default
-    return data.value
+    return data['value']
 
 
 def clear_cache(*tags):
     """Clears all tags"""
     for tag in tags:
-        cache.delete(tag)
+        cache.delete(prepare_tag_name(tag))
 
 
 def prepare_tag_name(name):
@@ -83,13 +84,13 @@ def generate_tag_version():
     """ Generates a new unique identifier for tag version."""
     pid = os.getpid()
     tid = thread.get_ident()
-    hash = hashlib.md5("|".join((
-        randrange(0, MAX_SESSION_KEY),
+    hash = hashlib.md5("{0}{1}{2}{3}{4}".format(
+        randrange(0, MAX_TAG_KEY),
         pid,
         tid,
         time.time(),
         settings.SECRET_KEY
-    ))).hexdigest()
+    )).hexdigest()
     return hash
 
 
@@ -109,6 +110,7 @@ class CacheRegistry(object):
     Stores all registered caches
     """
     def __init__(self):
+        """Constructor, initial registry."""
         self._registry = []
 
     def register(self, model_tags):
@@ -122,9 +124,6 @@ class CacheRegistry(object):
             signals.pre_delete.connect(curry(_clear_cached, tags_func),
                                        sender=Model,
                                        weak=False)
-
-    def register_list(self, list):
-        map(lambda x: self.register(*x), list)
 
 registry = CacheRegistry()
 
