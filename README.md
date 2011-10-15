@@ -26,7 +26,6 @@ it gets varied arg and deletes all caches with this arg.
 
     caches = [
         #((model, func), ),
-        ((MyModel, lambda obj: None )),
         ((MyModel, lambda obj: ('MyModel_{0}'.format(obj.pk)) )),
     ]
 

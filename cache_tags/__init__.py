@@ -99,6 +99,8 @@ def _clear_cached(tags_func, *args, **kwargs):
     """
     obj = kwargs['instance']
     tags = tags_func(obj)
+    if not isinstance(tags, (list, tuple)):
+        tags = (tags, )
     clear_cache(*tags)
 
 
