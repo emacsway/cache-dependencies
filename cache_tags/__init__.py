@@ -39,13 +39,22 @@ def view_set_cache(name, tags=[], cache_func=lambda: None,
 def set_cache(name, value, tags=(), timeout=None, version=None):
     """Sets cache value and tags."""
     tag_versions = {}
-    for tag in tags:
-        tag_name = prepare_tag_name(tag)
-        tag_version = cache.get(tag_name, None)
-        if tag_version is None:
-            tag_version = generate_tag_version()
-            cache.set(tag_name, tag_version, TAG_TIMEOUT)
-        tag_versions[tag] = tag_version
+    if len(tags):
+        tag_caches = cache.get_many(
+            map(tag_prepare_name, tags)
+        )
+        tag_new_dict = {}
+        for tag in tags:
+            tag_prepared = tag_prepare_name(tag)
+            if tag_prepared not in tag_caches\
+                    or tag_caches[tag_prepared] is None:
+                tag_version = tag_generate_version()
+                tag_new_dict[tag_prepared] = tag_version
+            else:
+                tag_version = tag_caches[tag_prepared]
+            tag_versions[tag] = tag_version
+        cache.set_many(tag_new_dict, TAG_TIMEOUT)
+
     data = {
         'tag_versions': tag_versions,
         'value': value,
@@ -62,25 +71,30 @@ def get_cache(name, default=None, version=None):
     if data is None:
         return default
 
-    for tag, tag_version in data['tag_versions'].iteritems():
-        tag_current_version = cache.get(prepare_tag_name(tag), None)
-        if tag_current_version != tag_version:
-            return default
+    if len(data['tag_versions']):
+        tag_caches = cache.get_many(
+            map(tag_prepare_name, data['tag_versions'].keys())
+        )
+        for tag, tag_version in data['tag_versions'].iteritems():
+            tag_prepared = tag_prepare_name(tag)
+            if tag_prepared not in tag_caches\
+                    or tag_caches[tag_prepared] != tag_version:
+                return default
     return data['value']
 
 
 def clear_cache(*tags):
     """Clears all tags"""
-    for tag in tags:
-        cache.delete(prepare_tag_name(tag))
+    if len(tags):
+        cache.delete_many(map(tag_prepare_name, tags))
 
 
-def prepare_tag_name(name):
+def tag_prepare_name(name):
     """Adds prefixed namespace for tag name"""
     return 'tag_{0}_{1}'.format(__version__, name)
 
 
-def generate_tag_version():
+def tag_generate_version():
     """ Generates a new unique identifier for tag version."""
     pid = os.getpid()
     tid = thread.get_ident()
