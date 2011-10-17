@@ -36,10 +36,10 @@ it gets varied arg and deletes all caches with this arg.
 
     caches = [
         #((model, func), ),
-        ((FirstModel, lambda obj: ('FirstModel_{0}'.format(obj.pk), )), ),
+        ((FirstModel, lambda obj: ('FirstModel_{0}'.format(obj.pk), ), ), ),
         ((SecondModel, lambda obj: ('SecondModel_{0}'.format(obj.pk),
                                     'CategoryModel_{0}_TypeModel_{1}'.format(obj.category_id, obj.type_id),
-                                    'SecondModel', )), ),
+                                    'SecondModel', ), ), ),
     ]
 
     registry.register(caches)
