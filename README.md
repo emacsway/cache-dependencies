@@ -2,7 +2,7 @@ Cache Tags
 ============
 
 Tags are a way to categorize cache records.
-When you save a cache, you can set an list of tags to apply for this record.
+When you save a cache, you can set a list of tags to apply for this record.
 Then you will be able to invalidate all cache records tagged with a given tag (or tags).
 
 Forked from https://github.com/Harut/django-cachecontrol
