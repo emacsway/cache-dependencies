@@ -1,3 +1,4 @@
+from django.core.urlresolvers import reverse
 from django.db import models
 from django.test import TestCase
 
@@ -22,9 +23,11 @@ registry.register(CACHES)
 
 class CacheTagsTest(TestCase):
 
+    urls = 'cache_tags.tests.cachetagsapp.urls'
+
     def setUp(self):
         self.obj1 = FirstTestModel.objects.create(title='title1')
-        self.obj2 = FirstTestModel.objects.create(title='title2')
+        self.obj2 = SecondTestModel.objects.create(title='title2')
 
     def test_cache(self):
         tags1 = ('FirstTestModel_{0}'.format(self.obj1.pk), )
@@ -51,3 +54,9 @@ class CacheTagsTest(TestCase):
         self.obj2.save()
         self.assertEqual(cache.get('name1'), 'value1')
         self.assertEqual(cache.get('name2', None), None)
+
+        cache.delete('name1')
+        self.assertEqual(cache.get('name1', None), None)
+
+    def test_decorator(self):
+        resp = self.client.get(reverse("cache_tags_test_decorator"))

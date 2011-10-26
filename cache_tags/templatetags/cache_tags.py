@@ -38,10 +38,12 @@ class CacheNode(Node):
             return self.nodelist.render(context)
         vary_on = [resolve_variable(x, context) for x in self.vary_on]
 
-        return cache.get_or_set(self.fragment_name,
-                                tags=vary_on,
-                                cache_func=render_nodelist,
-                                timeout=timeout)
+        return cache.get_or_set_callback(
+            self.fragment_name,
+            callback=render_nodelist,
+            tags=vary_on,
+            timeout=timeout
+        )
 
 
 def do_cache(parser, token):

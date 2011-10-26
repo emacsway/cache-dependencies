@@ -31,20 +31,25 @@ class CacheTags(object):
         """Constructor of cache instance."""
         self.cache = cache
 
-    def get_or_set(self, name, tags=[], cache_func=lambda: None,
-                   timeout=None, version=None):
+    def get_or_set_callback(self, name, callback, tags=[],
+                            timeout=None, version=None):
         """
         Returns cache value if exists
         Otherwise calls cache_funcs, sets cache value to it and returns it.
         """
         value = self.get(name, version=version)
         if value is None:
-            value = cache_func()
+            value = callback()
             self.set(name, value, tags, timeout, version)
         return value
 
     def set(self, name, value, tags=(), timeout=None, version=None):
         """Sets cache value and tags."""
+        if not isinstance(tags, (list, tuple)):  # Called native API
+            if timeout is not None:
+                version = timeout
+            timeout = tags
+            return self.cache.set(name, value, timeout, version)
         tag_versions = {}
         if len(tags):
             tag_caches = self.cache.get_many(
@@ -89,16 +94,16 @@ class CacheTags(object):
                     return default
         return data['value']
 
-    def delete(self, *args, **kwargs):
-        """Calls native cache deletion."""
-        return self.cache.delete(*args, **kwargs)
-
     def invalidate_tags(self, *tags):
         """Invalidate specified tags"""
         if not isinstance(tags, (list, tuple)):
             tags = (tags, )
         if len(tags):
             self.cache.delete_many(map(tag_prepare_name, tags))
+
+    def __getattr__(self, name):
+        """Proxy for all native methods."""
+        return getattr(self.cache, name)
 
 
 def tag_prepare_name(name):
@@ -121,7 +126,7 @@ def tag_generate_version():
 
 
 def get_cache(*args, **kwargs):
-    """Returns instance CacheTags class."""
+    """Returns instance of CacheTags class."""
     cache = django_get_cache(*args, **kwargs)
     return CacheTags(cache)
 
