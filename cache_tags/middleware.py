@@ -49,7 +49,7 @@ More details about how the caching works:
 """
 
 from django.conf import settings
-from django.core.cache import get_cache, DEFAULT_CACHE_ALIAS
+from cache_tags import get_cache, DEFAULT_CACHE_ALIAS
 from django.utils.cache import get_cache_key, learn_cache_key, patch_response_headers, get_max_age
 
 
@@ -104,15 +104,22 @@ class UpdateCacheMiddleware(object):
         elif timeout == 0:
             # max-age was set to 0, don't bother caching.
             return response
+        # patch start
         patch_response_headers(response, timeout)
+        tags = ()
+        if self.tags:
+            # Usefull to bind view, args and kwargs to request.
+            # See https://bitbucket.org/evotech/django-ext/src/d8b55d86680e/django_ext/middleware/view_args_to_request.py
+            tags = self.tags(request)
         if timeout:
             cache_key = learn_cache_key(request, response, timeout, self.key_prefix, cache=self.cache)
             if hasattr(response, 'render') and callable(response.render):
                 response.add_post_render_callback(
-                    lambda r: self.cache.set(cache_key, r, timeout)
+                    lambda r: self.cache.set(cache_key, r, tags, timeout)  # Add tags
                 )
             else:
-                self.cache.set(cache_key, response, timeout)
+                self.cache.set(cache_key, response, tags, timeout)  # Add tags
+        # patch end
         return response
 
 class FetchFromCacheMiddleware(object):
@@ -165,6 +172,9 @@ class CacheMiddleware(UpdateCacheMiddleware, FetchFromCacheMiddleware):
     Also used as the hook point for the cache decorator, which is generated
     using the decorator-from-middleware utility.
     """
+
+    tags = None
+
     def __init__(self, cache_timeout=None, cache_anonymous_only=None, **kwargs):
         # We need to differentiate between "provided, but using default value",
         # and "not provided". If the value is provided using a default, then
@@ -172,6 +182,11 @@ class CacheMiddleware(UpdateCacheMiddleware, FetchFromCacheMiddleware):
         # we need to use middleware defaults.
 
         cache_kwargs = {}
+
+        # patch start
+        if 'tags' in kwargs:
+            self.tags = kwargs['tags']
+        # patch end
 
         try:
             self.key_prefix = kwargs['key_prefix']

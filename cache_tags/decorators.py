@@ -1,5 +1,5 @@
 from django.utils.decorators import decorator_from_middleware_with_args
-from django.middleware.cache import CacheMiddleware
+from cache_tags.middleware import CacheMiddleware
 
 
 def cache_page(*args, **kwargs):
