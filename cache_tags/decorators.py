@@ -36,6 +36,8 @@ def cache_page(*args, **kwargs):
     # using other ways to call cache_page that no longer work.
     cache_alias = kwargs.pop('cache', None)
     key_prefix = kwargs.pop('key_prefix', None)
+    # patch start
+    tags = kwargs.pop('tags', ())
     assert not kwargs, "The only keyword arguments are cache and key_prefix"
     def warn():
         import warnings
@@ -48,18 +50,19 @@ def cache_page(*args, **kwargs):
         assert len(args) == 2, "cache_page accepts at most 2 arguments"
         warn()
         if callable(args[0]):
-            return decorator_from_middleware_with_args(CacheMiddleware)(cache_timeout=args[1], cache_alias=cache_alias, key_prefix=key_prefix)(args[0])
+            return decorator_from_middleware_with_args(CacheMiddleware)(cache_timeout=args[1], cache_alias=cache_alias, key_prefix=key_prefix, tags=tags)(args[0])
         elif callable(args[1]):
-            return decorator_from_middleware_with_args(CacheMiddleware)(cache_timeout=args[0], cache_alias=cache_alias, key_prefix=key_prefix)(args[1])
+            return decorator_from_middleware_with_args(CacheMiddleware)(cache_timeout=args[0], cache_alias=cache_alias, key_prefix=key_prefix, tags=tags)(args[1])
         else:
             assert False, "cache_page must be passed a view function if called with two arguments"
     elif len(args) == 1:
         if callable(args[0]):
             warn()
-            return decorator_from_middleware_with_args(CacheMiddleware)(cache_alias=cache_alias, key_prefix=key_prefix)(args[0])
+            return decorator_from_middleware_with_args(CacheMiddleware)(cache_alias=cache_alias, key_prefix=key_prefix, tags=tags)(args[0])
         else:
             # The One True Way
-            return decorator_from_middleware_with_args(CacheMiddleware)(cache_timeout=args[0], cache_alias=cache_alias, key_prefix=key_prefix)
+            return decorator_from_middleware_with_args(CacheMiddleware)(cache_timeout=args[0], cache_alias=cache_alias, key_prefix=key_prefix, tags=tags)
     else:
         warn()
-        return decorator_from_middleware_with_args(CacheMiddleware)(cache_alias=cache_alias, key_prefix=key_prefix)
+        # patch end
+        return decorator_from_middleware_with_args(CacheMiddleware)(cache_alias=cache_alias, key_prefix=key_prefix, tags=tags)

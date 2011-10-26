@@ -1,5 +1,7 @@
-from django.conf.urls.defaults import patterns, include, url
+from django.conf.urls.defaults import patterns, url
 
 urlpatterns = patterns("cache_tags.tests.cachetagsapp.views",
-    url(r"^$", 'test_decorator', name="cache_tags_test_decorator"),
+    url(r"^cache_tags_test_decorator/$",
+        'test_decorator',
+        name="cache_tags_test_decorator"),
 )

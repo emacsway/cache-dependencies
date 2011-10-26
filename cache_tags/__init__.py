@@ -83,6 +83,9 @@ class CacheTags(object):
         if data is None:
             return default
 
+        if 'tag_versions' not in data or 'value' not in data:
+            return data  # Returns native API
+
         if len(data['tag_versions']):
             tag_caches = self.cache.get_many(
                 map(tag_prepare_name, data['tag_versions'].keys())
@@ -96,8 +99,6 @@ class CacheTags(object):
 
     def invalidate_tags(self, *tags):
         """Invalidate specified tags"""
-        if not isinstance(tags, (list, tuple)):
-            tags = (tags, )
         if len(tags):
             self.cache.delete_many(map(tag_prepare_name, tags))
 

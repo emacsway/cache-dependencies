@@ -49,8 +49,10 @@ More details about how the caching works:
 """
 
 from django.conf import settings
+from django.utils.cache import get_cache_key, get_max_age
+
 from cache_tags import get_cache, DEFAULT_CACHE_ALIAS
-from django.utils.cache import get_cache_key, learn_cache_key, patch_response_headers, get_max_age
+from cache_tags.utils import patch_response_headers, learn_cache_key
 
 
 class UpdateCacheMiddleware(object):
@@ -112,13 +114,13 @@ class UpdateCacheMiddleware(object):
             # See https://bitbucket.org/evotech/django-ext/src/d8b55d86680e/django_ext/middleware/view_args_to_request.py
             tags = self.tags(request)
         if timeout:
-            cache_key = learn_cache_key(request, response, timeout, self.key_prefix, cache=self.cache)
+            cache_key = learn_cache_key(request, response, tags, timeout, self.key_prefix, cache=self.cache)  # patched
             if hasattr(response, 'render') and callable(response.render):
                 response.add_post_render_callback(
-                    lambda r: self.cache.set(cache_key, r, tags, timeout)  # Add tags
+                    lambda r: self.cache.set(cache_key, r, tags, timeout)  # patched
                 )
             else:
-                self.cache.set(cache_key, response, tags, timeout)  # Add tags
+                self.cache.set(cache_key, response, tags, timeout)  # patched
         # patch end
         return response
 
@@ -173,7 +175,7 @@ class CacheMiddleware(UpdateCacheMiddleware, FetchFromCacheMiddleware):
     using the decorator-from-middleware utility.
     """
 
-    tags = None
+    tags = ()
 
     def __init__(self, cache_timeout=None, cache_anonymous_only=None, **kwargs):
         # We need to differentiate between "provided, but using default value",

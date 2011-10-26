@@ -55,8 +55,29 @@ class CacheTagsTest(TestCase):
         self.assertEqual(cache.get('name1'), 'value1')
         self.assertEqual(cache.get('name2', None), None)
 
-        cache.delete('name1')
+        cache.invalidate_tags(*(tags1 + tags2))
         self.assertEqual(cache.get('name1', None), None)
 
     def test_decorator(self):
-        resp = self.client.get(reverse("cache_tags_test_decorator"))
+        resp1 = self.client.get(reverse("cache_tags_test_decorator"))
+        # The first call is blank.
+        # Some applications, such as django-localeurl
+        # need to activate translation object in middleware.
+        resp1 = self.client.get(reverse("cache_tags_test_decorator"))
+        self.assertFalse(resp1.has_header('Expires'))
+        self.assertFalse(resp1.has_header('Cache-Control'))
+        self.assertTrue(resp1.has_header('Last-Modified'))
+
+        resp2 = self.client.get(reverse("cache_tags_test_decorator"))
+        self.assertFalse(resp2.has_header('Expires'))
+        self.assertFalse(resp2.has_header('Cache-Control'))
+        self.assertTrue(resp2.has_header('Last-Modified'))
+        self.assertEqual(resp1.content, resp2.content)
+
+        cache.invalidate_tags('FirstTestModel')
+        resp3 = self.client.get(reverse("cache_tags_test_decorator"))
+        self.assertFalse(resp3.has_header('Expires'))
+        self.assertFalse(resp3.has_header('Cache-Control'))
+        self.assertTrue(resp3.has_header('Last-Modified'))
+        self.assertNotEqual(resp1.content, resp3.content)
+        cache.invalidate_tags('FirstTestModel')
