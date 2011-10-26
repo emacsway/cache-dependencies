@@ -23,7 +23,7 @@ registry.register(CACHES)
 
 class CacheTagsTest(TestCase):
 
-    urls = 'cache_tags.tests.cachetagsapp.urls'
+    urls = 'cache_tags.tests.urls'
 
     def setUp(self):
         self.obj1 = FirstTestModel.objects.create(title='title1')
