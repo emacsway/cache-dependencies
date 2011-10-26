@@ -1,7 +1,7 @@
 from django.db import models
 from django.test import TestCase
 
-import cache_tags as ct
+from cache_tags import cache, registry
 
 
 class FirstTestModel(models.Model):
@@ -17,7 +17,7 @@ CACHES = (
     (SecondTestModel, lambda obj: ('SecondTestModel_{0}'.format(obj.pk), ), ),
 )
 
-ct.registry.register(CACHES)
+registry.register(CACHES)
 
 
 class CacheTagsTest(TestCase):
@@ -28,26 +28,26 @@ class CacheTagsTest(TestCase):
 
     def test_cache(self):
         tags1 = ('FirstTestModel_{0}'.format(self.obj1.pk), )
-        ct.set_cache('name1', 'value1', tags1, 3600)
+        cache.set('name1', 'value1', tags1, 3600)
 
         tags2 = ('SecondTestModel_{0}'.format(self.obj2.pk),
                  'FirstTestModel', )
-        ct.set_cache('name2', 'value2', tags2, 3600)
+        cache.set('name2', 'value2', tags2, 3600)
 
-        self.assertEqual(ct.get_cache('name1'), 'value1')
-        self.assertEqual(ct.get_cache('name2'), 'value2')
+        self.assertEqual(cache.get('name1'), 'value1')
+        self.assertEqual(cache.get('name2'), 'value2')
 
         self.obj1.title = 'title1.2'
         self.obj1.save()
-        self.assertEqual(ct.get_cache('name1', None), None)
-        self.assertEqual(ct.get_cache('name2', None), None)
+        self.assertEqual(cache.get('name1', None), None)
+        self.assertEqual(cache.get('name2', None), None)
 
-        ct.set_cache('name1', 'value1', tags1, 3600)
-        ct.set_cache('name2', 'value2', tags2, 3600)
-        self.assertEqual(ct.get_cache('name1'), 'value1')
-        self.assertEqual(ct.get_cache('name2'), 'value2')
+        cache.set('name1', 'value1', tags1, 3600)
+        cache.set('name2', 'value2', tags2, 3600)
+        self.assertEqual(cache.get('name1'), 'value1')
+        self.assertEqual(cache.get('name2'), 'value2')
 
         self.obj2.title = 'title2.2'
         self.obj2.save()
-        self.assertEqual(ct.get_cache('name1'), 'value1')
-        self.assertEqual(ct.get_cache('name2', None), None)
+        self.assertEqual(cache.get('name1'), 'value1')
+        self.assertEqual(cache.get('name2', None), None)

@@ -6,7 +6,8 @@ import time
 import thread
 
 from django.conf import settings
-from django.core.cache import cache
+from django.core.cache import DEFAULT_CACHE_ALIAS
+from django.core.cache import get_cache as django_get_cache
 from django.db.models import signals
 from django.utils.functional import curry
 
@@ -23,71 +24,81 @@ else:
 MAX_TAG_KEY = 18446744073709551616L     # 2 << 63
 
 
-def view_set_cache(name, tags=[], cache_func=lambda: None,
+class CacheTags(object):
+    """Tags support for Django cache."""
+
+    def __init__(self, cache):
+        """Constructor of cache instance."""
+        self.cache = cache
+
+    def get_or_set(self, name, tags=[], cache_func=lambda: None,
                    timeout=None, version=None):
-    """
-    Returns cache value if exists
-    Otherwise calls cache_funcs, sets cache value to it and returns it.
-    """
-    value = get_cache(name, version=version)
-    if value is None:
-        value = cache_func()
-        set_cache(name, value, tags, timeout, version)
-    return value
+        """
+        Returns cache value if exists
+        Otherwise calls cache_funcs, sets cache value to it and returns it.
+        """
+        value = self.get(name, version=version)
+        if value is None:
+            value = cache_func()
+            self.set(name, value, tags, timeout, version)
+        return value
 
+    def set(self, name, value, tags=(), timeout=None, version=None):
+        """Sets cache value and tags."""
+        tag_versions = {}
+        if len(tags):
+            tag_caches = self.cache.get_many(
+                map(tag_prepare_name, tags)
+            )
+            tag_new_dict = {}
+            for tag in tags:
+                tag_prepared = tag_prepare_name(tag)
+                if tag_prepared not in tag_caches\
+                        or tag_caches[tag_prepared] is None:
+                    tag_version = tag_generate_version()
+                    tag_new_dict[tag_prepared] = tag_version
+                else:
+                    tag_version = tag_caches[tag_prepared]
+                tag_versions[tag] = tag_version
+            if len(tag_new_dict):
+                self.cache.set_many(tag_new_dict, TAG_TIMEOUT)
 
-def set_cache(name, value, tags=(), timeout=None, version=None):
-    """Sets cache value and tags."""
-    tag_versions = {}
-    if len(tags):
-        tag_caches = cache.get_many(
-            map(tag_prepare_name, tags)
-        )
-        tag_new_dict = {}
-        for tag in tags:
-            tag_prepared = tag_prepare_name(tag)
-            if tag_prepared not in tag_caches\
-                    or tag_caches[tag_prepared] is None:
-                tag_version = tag_generate_version()
-                tag_new_dict[tag_prepared] = tag_version
-            else:
-                tag_version = tag_caches[tag_prepared]
-            tag_versions[tag] = tag_version
-        if len(tag_new_dict):
-            cache.set_many(tag_new_dict, TAG_TIMEOUT)
+        data = {
+            'tag_versions': tag_versions,
+            'value': value,
+        }
+        self.cache.set(name, data, timeout, version)
 
-    data = {
-        'tag_versions': tag_versions,
-        'value': value,
-    }
-    cache.set(name, data, timeout, version)
+    def get(self, name, default=None, version=None):
+        """Gets cache value.
 
+        If one of cache tags is expired, returns default.
+        """
+        data = self.cache.get(name, None, version)
+        if data is None:
+            return default
 
-def get_cache(name, default=None, version=None):
-    """Gets cache value.
+        if len(data['tag_versions']):
+            tag_caches = self.cache.get_many(
+                map(tag_prepare_name, data['tag_versions'].keys())
+            )
+            for tag, tag_version in data['tag_versions'].iteritems():
+                tag_prepared = tag_prepare_name(tag)
+                if tag_prepared not in tag_caches\
+                        or tag_caches[tag_prepared] != tag_version:
+                    return default
+        return data['value']
 
-    If one of cache tags is expired, returns default.
-    """
-    data = cache.get(name, None, version)
-    if data is None:
-        return default
+    def delete(self, *args, **kwargs):
+        """Calls native cache deletion."""
+        return self.cache.delete(*args, **kwargs)
 
-    if len(data['tag_versions']):
-        tag_caches = cache.get_many(
-            map(tag_prepare_name, data['tag_versions'].keys())
-        )
-        for tag, tag_version in data['tag_versions'].iteritems():
-            tag_prepared = tag_prepare_name(tag)
-            if tag_prepared not in tag_caches\
-                    or tag_caches[tag_prepared] != tag_version:
-                return default
-    return data['value']
-
-
-def clear_cache(*tags):
-    """Clears all tags"""
-    if len(tags):
-        cache.delete_many(map(tag_prepare_name, tags))
+    def invalidate_tags(self, *tags):
+        """Invalidate specified tags"""
+        if not isinstance(tags, (list, tuple)):
+            tags = (tags, )
+        if len(tags):
+            self.cache.delete_many(map(tag_prepare_name, tags))
 
 
 def tag_prepare_name(name):
@@ -109,7 +120,15 @@ def tag_generate_version():
     return hash
 
 
-def _clear_cached(tags_func, *args, **kwargs):
+def get_cache(*args, **kwargs):
+    """Returns instance CacheTags class."""
+    cache = django_get_cache(*args, **kwargs)
+    return CacheTags(cache)
+
+cache = get_cache(DEFAULT_CACHE_ALIAS)
+
+
+def _clear_cached(tags_func, cache=None, *args, **kwargs):
     """
     Model's save and delete callback
     """
@@ -117,7 +136,9 @@ def _clear_cached(tags_func, *args, **kwargs):
     tags = tags_func(obj)
     if not isinstance(tags, (list, tuple)):
         tags = (tags, )
-    clear_cache(*tags)
+    if cache is None:
+        cache = globals()['cache']
+    cache.invalidate_tags(*tags)
 
 
 class CacheRegistry(object):
@@ -132,11 +153,18 @@ class CacheRegistry(object):
         """Registers handlers."""
         self._registry.append(model_tags)
 
-        for Model, tags_func in model_tags:
-            signals.post_save.connect(curry(_clear_cached, tags_func),
+        for data in model_tags:
+            Model = data[0]
+            tags_func = data[1]
+            apply_cache = len(data) > 2 and data[2] or cache
+            signals.post_save.connect(curry(_clear_cached,
+                                            tags_func,
+                                            apply_cache),
                                       sender=Model,
                                       weak=False)
-            signals.pre_delete.connect(curry(_clear_cached, tags_func),
+            signals.pre_delete.connect(curry(_clear_cached,
+                                             tags_func,
+                                             apply_cache),
                                        sender=Model,
                                        weak=False)
 

@@ -4,7 +4,7 @@
 from django.template import Library, Node, TemplateSyntaxError,\
      Variable, VariableDoesNotExist
 from django.template import resolve_variable
-from cache_tags import view_set_cache
+from cache_tags import cache
 
 register = Library()
 
@@ -38,10 +38,10 @@ class CacheNode(Node):
             return self.nodelist.render(context)
         vary_on = [resolve_variable(x, context) for x in self.vary_on]
 
-        return view_set_cache(self.fragment_name,
-                              tags=vary_on,
-                              cache_func=render_nodelist,
-                              timeout=timeout)
+        return cache.get_or_set(self.fragment_name,
+                                tags=vary_on,
+                                cache_func=render_nodelist,
+                                timeout=timeout)
 
 
 def do_cache(parser, token):

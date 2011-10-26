@@ -30,13 +30,13 @@ creates model's save and delete signal. func takes chenged model and returns
 number of changed vary_on arg and value of this arg. When the signal is called,
 it gets varied arg and deletes all caches with this arg.
 
-    from cache_tags import registry
+    from cache_tags import registry, get_cache
     from models import MyModel
 
 
     caches = [
-        #((model, func), ),
-        ((FirstModel, lambda obj: ('FirstModel_{0}'.format(obj.pk), ), ), ),
+        #((model, func, [cache_object, ]), ),
+        ((FirstModel, lambda obj: ('FirstModel_{0}'.format(obj.pk), ), get_cache('my_cache_alias'), ), ),
         ((SecondModel, lambda obj: ('SecondModel_{0}'.format(obj.pk),
                                     'CategoryModel_{0}_TypeModel_{1}'.format(obj.category_id, obj.type_id),
                                     'SecondModel', ), ), ),
