@@ -23,9 +23,9 @@ Usage
     cache_tags.autodiscover()
 
 #### appname.caches.py file
-Each item from list creates model's save and delete signal.
-Func takes changed model and returns list of tags.
-When the signal is called, it gets varied tags and deletes all caches with this tags.
+    # Each item from list creates model's save and delete signal.
+    # Func takes changed model and returns list of tags.
+    # When the signal is called, it gets varied tags and deletes all caches with this tags.
 
     from cache_tags import registry, get_cache
     from models import MyModel
