@@ -45,7 +45,7 @@ class CacheTags(object):
 
     def set(self, name, value, tags=(), timeout=None, version=None):
         """Sets cache value and tags."""
-        if not isinstance(tags, (list, tuple)):  # Called native API
+        if not hasattr(tags, '__iter__'):  # Called native API
             if timeout is not None:
                 version = timeout
             timeout = tags
@@ -140,7 +140,7 @@ def _clear_cached(tags_func, cache=None, *args, **kwargs):
     """
     obj = kwargs['instance']
     tags = tags_func(obj)
-    if not isinstance(tags, (list, tuple)):
+    if not hasattr(tags, '__iter__'):
         tags = (tags, )
     if cache is None:
         cache = globals()['cache']

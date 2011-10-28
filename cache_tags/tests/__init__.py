@@ -1,5 +1,8 @@
+from uuid import uuid4
+
 from django.core.urlresolvers import reverse
 from django.db import models
+from django.template import Context, Template
 from django.test import TestCase
 
 from cache_tags import cache, registry
@@ -56,6 +59,7 @@ class CacheTagsTest(TestCase):
         self.assertEqual(cache.get('name2', None), None)
 
         cache.invalidate_tags(*(tags1 + tags2))
+        cache.invalidate_tags('NonExistenTag')
         self.assertEqual(cache.get('name1', None), None)
 
     def test_decorator(self):
@@ -81,3 +85,53 @@ class CacheTagsTest(TestCase):
         self.assertTrue(resp3.has_header('Last-Modified'))
         self.assertNotEqual(resp1.content, resp3.content)
         cache.invalidate_tags('FirstTestModel')
+
+    def test_templatetag(self):
+        t = Template("{% load cache_tags %}{% cachetags cachename|striptags tag1|striptags 'SecondTestModel' tags=none_val|default_if_none:tags timeout='3600' %}{{ now }}{% cache_tags_append none_val|default_if_none:tag3 %}{% endcachetags %}")
+        c = Context({
+            'now': uuid4(),
+            'cachename': 'cachename',
+            'tag1': 'FirstTestModel',
+            'tag3': 'Tag3',
+            'none_val': None,
+            'tags': ['SecondTestModel_{0}'.format(self.obj2.pk), ],
+        })
+
+        # Case 1
+        # Tags from arguments.
+        r1 = t.render(c)
+
+        c.update({'now': uuid4(), })
+        r2 = t.render(c)
+        self.assertEqual(r1, r2)
+
+        cache.invalidate_tags('FirstTestModel')
+        c.update({'now': uuid4(), })
+        r3 = t.render(c)
+        self.assertNotEqual(r1, r3)
+
+        # Case 2
+        # Tags from keyword arguments.
+        c.update({'now': uuid4(), })
+        r4 = t.render(c)
+        self.assertEqual(r3, r4)
+
+        cache.invalidate_tags('SecondTestModel_{0}'.format(self.obj2.pk))
+        c.update({'now': uuid4(), })
+        r5 = t.render(c)
+        self.assertNotEqual(r3, r5)
+
+        # Case 3
+        # Tags from templatetag {% cache_tags_append 'TagHere' %}
+        c.update({'now': uuid4(), })
+        r6 = t.render(c)
+        self.assertEqual(r5, r6)
+
+        cache.invalidate_tags('Tag3')
+        c.update({'now': uuid4(), })
+        r7 = t.render(c)
+        self.assertNotEqual(r5, r7)
+
+        cache.invalidate_tags('Tag3',
+                              'FirstTestModel',
+                              'SecondTestModel_{0}'.format(self.obj2.pk))

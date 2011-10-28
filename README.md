@@ -5,8 +5,6 @@ Tags are a way to categorize cache records.
 When you save a cache, you can set a list of tags to apply for this record.
 Then you will be able to invalidate all cache records tagged with a given tag (or tags).
 
-Forked from https://github.com/Harut/django-cachecontrol
-
 Some ideas from http://dklab.ru/lib/Dklab_Cache/
 
 See also related articles:
@@ -33,7 +31,6 @@ it gets varied arg and deletes all caches with this arg.
     from cache_tags import registry, get_cache
     from models import MyModel
 
-
     caches = [
         #((model, func, [cache_object, ]), ),
         ((FirstModel, lambda obj: ('FirstModel_{0}'.format(obj.pk), ), get_cache('my_cache_alias'), ), ),
@@ -46,8 +43,42 @@ it gets varied arg and deletes all caches with this arg.
 
 #### template
     {% load cache_tags %}
-    {% cachetags 600 cache_of_2_args object.pk page_number %}
-    {# cachetags timeout cache_name [vary_on args|...] #}
-       ..............
+    {# {% cachetags cache_name [tag1]  [tag2] ... [tags=tag_list] [timeout=3600] %} #}
+    {% cachetags 'cache_name' 'CategoryModel_15' 'FirstModel' tags=tag_list_from_view timeout=3600 %}
+        ...
+        {% cache_tags_append 'NewTag1' %}
+        ...
+        {% cache_tags_append 'NewTag2' %}
+        ...
     {% endcachetags %}
 
+#### view decorator
+
+    from cache_tags.decorators import cache_page
+
+    @cache_page(3600, tags=lambda request: ('FirstModel', ) + SecondModel.objects.get_tags_for_request(request))
+    # See also useful decorator to bind view's args and kwargs to request
+    # https://bitbucket.org/evotech/django-ext/src/d8b55d86680e/django_ext/middleware/view_args_to_request.py
+    def cached_view(request):
+        result = get_result()
+        return HttpResponse(result)
+
+#### application example 1
+
+    from from cache_tags import cache
+
+    # ...
+    value = cache.get('cache_name')
+    if value is None:
+        value = get_value_func()
+        cache.set('cache_name', value, tags=('FirstModel', 'CategoryModel_{0}'.format(obj.category_id)))
+
+#### application example 2
+
+    from from cache_tags import get_cache
+
+    # ...
+    cache = get_cache('my_backend')
+    value = cache.get('cache_name')
+    if value is None:
+        value = cache.set('cache_name', value, tags=('FirstModel', 'CategoryModel_{0}'.format(obj.category_id)))
