@@ -56,9 +56,10 @@ it gets varied arg and deletes all caches with this arg.
 
     from cache_tags.decorators import cache_page
 
-    @cache_page(3600, tags=lambda request: ('FirstModel', ) + SecondModel.objects.get_tags_for_request(request))
     # See also useful decorator to bind view's args and kwargs to request
     # https://bitbucket.org/evotech/django-ext/src/d8b55d86680e/django_ext/middleware/view_args_to_request.py
+
+    @cache_page(3600, tags=lambda request: ('FirstModel', ) + SecondModel.get_tags_for_request(request))
     def cached_view(request):
         result = get_result()
         return HttpResponse(result)
@@ -82,3 +83,13 @@ it gets varied arg and deletes all caches with this arg.
     value = cache.get('cache_name')
     if value is None:
         value = cache.set('cache_name', value, tags=('FirstModel', 'CategoryModel_{0}'.format(obj.category_id)))
+
+#### manual invalidation
+
+    from from cache_tags import cache
+    
+    # ...
+    cache.invalidate_tags('Tag1', 'Tag2', 'Tag3')
+    # or
+    tag_list = ['Tag1', 'Tag2', 'Tag3', ]
+    cache.invalidate_tags(*tag_list)
