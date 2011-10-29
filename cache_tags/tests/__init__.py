@@ -4,6 +4,7 @@ from django.core.urlresolvers import reverse
 from django.db import models
 from django.template import Context, Template
 from django.test import TestCase
+from django.test.client import RequestFactory
 
 from cache_tags import cache, registry
 
@@ -87,8 +88,9 @@ class CacheTagsTest(TestCase):
         cache.invalidate_tags('FirstTestModel')
 
     def test_templatetag(self):
-        t = Template("{% load cache_tags %}{% cachetags cachename|striptags tag1|striptags 'SecondTestModel' tags=none_val|default_if_none:tags timeout='3600' %}{{ now }}{% cache_tags_append none_val|default_if_none:tag3 %}{% endcachetags %}")
+        t = Template("{% load cache_tags %}{% cachetags cachename|striptags tag1|striptags 'SecondTestModel' tags=none_val|default_if_none:tags timeout='3600' %}{{ now }}{% addcachetags none_val|default_if_none:tag3 %}{% endcachetags %}")
         c = Context({
+            'request': RequestFactory().get('/'),
             'now': uuid4(),
             'cachename': 'cachename',
             'tag1': 'FirstTestModel',
@@ -100,6 +102,11 @@ class CacheTagsTest(TestCase):
         # Case 1
         # Tags from arguments.
         r1 = t.render(c)
+        self.assertTrue(hasattr(c['request'], 'cache_tags'))
+        self.assertTrue('FirstTestModel' in c['request'].cache_tags)
+        self.assertTrue('SecondTestModel_{0}'.format(self.obj2.pk)\
+                        in c['request'].cache_tags)
+        self.assertTrue('Tag3' in c['request'].cache_tags)
 
         c.update({'now': uuid4(), })
         r2 = t.render(c)
@@ -122,7 +129,7 @@ class CacheTagsTest(TestCase):
         self.assertNotEqual(r3, r5)
 
         # Case 3
-        # Tags from templatetag {% cache_tags_append 'TagHere' %}
+        # Tags from templatetag {% addcachetags ... %}
         c.update({'now': uuid4(), })
         r6 = t.render(c)
         self.assertEqual(r5, r6)

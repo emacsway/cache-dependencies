@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import re
+import copy
 
 from django.template import Library, Node, TemplateSyntaxError,\
      VariableDoesNotExist
@@ -12,10 +13,10 @@ kwarg_re = re.compile(r"(?:(\w+)=)?(.+)")
 
 
 @register.simple_tag(takes_context=True)
-def cache_tags_append(context, tags):
+def addcachetags(context, tags):
     if not hasattr(tags, '__iter__'):
         tags = [tags, ]
-    context['cache_tags'].extend(tags)
+    context['cache_tags'].update(tags)
     return ''
 
 
@@ -55,10 +56,19 @@ class CacheNode(Node):
         tags = [x.resolve(context) for x in self.vary_on]
         if 'tags' in self.kwargs:
             tags += self.kwargs['tags'].resolve(context)
-        context['cache_tags'] = tags
         # We can also add a new tags during nodelist is rendering.
-        result = self.nodelist.render(context)
-        tags = context['cache_tags']
+        sub_context = copy.copy(context)
+        sub_context['cache_tags'] = set(tags)
+        result = self.nodelist.render(sub_context)
+        tags = sub_context['cache_tags']
+
+        if 'request' in context:
+            request = context['request']
+            if not hasattr(request, 'cache_tags'):
+                request.cache_tags = set()
+            if isinstance(request.cache_tags, set):
+                request.cache_tags.update(tags)
+
         cache.set(cache_name, result, tags, timeout)
         return result
 
@@ -73,8 +83,8 @@ def do_cache(parser, token):
         {% load cache_tags_cache %}
         {% cachetags cache_name [tag1]  [tag2] ... [tags=tag_list] [timeout=3600] %}
             .. some expensive processing ..
-            {% cache_tags_append 'NewTag1' %}
-        {% cachetags %}
+            {% addcachetags 'NewTag1' %}
+        {% endcachetags %}
     """
     nodelist = parser.parse(('endcachetags',))
     parser.delete_first_token()

@@ -52,6 +52,7 @@ class CacheTags(object):
             return self.cache.set(name, value, timeout, version)
         tag_versions = {}
         if len(tags):
+            tags = set(tags)
             tag_caches = self.cache.get_many(
                 map(tag_prepare_name, tags)
             )
@@ -100,6 +101,7 @@ class CacheTags(object):
     def invalidate_tags(self, *tags):
         """Invalidate specified tags"""
         if len(tags):
+            tags = set(tags)
             self.cache.delete_many(map(tag_prepare_name, tags))
 
     def __getattr__(self, name):

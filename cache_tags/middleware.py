@@ -108,11 +108,15 @@ class UpdateCacheMiddleware(object):
             return response
         # patch start
         patch_response_headers(response, timeout)
-        tags = ()
+        tags = set()
         if self.tags:
             # Usefull to bind view, args and kwargs to request.
             # See https://bitbucket.org/evotech/django-ext/src/d8b55d86680e/django_ext/middleware/view_args_to_request.py
             tags = self.tags(request)
+        tags = set(tags)
+        # Adds tags from request, see templatetag {% addcachetags ... %}
+        if hasattr(request, 'cache_tags'):
+            tags.update(request.cache_tags)
         if timeout:
             cache_key = learn_cache_key(request, response, tags, timeout, self.key_prefix, cache=self.cache)  # patched
             if hasattr(response, 'render') and callable(response.render):
@@ -175,7 +179,7 @@ class CacheMiddleware(UpdateCacheMiddleware, FetchFromCacheMiddleware):
     using the decorator-from-middleware utility.
     """
 
-    tags = ()
+    tags = set()
 
     def __init__(self, cache_timeout=None, cache_anonymous_only=None, **kwargs):
         # We need to differentiate between "provided, but using default value",
