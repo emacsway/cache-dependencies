@@ -5,6 +5,8 @@ Tags are a way to categorize cache records.
 When you save a cache, you can set a list of tags to apply for this record.
 Then you will be able to invalidate all cache records tagged with a given tag (or tags).
 
+Forked from https://github.com/Harut/django-cachecontrol
+
 Some ideas from http://dklab.ru/lib/Dklab_Cache/
 
 See also related articles:
@@ -65,7 +67,7 @@ Usage
 
 #### application example 1
 
-    from from cache_tags import cache
+    from cache_tags import cache
 
     # ...
     value = cache.get('cache_name')
@@ -75,7 +77,7 @@ Usage
 
 #### application example 2
 
-    from from cache_tags import get_cache
+    from cache_tags import get_cache
 
     # ...
     cache = get_cache('my_backend')
@@ -85,7 +87,7 @@ Usage
 
 #### manual invalidation
 
-    from from cache_tags import cache
+    from cache_tags import cache
     
     # ...
     cache.invalidate_tags('Tag1', 'Tag2', 'Tag3')
