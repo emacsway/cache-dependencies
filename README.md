@@ -56,7 +56,7 @@ Usage
     {% addcachetags tag_or_list_of_tags %}
     If context has attribute "request", then templatetag "cachetags"
     adds to request a new attribute "cache_tags" (instance of set() object) with all tags.
-    If request already has attribute "cache_tags", and it is instance of set() object,
+    If request already has attribute "cache_tags", and it's instance of set() object,
     then templatetag "cachetags" adds all tags to this object.
     You can use both, templatetag "cachetags" and decorator @cache_page().
     In this case, when @cache_page() decorator will save response,
