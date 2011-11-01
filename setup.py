@@ -18,7 +18,7 @@ setup(
     author = "Ivan Zakrevsky",
     author_email = "ivzak@yandex.ru",
     description = "Cache control based on tags.",
-    long_description=open(os.path.join(os.path.dirname(__file__), 'README')).read(),
+    long_description=open(os.path.join(os.path.dirname(__file__), 'README.md')).read(),
     license = "BSD License",
     keywords = "django cache",
     classifiers = [
