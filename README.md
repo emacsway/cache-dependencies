@@ -34,9 +34,9 @@ Usage
 
     caches = [
         #((model, func, [cache_object, ]), ),
-        ((FirstModel, lambda obj: ('FirstModel_{0}'.format(obj.pk), ), get_cache('my_cache_alias'), ), ),
-        ((SecondModel, lambda obj: ('SecondModel_{0}'.format(obj.pk),
-                                    'CategoryModel_{0}_TypeModel_{1}'.format(obj.category_id, obj.type_id),
+        ((FirstModel, lambda obj: ('FirstModel.pk:{0}'.format(obj.pk), ), get_cache('my_cache_alias'), ), ),
+        ((SecondModel, lambda obj: ('SecondModel.pk:{0}'.format(obj.pk),
+                                    'CategoryModel.pk:{0}.TypeModel.pk:{1}'.format(obj.category_id, obj.type_id),
                                     'SecondModel', ), ), ),
     ]
 
@@ -44,7 +44,7 @@ Usage
 
 #### template
     {% load cache_tags %}
-    {% cachetags 'cache_name' 'CategoryModel_15' 'FirstModel' tags=tag_list_from_view timeout=3600 %}
+    {% cachetags 'cache_name' 'CategoryModel.pk:15' 'FirstModel' tags=tag_list_from_view timeout=3600 %}
         ...
         {% addcachetags 'NewTag1' %}
         ...
@@ -84,7 +84,7 @@ Usage
     value = cache.get('cache_name')
     if value is None:
         value = get_value_func()
-        cache.set('cache_name', value, tags=('FirstModel', 'CategoryModel_{0}'.format(obj.category_id)))
+        cache.set('cache_name', value, tags=('FirstModel', 'CategoryModel.pk:{0}'.format(obj.category_id)))
 
 #### application example 2
 
@@ -94,7 +94,7 @@ Usage
     cache = get_cache('my_backend')
     value = cache.get('cache_name')
     if value is None:
-        value = cache.set('cache_name', value, tags=('FirstModel', 'CategoryModel_{0}'.format(obj.category_id)))
+        value = cache.set('cache_name', value, tags=('FirstModel', 'CategoryModel.pk:{0}'.format(obj.category_id)))
 
 #### manual invalidation
 

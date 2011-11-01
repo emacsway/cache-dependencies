@@ -111,7 +111,9 @@ class CacheTags(object):
 
 def tag_prepare_name(name):
     """Adds prefixed namespace for tag name"""
-    return 'tag_{0}_{1}'.format(__version__, name)
+    version = str(__version__).replace('.', '')
+    name = hashlib.md5(unicode(name).encode('utf-8')).hexdigest()
+    return u'tag_{0}_{1}'.format(version, name)
 
 
 def tag_generate_version():

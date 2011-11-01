@@ -1,9 +1,15 @@
+import hashlib
 from django.conf import settings
 from django.utils.http import http_date
-from django.utils.cache import _set_response_etag, cc_delim_re,\
-    _generate_cache_key, _generate_cache_header_key
+from django.utils.cache import cc_delim_re, _generate_cache_key,\
+    _generate_cache_header_key
 
 from cache_tags import get_cache
+
+
+def _set_response_etag(response):  # Compatible with Django 1.3
+    response['ETag'] = '"%s"' % hashlib.md5(response.content).hexdigest()
+    return response
 
 
 def patch_response_headers(response, cache_timeout=None):
