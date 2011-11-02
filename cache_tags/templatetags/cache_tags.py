@@ -14,9 +14,17 @@ kwarg_re = re.compile(r"(?:(\w+)=)?(.+)")
 
 @register.simple_tag(takes_context=True)
 def addcachetags(context, tags):
+    """Adds a new tags from body of cachetags."""
     if not hasattr(tags, '__iter__'):
         tags = [tags, ]
     context['cache_tags'].update(tags)
+    return ''
+
+
+@register.simple_tag(takes_context=True)
+def preventcachetags(context):
+    """Prevents caching from body of cachetags."""
+    context['cache_tags_prevent'] = True
     return ''
 
 
@@ -56,11 +64,23 @@ class CacheNode(Node):
         tags = [x.resolve(context) for x in self.vary_on]
         if 'tags' in self.kwargs:
             tags += self.kwargs['tags'].resolve(context)
+
         # We can also add a new tags during nodelist is rendering.
+        # And prevent caching.
+        if not 'cache_tags_prevent' in context:
+            context['cache_tags_prevent'] = False
         sub_context = copy.copy(context)
         sub_context['cache_tags'] = set(tags)
+        # Allows nested caching
+        sub_context['cache_tags_prevent'] = False
+
         result = self.nodelist.render(sub_context)
+
         tags = sub_context['cache_tags']
+        # Prevent caching of ancestor
+        if sub_context['cache_tags_prevent']:
+            context['cache_tags_prevent'] = True
+        prevent = sub_context['cache_tags_prevent']
 
         if 'request' in context:
             request = context['request']
@@ -68,8 +88,10 @@ class CacheNode(Node):
                 request.cache_tags = set()
             if isinstance(request.cache_tags, set):
                 request.cache_tags.update(tags)
-
-        cache.set(cache_name, result, tags, timeout)
+            if context['cache_tags_prevent']:
+                request._cache_update_cache = False
+        if not prevent:
+            cache.set(cache_name, result, tags, timeout)
         return result
 
 

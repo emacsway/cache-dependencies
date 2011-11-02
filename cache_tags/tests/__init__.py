@@ -90,7 +90,14 @@ class CacheTagsTest(TestCase):
         cache.invalidate_tags('FirstTestModel')
 
     def test_templatetag(self):
-        t = Template("{% load cache_tags %}{% cachetags cachename|striptags tag1|striptags 'SecondTestModel' tags=empty_val|default:tags timeout='3600' %}{{ now }}{% addcachetags tag3 %}{% endcachetags %}")
+        t = Template("""
+            {% load cache_tags %}
+            {% cachetags cachename|striptags tag1|striptags 'SecondTestModel' tags=empty_val|default:tags timeout='3600' %}
+                {{ now }}
+                {% addcachetags tag3 %}
+            {% endcachetags %}
+            """
+        )
         c = Context({
             'request': RequestFactory().get('/'),
             'now': uuid4(),
@@ -144,3 +151,41 @@ class CacheTagsTest(TestCase):
         cache.invalidate_tags('Tag3',
                               'FirstTestModel',
                               'SecondTestModel.pk:{0}'.format(self.obj2.pk))
+
+    def test_templatetag_prevent(self):
+        t = Template("""
+            {% load cache_tags %}
+            {% cachetags cachename|striptags tag1|striptags 'SecondTestModel' tags=empty_val|default:tags timeout='3600' %}
+                {{ now }}
+                {% addcachetags tag3 %}
+                {% preventcachetags %}
+            {% endcachetags %}
+            """
+        )
+        c = Context({
+            'request': RequestFactory().get('/'),
+            'now': uuid4(),
+            'cachename': 'cachename',
+            'tag1': 'FirstTestModel',
+            'tag3': 'Tag3',
+            'empty_val': '',
+            'tags': ['SecondTestModel.pk:{0}'.format(self.obj2.pk), ],
+        })
+
+        r1 = t.render(c)
+        self.assertTrue(hasattr(c['request'], 'cache_tags'))
+        self.assertTrue('FirstTestModel' in c['request'].cache_tags)
+        self.assertTrue('SecondTestModel.pk:{0}'.format(self.obj2.pk)\
+                        in c['request'].cache_tags)
+        self.assertTrue('Tag3' in c['request'].cache_tags)
+        self.assertTrue(hasattr(c['request'], '_cache_update_cache'))
+
+        c.update({'now': uuid4(), })
+        r2 = t.render(c)
+        self.assertNotEqual(r1, r2)
+        self.assertTrue(hasattr(c['request'], '_cache_update_cache'))
+
+        c.update({'now': uuid4(), })
+        r3 = t.render(c)
+        self.assertNotEqual(r2, r3)
+        self.assertTrue(hasattr(c['request'], '_cache_update_cache'))

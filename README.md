@@ -50,18 +50,25 @@ Usage
         ...
         {% addcachetags 'NewTag2' %}
         ...
+        {% if do_not_cache_condition %}
+            {% preventcachetags %}
+        {% endif %}
     {% endcachetags %}
     {% comment %}
-    {% cachetags cache_name [tag1]  [tag2] ... [tags=tag_list] [timeout=3600] %}
-    {% addcachetags tag_or_list_of_tags %}
-    If context has attribute "request", then templatetag "cachetags"
-    adds to request a new attribute "cache_tags" (instance of set() object) with all tags.
-    If request already has attribute "cache_tags", and it's instance of set() object,
-    then templatetag "cachetags" adds all tags to this object.
-    You can use both, templatetag "cachetags" and decorator @cache_page().
-    In this case, when @cache_page() decorator will save response,
-    it will also adds all tags from request.cache_tags to cache.
-    You need not worry about it.
+        {% cachetags cache_name [tag1]  [tag2] ... [tags=tag_list] [timeout=3600] %}
+        {% addcachetags tag_or_list_of_tags %}
+        If context has attribute "request", then templatetag "cachetags"
+        adds to request a new attribute "cache_tags" (instance of set() object) with all tags.
+        If request already has attribute "cache_tags", and it's instance of set() object,
+        then templatetag "cachetags" adds all tags to this object.
+        You can use both, templatetag "cachetags" and decorator @cache_page().
+        In this case, when @cache_page() decorator will save response,
+        it will also adds all tags from request.cache_tags to cache.
+        You need not worry about it.
+
+        If need, you can prevent caching by templatetag {% preventcachetags %}.
+        In this case also will be prevented @cache_page() decorator, if it's used,
+        and context has attribute "request".
     {% endcomment %}
 
 #### view decorator
