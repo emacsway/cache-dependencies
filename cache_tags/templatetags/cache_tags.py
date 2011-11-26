@@ -5,7 +5,7 @@ import copy
 from django.template import Library, Node, TemplateSyntaxError,\
      VariableDoesNotExist
 
-from ..cache_tags import cache
+from ..__init__ import cache
 
 register = Library()
 
