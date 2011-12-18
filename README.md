@@ -13,7 +13,7 @@ See also related articles:
 
 http://ivan.allindustry.net/en/blog/2011/10/15/cache-tagging/ (English)
 
-http://ivan.allindustry.net/blog/2011/10/16/tagetirovanie-kesha/ (Russian)
+http://ivan.allindustry.net/blog/2011/10/16/cache-tagging/ (Russian)
 
 Cache tags allows to manage cached values and easily link them to Model signals
 
