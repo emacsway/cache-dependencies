@@ -5,8 +5,6 @@ import random
 import time
 import thread
 
-from threading import local
-
 from django.conf import settings
 from django.core.cache import DEFAULT_CACHE_ALIAS
 from django.core.cache import get_cache as django_get_cache
@@ -14,8 +12,6 @@ from django.db.models import signals
 from django.utils.functional import curry
 
 __version__ = 0.7
-
-_thread_locals = local()
 
 TAG_TIMEOUT = getattr(settings, 'CACHE_TAG_TIMEOUT', 24 * 3600)
 
@@ -35,17 +31,15 @@ class CacheTags(object):
         """Constructor of cache instance."""
         self.cache = cache
 
-    def get_or_set_callback(self, name, callback, tags=[], timeout=None,
-                            version=None, args=None, kwargs=None):
+    def get_or_set_callback(self, name, callback, tags=[],
+                            timeout=None, version=None):
         """
         Returns cache value if exists
         Otherwise calls cache_funcs, sets cache value to it and returns it.
         """
         value = self.get(name, version=version)
         if value is None:
-            args = args or []
-            kwargs = kwargs or {}
-            value = callback(*args, **kwargs)
+            value = callback()
             self.set(name, value, tags, timeout, version)
         return value
 
@@ -108,41 +102,7 @@ class CacheTags(object):
         """Invalidate specified tags"""
         if len(tags):
             tags = set(tags)
-            tags_prepared = map(tag_prepare_name, tags)
-            self._add_to_scope(*tags_prepared)
-            self.cache.delete_many(tags_prepared)
-
-    def transaction_begin(self):
-        """Handles database transaction begin."""
-        self._get_scopes().append([])
-        return self
-
-    def transaction_finish(self):
-        """Handles database transaction commit or rollback."""
-        scope = self._get_scopes().pop()
-        if len(scope):
-            self.cache.delete_many(scope)
-        return self
-
-    def transaction_finish_all(self):
-        """Handles all database's transaction commit or rollback."""
-        while len(self._get_scopes()):
-            self.transaction_finish()
-        return self
-
-    def _get_scopes(self):
-        """Get transaction scopes."""
-        if not hasattr(_thread_locals, 'cache_transaction_scope'):
-            _thread_locals.cache_transaction_scope = []
-        return _thread_locals.cache_transaction_scope
-
-    def _add_to_scope(self, *args):
-        """Adds cache names to current scope."""
-        scopes = self._get_scopes()
-        if len(scopes):
-            scope = scopes[-1]
-            for v in args:
-                scope.append(v)
+            self.cache.delete_many(map(tag_prepare_name, tags))
 
     def __getattr__(self, name):
         """Proxy for all native methods."""

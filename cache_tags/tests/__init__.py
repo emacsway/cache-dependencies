@@ -7,7 +7,6 @@ from django.test import TestCase
 from django.test.client import RequestFactory
 
 from cache_tags import cache, registry
-from cache_tags.decorators import cache_transaction, cache_transaction_all
 
 
 class FirstTestModel(models.Model):
@@ -66,7 +65,7 @@ class CacheTagsTest(TestCase):
         cache.invalidate_tags('NonExistenTag')
         self.assertEqual(cache.get('name1', None), None)
 
-    def test_decorator_cache_page(self):
+    def test_decorator(self):
         resp1 = self.client.get(reverse("cache_tags_test_decorator"))
         # The first call is blank.
         # Some applications, such as django-localeurl
@@ -190,86 +189,3 @@ class CacheTagsTest(TestCase):
         r3 = t.render(c)
         self.assertNotEqual(r2, r3)
         self.assertTrue(hasattr(c['request'], '_cache_update_cache'))
-
-    def test_transaction_handlers(self):
-        cache.transaction_begin()  # 1
-        cache.set('name1', 'value1', ('tag1', ), 3600)
-        self.assertEqual(cache.get('name1'), 'value1')
-
-        cache.transaction_begin()  # 2
-        cache.set('name2', 'value2', ('tag2', ), 3600)
-        self.assertEqual(cache.get('name2'), 'value2')
-
-        cache.invalidate_tags('tag2')
-        self.assertEqual(cache.get('name2', None), None)
-        self.assertEqual(cache.get('name1'), 'value1')
-
-        cache.set('name2', 'value2', ('tag2', ), 3600)
-        self.assertEqual(cache.get('name2'), 'value2')
-        self.assertEqual(cache.get('name1'), 'value1')
-
-        cache.transaction_finish()  # 2
-        self.assertEqual(cache.get('name2', None), None)
-        self.assertEqual(cache.get('name1'), 'value1')
-
-        cache.set('name2', 'value2', ('tag2', ), 3600)
-        self.assertEqual(cache.get('name2'), 'value2')
-        self.assertEqual(cache.get('name1'), 'value1')
-
-        cache.invalidate_tags('tag1')
-        self.assertEqual(cache.get('name2'), 'value2')
-        self.assertEqual(cache.get('name1', None), None)
-
-        cache.set('name1', 'value1', ('tag1', ), 3600)
-        self.assertEqual(cache.get('name2'), 'value2')
-        self.assertEqual(cache.get('name1'), 'value1')
-
-        cache.transaction_finish()  # 1
-        self.assertEqual(cache.get('name2'), 'value2')
-        self.assertEqual(cache.get('name1', None), None)
-
-        cache.transaction_begin()  # 1
-        cache.transaction_begin()  # 2
-        cache.set('name1', 'value1', ('tag1', ), 3600)
-        self.assertEqual(cache.get('name1'), 'value1')
-        cache.invalidate_tags('tag1')
-        self.assertEqual(cache.get('name1', None), None)
-        cache.set('name1', 'value1', ('tag1', ), 3600)
-        self.assertEqual(cache.get('name1'), 'value1')
-        cache.transaction_begin()  # 3
-        cache.transaction_begin()  # 4
-
-        cache.transaction_finish_all()  # all
-        self.assertEqual(cache.get('name1', None), None)
-
-        cache.invalidate_tags('tag1', 'tag2')
-
-    def test_decorator_cache_transaction(self):
-        @cache_transaction
-        def some_func():
-            cache.invalidate_tags('tag1')
-            self.assertEqual(cache.get('name1', None), None)
-            cache.set('name1', 'value1', ('tag1', ), 3600)
-            self.assertEqual(cache.get('name1'), 'value1')
-
-        cache.set('name1', 'value1', ('tag1', ), 3600)
-        self.assertEqual(cache.get('name1'), 'value1')
-        some_func()
-        self.assertEqual(cache.get('name1', None), None)
-
-    def test_decorator_cache_transaction_all(self):
-        @cache_transaction_all
-        def some_func():
-            cache.transaction_begin()
-            cache.invalidate_tags('tag1')
-            cache.transaction_begin()
-            self.assertEqual(cache.get('name1', None), None)
-            cache.set('name1', 'value1', ('tag1', ), 3600)
-            self.assertEqual(cache.get('name1'), 'value1')
-
-        cache.transaction_begin()
-        cache.transaction_begin()
-        cache.set('name1', 'value1', ('tag1', ), 3600)
-        self.assertEqual(cache.get('name1'), 'value1')
-        some_func()
-        self.assertEqual(cache.get('name1', None), None)
