@@ -31,15 +31,17 @@ class CacheTags(object):
         """Constructor of cache instance."""
         self.cache = cache
 
-    def get_or_set_callback(self, name, callback, tags=[],
-                            timeout=None, version=None):
+    def get_or_set_callback(self, name, callback, tags=[], timeout=None,
+                            version=None, args=None, kwargs=None):
         """
         Returns cache value if exists
         Otherwise calls cache_funcs, sets cache value to it and returns it.
         """
         value = self.get(name, version=version)
         if value is None:
-            value = callback()
+            args = args or []
+            kwargs = kwargs or {}
+            value = callback(*args, **kwargs)
             self.set(name, value, tags, timeout, version)
         return value
 
