@@ -112,3 +112,30 @@ Usage
     # or
     tag_list = ['Tag1', 'Tag2', 'Tag3', ]
     cache.invalidate_tags(*tag_list)
+
+#### What about transaction and multithreading (multiprocessing)?
+    from django.db import transaction
+    from cache_tags import cache
+
+    cache.transaction_begin()
+    with transaction.commit_on_success():
+        # ... some code
+        # ... Changes a some data
+        cache.invalidate_tags('Tag1', 'Tag2', 'Tag3')
+        # ... some long code
+        # ... Another thread can obtains old data here, after changes but before commit
+
+    cache.transaction_finish()  # Invalidates cache tags again.
+
+#### Handles transactions as decorator
+    from django.db import transaction
+    from cache_tags import cache
+    from cache_tags.decorators import cache_transaction
+
+    @cache_transaction
+    @transaction.commit_on_success():
+    def some_view(request):
+        # ... some code
+        cache.invalidate_tags('Tag1', 'Tag2', 'Tag3')
+        # ... some long code
+        # ... Another thread can obtains old data here, after changes but before commit
