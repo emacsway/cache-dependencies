@@ -113,7 +113,7 @@ Usage
     tag_list = ['Tag1', 'Tag2', 'Tag3', ]
     cache.invalidate_tags(*tag_list)
 
-#### How about transaction (not "Read uncommitted") and multithreading (multiprocessing)?
+#### How about transaction and multithreading (multiprocessing)?
     from django.db import transaction
     from cache_tags import cache
 
@@ -123,10 +123,13 @@ Usage
         # Changes a some data
         cache.invalidate_tags('Tag1', 'Tag2', 'Tag3')
         # ... some long code
-        # Another process/thread can obtain old data here (after changes but before commit),
-        # and create cache with old data.
+        # Another concurrent process/thread can obtain old data at this time,
+        # after changes but before commit, and create cache with old data,
+        # if isolation level is not "Read uncommitted".
+        # Otherwise, if isolation level is "Read uncommitted", and transaction will rollback,
+        # the concurrent and current process/thread can creates cache with dirty data.
 
-    cache.transaction_finish()  # Invalidates cache tags again.
+    cache.transaction_finish()  # Invalidates cache tags again, after transaction commit/rollback.
 
 #### Transaction handler as decorator
     from django.db import transaction
@@ -139,7 +142,12 @@ Usage
         # ... some code
         cache.invalidate_tags('Tag1', 'Tag2', 'Tag3')
         # ... some long code
-        # Another process/thread can obtain old data here (after changes but before commit),
-        # and create cache with old data.
-        # We can also invalidate cache in django.db.models.signals.pre_save()
+        # Another concurrent process/thread can obtain old data at this time,
+        # after changes but before commit, and create cache with old data,
+        # if isolation level is not "Read uncommitted".
+        # Otherwise, if isolation level is "Read uncommitted", and transaction will rollback,
+        # the concurrent and current process/thread can creates cache with dirty data.
+        #
+        # We can also invalidate cache before data changes,
+        # by signals django.db.models.signals.pre_save()
         # or django.db.models.signals.pre_delete(), and do not worry.
