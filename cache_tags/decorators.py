@@ -1,5 +1,48 @@
+from functools import wraps
+
 from django.utils.decorators import decorator_from_middleware_with_args
+
+from cache_tags import get_cache, cache
 from cache_tags.middleware import CacheMiddleware
+
+
+def cache_transaction(f):
+    """Decorator for any callback,
+
+    that automatically handles database transactions."""
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        cache_alias = kwargs.pop('cache', None)
+        if cache_alias:
+            cache = get_cache(cache_alias)
+        else:
+            cache = globals()['cache']
+        cache.transaction_begin()
+        result = f(*args, **kwargs)
+        cache.transaction_finish()
+        return result
+    return wrapper
+
+
+def cache_transaction_all(f):
+    """Decorator for any callback,
+
+    that automatically handles database transactions,
+    and calls CacheTags.transaction_finish_all() instead of
+    CacheTags.transaction_finish().
+    So. It will handles all transaction's scopes."""
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        cache_alias = kwargs.pop('cache', None)
+        if cache_alias:
+            cache = get_cache(cache_alias)
+        else:
+            cache = globals()['cache']
+        cache.transaction_begin()
+        result = f(*args, **kwargs)
+        cache.transaction_finish_all()
+        return result
+    return wrapper
 
 
 def cache_page(*args, **kwargs):
