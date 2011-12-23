@@ -118,7 +118,14 @@ class CacheTags(object):
         return self
 
     def transaction_finish(self):
-        """Handles database transaction commit or rollback."""
+        """Handles database transaction commit or rollback.
+
+        In any case (commit or rollback) we need to invalidate tags,
+        because caches can be generated for
+        current database session (for rollback case) or
+        another database session (for commit case).
+        So, method is named "transaction_finish" (not "transaction_commit"
+        or "transaction_rollback")."""
         scope = self._get_scopes().pop()
         if len(scope):
             self.cache.delete_many(scope)
