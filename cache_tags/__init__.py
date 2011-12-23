@@ -132,9 +132,12 @@ class CacheTags(object):
 
     def _get_scopes(self):
         """Get transaction scopes."""
-        if not hasattr(_thread_locals, 'cache_transaction_scope'):
-            _thread_locals.cache_transaction_scope = []
-        return _thread_locals.cache_transaction_scope
+        if not hasattr(_thread_locals, 'cache_transaction_scopes'):
+            _thread_locals.cache_transaction_scopes = {}
+        cls_id = id(self)
+        if cls_id not in _thread_locals.cache_transaction_scopes:
+            _thread_locals.cache_transaction_scopes[cls_id] = []
+        return _thread_locals.cache_transaction_scopes[cls_id]
 
     def _add_to_scope(self, *args):
         """Adds cache names to current scope."""
