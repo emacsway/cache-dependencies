@@ -1,4 +1,4 @@
-Cache Tags
+Cache Tagging
 ============
 
 Tags are a way to categorize cache records.
@@ -15,7 +15,7 @@ http://ivan.allindustry.net/en/blog/2011/10/15/cache-tagging/ (English)
 
 http://ivan.allindustry.net/blog/2011/10/16/cache-tagging/ (Russian)
 
-Cache tags allows to manage cached values and easily link them to Model signals
+Cache tagging allows to manage cached values and easily link them to Model signals
 
 Usage
 -----
