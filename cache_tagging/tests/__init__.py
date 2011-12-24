@@ -6,8 +6,8 @@ from django.template import Context, Template
 from django.test import TestCase
 from django.test.client import RequestFactory
 
-from cache_tags import cache, registry
-from cache_tags.decorators import cache_transaction, cache_transaction_all
+from cache_tagging import cache, registry
+from cache_tagging.decorators import cache_transaction, cache_transaction_all
 
 
 class FirstTestModel(models.Model):
@@ -28,9 +28,9 @@ CACHES = (
 registry.register(CACHES)
 
 
-class CacheTagsTest(TestCase):
+class CacheTaggingTest(TestCase):
 
-    urls = 'cache_tags.tests.urls'
+    urls = 'cache_tagging.tests.urls'
 
     def setUp(self):
         self.obj1 = FirstTestModel.objects.create(title='title1')
@@ -67,23 +67,23 @@ class CacheTagsTest(TestCase):
         self.assertEqual(cache.get('name1', None), None)
 
     def test_decorator_cache_page(self):
-        resp1 = self.client.get(reverse("cache_tags_test_decorator"))
+        resp1 = self.client.get(reverse("cache_tagging_test_decorator"))
         # The first call is blank.
         # Some applications, such as django-localeurl
         # need to activate translation object in middleware.
-        resp1 = self.client.get(reverse("cache_tags_test_decorator"))
+        resp1 = self.client.get(reverse("cache_tagging_test_decorator"))
         self.assertFalse(resp1.has_header('Expires'))
         self.assertFalse(resp1.has_header('Cache-Control'))
         self.assertTrue(resp1.has_header('Last-Modified'))
 
-        resp2 = self.client.get(reverse("cache_tags_test_decorator"))
+        resp2 = self.client.get(reverse("cache_tagging_test_decorator"))
         self.assertFalse(resp2.has_header('Expires'))
         self.assertFalse(resp2.has_header('Cache-Control'))
         self.assertTrue(resp2.has_header('Last-Modified'))
         self.assertEqual(resp1.content, resp2.content)
 
         cache.invalidate_tags('FirstTestModel')
-        resp3 = self.client.get(reverse("cache_tags_test_decorator"))
+        resp3 = self.client.get(reverse("cache_tagging_test_decorator"))
         self.assertFalse(resp3.has_header('Expires'))
         self.assertFalse(resp3.has_header('Cache-Control'))
         self.assertTrue(resp3.has_header('Last-Modified'))
@@ -92,11 +92,11 @@ class CacheTagsTest(TestCase):
 
     def test_templatetag(self):
         t = Template("""
-            {% load cache_tags %}
-            {% cachetags cachename|striptags tag1|striptags 'SecondTestModel' tags=empty_val|default:tags timeout='3600' %}
+            {% load cache_tagging_tags %}
+            {% cache_tagging cachename|striptags tag1|striptags 'SecondTestModel' tags=empty_val|default:tags timeout='3600' %}
                 {{ now }}
-                {% addcachetags tag3 %}
-            {% endcachetags %}
+                {% cache_add_tags tag3 %}
+            {% end_cache_tagging %}
             """
         )
         c = Context({
@@ -112,11 +112,11 @@ class CacheTagsTest(TestCase):
         # Case 1
         # Tags from arguments.
         r1 = t.render(c)
-        self.assertTrue(hasattr(c['request'], 'cache_tags'))
-        self.assertTrue('FirstTestModel' in c['request'].cache_tags)
+        self.assertTrue(hasattr(c['request'], 'cache_tagging'))
+        self.assertTrue('FirstTestModel' in c['request'].cache_tagging)
         self.assertTrue('SecondTestModel.pk:{0}'.format(self.obj2.pk)\
-                        in c['request'].cache_tags)
-        self.assertTrue('Tag3' in c['request'].cache_tags)
+                        in c['request'].cache_tagging)
+        self.assertTrue('Tag3' in c['request'].cache_tagging)
 
         c.update({'now': uuid4(), })
         r2 = t.render(c)
@@ -139,7 +139,7 @@ class CacheTagsTest(TestCase):
         self.assertNotEqual(r3, r5)
 
         # Case 3
-        # Tags from templatetag {% addcachetags ... %}
+        # Tags from templatetag {% cache_add_tags %}
         c.update({'now': uuid4(), })
         r6 = t.render(c)
         self.assertEqual(r5, r6)
@@ -155,12 +155,12 @@ class CacheTagsTest(TestCase):
 
     def test_templatetag_prevent(self):
         t = Template("""
-            {% load cache_tags %}
-            {% cachetags cachename|striptags tag1|striptags 'SecondTestModel' tags=empty_val|default:tags timeout='3600' %}
+            {% load cache_tagging_tags %}
+            {% cache_tagging cachename|striptags tag1|striptags 'SecondTestModel' tags=empty_val|default:tags timeout='3600' %}
                 {{ now }}
-                {% addcachetags tag3 %}
-                {% preventcachetags %}
-            {% endcachetags %}
+                {% cache_add_tags tag3 %}
+                {% cache_tagging_prevent %}
+            {% end_cache_tagging %}
             """
         )
         c = Context({
@@ -174,11 +174,11 @@ class CacheTagsTest(TestCase):
         })
 
         r1 = t.render(c)
-        self.assertTrue(hasattr(c['request'], 'cache_tags'))
-        self.assertTrue('FirstTestModel' in c['request'].cache_tags)
+        self.assertTrue(hasattr(c['request'], 'cache_tagging'))
+        self.assertTrue('FirstTestModel' in c['request'].cache_tagging)
         self.assertTrue('SecondTestModel.pk:{0}'.format(self.obj2.pk)\
-                        in c['request'].cache_tags)
-        self.assertTrue('Tag3' in c['request'].cache_tags)
+                        in c['request'].cache_tagging)
+        self.assertTrue('Tag3' in c['request'].cache_tagging)
         self.assertTrue(hasattr(c['request'], '_cache_update_cache'))
 
         c.update({'now': uuid4(), })

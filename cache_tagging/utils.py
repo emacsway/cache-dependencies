@@ -4,7 +4,7 @@ from django.utils.http import http_date
 from django.utils.cache import cc_delim_re, _generate_cache_key,\
     _generate_cache_header_key
 
-from cache_tags import get_cache
+from cache_tagging import get_cache
 
 
 def _set_response_etag(response):  # Compatible with Django 1.3

@@ -51,8 +51,8 @@ More details about how the caching works:
 from django.conf import settings
 from django.utils.cache import get_cache_key, get_max_age
 
-from cache_tags import get_cache, DEFAULT_CACHE_ALIAS
-from cache_tags.utils import patch_response_headers, learn_cache_key
+from cache_tagging import get_cache, DEFAULT_CACHE_ALIAS
+from cache_tagging.utils import patch_response_headers, learn_cache_key
 
 
 class UpdateCacheMiddleware(object):
@@ -114,9 +114,9 @@ class UpdateCacheMiddleware(object):
             # See https://bitbucket.org/evotech/django-ext/src/d8b55d86680e/django_ext/middleware/view_args_to_request.py
             tags = self.tags(request)
         tags = set(tags)
-        # Adds tags from request, see templatetag {% addcachetags ... %}
-        if hasattr(request, 'cache_tags'):
-            tags.update(request.cache_tags)
+        # Adds tags from request, see templatetag {% cache_add_tags ... %}
+        if hasattr(request, 'cache_tagging'):
+            tags.update(request.cache_tagging)
         if timeout:
             cache_key = learn_cache_key(request, response, tags, timeout, self.key_prefix, cache=self.cache)  # patched
             if hasattr(response, 'render') and callable(response.render):

@@ -28,7 +28,7 @@ else:
 MAX_TAG_KEY = 18446744073709551616L     # 2 << 63
 
 
-class CacheTags(object):
+class CacheTagging(object):
     """Tags support for Django cache."""
 
     def __init__(self, cache):
@@ -181,9 +181,9 @@ def tag_generate_version():
 
 
 def get_cache(*args, **kwargs):
-    """Returns instance of CacheTags class."""
+    """Returns instance of CacheTagging class."""
     cache = django_get_cache(*args, **kwargs)
-    return CacheTags(cache)
+    return CacheTagging(cache)
 
 cache = get_cache(DEFAULT_CACHE_ALIAS)
 

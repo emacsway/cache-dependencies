@@ -1,7 +1,7 @@
 from uuid import uuid4
 from django.http import HttpResponse
 
-from cache_tags.decorators import cache_page
+from cache_tagging.decorators import cache_page
 
 
 @cache_page(3600, tags=lambda request: ('FirstTestModel', ))

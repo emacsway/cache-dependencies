@@ -2,8 +2,8 @@ from functools import wraps
 
 from django.utils.decorators import decorator_from_middleware_with_args
 
-from cache_tags import get_cache, cache
-from cache_tags.middleware import CacheMiddleware
+from cache_tagging import get_cache, cache
+from cache_tagging.middleware import CacheMiddleware
 
 
 def cache_transaction(f):
@@ -28,8 +28,8 @@ def cache_transaction_all(f):
     """Decorator for any callback,
 
     that automatically handles database transactions,
-    and calls CacheTags.transaction_finish_all() instead of
-    CacheTags.transaction_finish().
+    and calls CacheTagging.transaction_finish_all() instead of
+    CacheTagging.transaction_finish().
     So. It will handles all transaction's scopes."""
     @wraps(f)
     def wrapper(*args, **kwargs):

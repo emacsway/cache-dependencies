@@ -17,7 +17,7 @@ setup(
 
     author = "Ivan Zakrevsky",
     author_email = "ivzak@yandex.ru",
-    description = "Cache control based on tags.",
+    description = "Cache-tagging allows you easily invalidate all cache records tagged with a given tag(s).",
     long_description=open(os.path.join(os.path.dirname(__file__), 'README.md')).read(),
     license = "BSD License",
     keywords = "django cache",
