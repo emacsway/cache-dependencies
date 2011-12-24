@@ -158,7 +158,7 @@ class CacheTaggingTest(TestCase):
             {% load cache_tagging_tags %}
             {% cache_tagging cachename|striptags tag1|striptags 'SecondTestModel' tags=empty_val|default:tags timeout='3600' %}
                 {{ now }}
-                {% cache_add_tags tag3 %}
+                {% cache_add_tags tag3 "Tag4" %}
                 {% cache_tagging_prevent %}
             {% end_cache_tagging %}
             """
@@ -179,6 +179,7 @@ class CacheTaggingTest(TestCase):
         self.assertTrue('SecondTestModel.pk:{0}'.format(self.obj2.pk)\
                         in c['request'].cache_tagging)
         self.assertTrue('Tag3' in c['request'].cache_tagging)
+        self.assertTrue('Tag4' in c['request'].cache_tagging)
         self.assertTrue(hasattr(c['request'], '_cache_update_cache'))
 
         c.update({'now': uuid4(), })

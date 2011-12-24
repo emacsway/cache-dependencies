@@ -105,7 +105,7 @@ def do_cache(parser, token):
         {% load cache_tagging_tags %}
         {% cache_tagging cache_name [tag1]  [tag2] ... [tags=tag_list] [timeout=3600] %}
             .. some expensive processing ..
-            {% cache_add_tags 'NewTag1' %}
+            {% cache_add_tags 'NewTag1' 'NewTag2' %}
         {% end_cache_tagging %}
     """
     nodelist = parser.parse(('end_cache_tagging',))
