@@ -20,18 +20,60 @@ Cache tagging allows to manage cached values and easily link them to Model signa
 Usage
 -----
 
-#### root urls.py
+#### project urls.py
     import cache_tagging
     cache_tagging.autodiscover()
 
+#### application example 1
+
+    from cache_tagging import cache
+
+    # ...
+    value = cache.get('cache_name')
+    if value is None:
+        value = get_value_func()
+        cache.set('cache_name', value, tags=('FirstModel', 'CategoryModel.pk:{0}'.format(obj.category_id)))
+
+#### application example 2
+
+    from cache_tagging import get_cache
+
+    # ...
+    cache = get_cache('my_backend')
+    value = cache.get('cache_name')
+    if value is None:
+        value = cache.set('cache_name', value, tags=('FirstModel', 'CategoryModel.pk:{0}'.format(obj.category_id)))
+
+#### manual invalidation
+
+    from cache_tagging import cache
+    
+    # ...
+    cache.invalidate_tags('Tag1', 'Tag2', 'Tag3')
+    # or
+    tag_list = ['Tag1', 'Tag2', 'Tag3', ]
+    cache.invalidate_tags(*tag_list)
+
 #### appname.caches.py file
-    # Each item from list creates model's save and delete signal.
-    # Func takes changed model and returns list of tags.
-    # When the signal is called, it gets varied tags and deletes all caches with this tags.
 
     from cache_tagging import registry, get_cache
     from models import MyModel
+    from django.db.models.signals import post_save, post_delete
 
+    # Variant 1. Using signals for invalidation.
+    def invalidation_callback(sender, instance, **kwars):
+        cache.invalidate_tags(
+            'Tag1',
+            'Tag2',
+            'FirstModel.pk:{1}'.format(instance.pk)
+        )
+    post_save.connect(invalidation_callback, sender=FirstModel)
+    post_delete.connect(invalidation_callback, sender=FirstModel)
+    
+    # Variant 2. Using registry.register().
+    # Each item from list creates model's post_save and pre_delete signal.
+    # Func takes changed model and returns list of tags.
+    # When the signal is called, it gets varied tags and deletes all caches with this tags.
     caches = [
         #((model, func, [cache_object, ]), ),
         ((FirstModel, lambda obj: ('FirstModel.pk:{0}'.format(obj.pk), ), get_cache('my_cache_alias'), ), ),
@@ -39,7 +81,6 @@ Usage
                                     'CategoryModel.pk:{0}.TypeModel.pk:{1}'.format(obj.category_id, obj.type_id),
                                     'SecondModel', ), ), ),
     ]
-
     registry.register(caches)
 
 #### template
@@ -82,36 +123,6 @@ Usage
     def cached_view(request):
         result = get_result()
         return HttpResponse(result)
-
-#### application example 1
-
-    from cache_tagging import cache
-
-    # ...
-    value = cache.get('cache_name')
-    if value is None:
-        value = get_value_func()
-        cache.set('cache_name', value, tags=('FirstModel', 'CategoryModel.pk:{0}'.format(obj.category_id)))
-
-#### application example 2
-
-    from cache_tagging import get_cache
-
-    # ...
-    cache = get_cache('my_backend')
-    value = cache.get('cache_name')
-    if value is None:
-        value = cache.set('cache_name', value, tags=('FirstModel', 'CategoryModel.pk:{0}'.format(obj.category_id)))
-
-#### manual invalidation
-
-    from cache_tagging import cache
-    
-    # ...
-    cache.invalidate_tags('Tag1', 'Tag2', 'Tag3')
-    # or
-    tag_list = ['Tag1', 'Tag2', 'Tag3', ]
-    cache.invalidate_tags(*tag_list)
 
 #### How about transaction and multithreading (multiprocessing)?
     from django.db import transaction

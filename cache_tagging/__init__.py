@@ -80,6 +80,7 @@ class CacheTagging(object):
             'value': value,
         }
         self.cache.set(name, data, timeout, version)
+        return value
 
     def get(self, name, default=None, version=None):
         """Gets cache value.
