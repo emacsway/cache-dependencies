@@ -20,7 +20,7 @@ setup(
     description = "Cache-tagging allows you easily invalidate all cache records tagged with a given tag(s).",
     long_description=open(os.path.join(os.path.dirname(__file__), 'README.md')).read(),
     license = "BSD License",
-    keywords = "django cache",
+    keywords = "django cache tagging",
     classifiers = [
         'Development Status :: 5 - Production/Stable',
         'Environment :: Web Environment',
@@ -29,7 +29,6 @@ setup(
         'License :: OSI Approved :: BSD License',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
-        'Topic :: Software Development :: Internationalization',
         'Topic :: Software Development :: Libraries :: Application Frameworks',
         'Topic :: Software Development :: Libraries :: Python Modules',
     ],
