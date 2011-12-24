@@ -26,9 +26,9 @@ Usage
 
 #### application example 1
 
+    # Default backend
     from cache_tagging import cache
 
-    # ...
     value = cache.get('cache_name')
     if value is None:
         value = get_value_func()
@@ -36,13 +36,14 @@ Usage
 
 #### application example 2
 
+    # Custom backend
     from cache_tagging import get_cache
-
-    # ...
     cache = get_cache('my_backend')
+
     value = cache.get('cache_name')
     if value is None:
-        value = cache.set('cache_name', value, tags=('FirstModel', 'CategoryModel.pk:{0}'.format(obj.category_id)))
+        value = get_value_func()
+        cache.set('cache_name', value, tags=('FirstModel', 'CategoryModel.pk:{0}'.format(obj.category_id)))
 
 #### manual invalidation
 
