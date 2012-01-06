@@ -12,20 +12,34 @@ register = Library()
 kwarg_re = re.compile(r"(?:(\w+)=)?(.+)")
 
 
-@register.simple_tag(takes_context=True)
-def cache_add_tags(context, *tags):
+class CacheAddTagsNode(Node):
     """Adds a new tags from body of {% cache_tagging %}."""
-    if len(tags) == 1 and hasattr(tags[0], '__iter__'):
-        tags = tags[0]
-    context['cache_tagging'].update(tags)
-    return ''
+    def __init__(self, tags):
+        self.tags = tags
+
+    def render(self, context):
+        tags = [tag.resolve(context) for tag in self.tags]
+        if len(tags) == 1 and hasattr(tags[0], '__iter__'):
+            tags = tags[0]
+        context['cache_tagging'].update(tags)
+        return ''
 
 
-@register.simple_tag(takes_context=True)
-def cache_tagging_prevent(context):
-    """Prevents caching from body of cachetags."""
-    context['cache_tagging_prevent'] = True
-    return ''
+def do_cache_add_tags(parser, token):
+    """Adds a new tags from body of {% cache_tagging %}."""
+    bits = token.split_contents()
+    tag_name = bits.pop(0)
+    tags = []
+    for tag in bits:
+        tags.append(parser.compile_filter(tag))
+    if len(tags) < 1:
+        raise TemplateSyntaxError(
+            u"'{0}' tag requires at least 1 arguments.".format(tag_name)
+        )
+
+    return CacheAddTagsNode(tags)
+
+register.tag('cache_add_tags', do_cache_add_tags)
 
 
 class CacheNode(Node):
@@ -135,5 +149,12 @@ def do_cache(parser, token):
     else:
         timeout = None
     return CacheNode(nodelist, name, timeout, args, kwargs)
+
+
+@register.simple_tag(takes_context=True)
+def cache_tagging_prevent(context):
+    """Prevents caching from body of cachetags."""
+    context['cache_tagging_prevent'] = True
+    return ''
 
 register.tag('cache_tagging', do_cache)
