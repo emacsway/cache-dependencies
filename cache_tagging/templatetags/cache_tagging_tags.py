@@ -6,6 +6,7 @@ from django.template import Library, Node, TemplateSyntaxError,\
      VariableDoesNotExist
 
 from ..__init__ import cache
+from ..utils import prevent_cache_page
 
 register = Library()
 
@@ -103,7 +104,7 @@ class CacheNode(Node):
             if isinstance(request.cache_tagging, set):
                 request.cache_tagging.update(tags)
             if context['cache_tagging_prevent']:
-                request._cache_update_cache = False
+                prevent_cache_page(request)
         if not prevent:
             cache.set(cache_name, result, tags, timeout)
         return result

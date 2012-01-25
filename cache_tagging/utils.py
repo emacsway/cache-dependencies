@@ -7,6 +7,11 @@ from django.utils.cache import cc_delim_re, _generate_cache_key,\
 from cache_tagging import get_cache
 
 
+def prevent_cache_page(request):
+    """Prevent page caching"""
+    request._cache_update_cache = False
+
+
 def _set_response_etag(response):  # Compatible with Django 1.3
     response['ETag'] = '"%s"' % hashlib.md5(response.content).hexdigest()
     return response
