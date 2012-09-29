@@ -22,5 +22,5 @@ except IOError:
 name = os.path.basename(os.path.dirname(os.path.abspath(__file__)))
 authors = 'Ivan Zakrevsky'
 copyright_years = '2011-2012'
-version = '0.7.post%s' % hgrev
+version = '0.7.post{0}'.format(hgrev)
 release = version

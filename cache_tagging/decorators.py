@@ -1,9 +1,11 @@
+from __future__ import absolute_import, unicode_literals
 from functools import wraps
 
 from django.utils.decorators import decorator_from_middleware_with_args
 
 from cache_tagging import get_cache, cache
 from cache_tagging.middleware import CacheMiddleware
+import collections
 
 
 def cache_transaction(f):
@@ -92,14 +94,14 @@ def cache_page(*args, **kwargs):
     if len(args) > 1:
         assert len(args) == 2, "cache_page accepts at most 2 arguments"
         warn()
-        if callable(args[0]):
+        if isinstance(args[0], collections.Callable):
             return decorator_from_middleware_with_args(CacheMiddleware)(cache_timeout=args[1], cache_alias=cache_alias, key_prefix=key_prefix, tags=tags)(args[0])
-        elif callable(args[1]):
+        elif isinstance(args[1], collections.Callable):
             return decorator_from_middleware_with_args(CacheMiddleware)(cache_timeout=args[0], cache_alias=cache_alias, key_prefix=key_prefix, tags=tags)(args[1])
         else:
             assert False, "cache_page must be passed a view function if called with two arguments"
     elif len(args) == 1:
-        if callable(args[0]):
+        if isinstance(args[0], collections.Callable):
             warn()
             return decorator_from_middleware_with_args(CacheMiddleware)(cache_alias=cache_alias, key_prefix=key_prefix, tags=tags)(args[0])
         else:

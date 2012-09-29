@@ -1,3 +1,4 @@
+from __future__ import absolute_import, unicode_literals
 """
 Cache middleware. If enabled, each Django-powered page will be cached based on
 URL. The canonical way to enable cache middleware is to set
@@ -53,6 +54,7 @@ from django.utils.cache import get_cache_key, get_max_age
 
 from cache_tagging import get_cache, DEFAULT_CACHE_ALIAS
 from cache_tagging.utils import patch_response_headers, learn_cache_key
+import collections
 
 
 class UpdateCacheMiddleware(object):
@@ -119,7 +121,7 @@ class UpdateCacheMiddleware(object):
             tags.update(request.cache_tagging)
         if timeout:
             cache_key = learn_cache_key(request, response, tags, timeout, self.key_prefix, cache=self.cache)  # patched
-            if hasattr(response, 'render') and callable(response.render):
+            if hasattr(response, 'render') and isinstance(response.render, collections.Callable):
                 response.add_post_render_callback(
                     lambda r: self.cache.set(cache_key, r, tags, timeout)  # patched
                 )

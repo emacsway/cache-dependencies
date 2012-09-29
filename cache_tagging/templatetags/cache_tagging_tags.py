@@ -1,3 +1,4 @@
+from __future__ import absolute_import, unicode_literals
 # -*- coding: utf-8 -*-
 import re
 import copy
@@ -35,7 +36,7 @@ def do_cache_add_tags(parser, token):
         tags.append(parser.compile_filter(tag))
     if len(tags) < 1:
         raise TemplateSyntaxError(
-            u"'{0}' tag requires at least 1 arguments.".format(tag_name)
+            "'{0}' tag requires at least 1 arguments.".format(tag_name)
         )
 
     return CacheAddTagsNode(tags)
@@ -128,7 +129,7 @@ def do_cache(parser, token):
     bits = token.contents.split()
     if len(bits) < 2:
         raise TemplateSyntaxError(
-            u"'{0}' tag requires at least 1 arguments.".format(bits[0])
+            "'{0}' tag requires at least 1 arguments.".format(bits[0])
         )
     args = []
     kwargs = {}

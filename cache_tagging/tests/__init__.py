@@ -1,3 +1,4 @@
+from __future__ import absolute_import, unicode_literals
 from uuid import uuid4
 
 from django.core.urlresolvers import reverse
@@ -11,11 +12,11 @@ from cache_tagging.decorators import cache_transaction, cache_transaction_all
 
 
 class FirstTestModel(models.Model):
-    title = models.CharField(u'title', max_length=255)
+    title = models.CharField('title', max_length=255)
 
 
 class SecondTestModel(models.Model):
-    title = models.CharField(u'title', max_length=255)
+    title = models.CharField('title', max_length=255)
 
 CACHES = (
     (FirstTestModel,

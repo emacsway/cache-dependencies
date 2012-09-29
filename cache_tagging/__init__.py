@@ -1,9 +1,10 @@
+from __future__ import absolute_import, unicode_literals
 # -*- coding: utf-8 -*-
 import os
+import sys
 import hashlib
 import random
 import time
-import thread
 
 from threading import local
 
@@ -11,7 +12,13 @@ from django.conf import settings
 from django.core.cache import DEFAULT_CACHE_ALIAS
 from django.core.cache import get_cache as django_get_cache
 from django.db.models import signals
+from django.utils.encoding import force_unicode
 from django.utils.functional import curry
+
+try:
+    import _thread
+except ImportError:
+    import thread as _thread  # Python < 3.*
 
 __version__ = 0.7
 
@@ -25,7 +32,7 @@ if hasattr(random, 'SystemRandom'):
 else:
     randrange = random.randrange
 
-MAX_TAG_KEY = 18446744073709551616L     # 2 << 63
+MAX_TAG_KEY = 18446744073709551616     # 2 << 63
 
 
 class CacheTagging(object):
@@ -60,7 +67,7 @@ class CacheTagging(object):
         if len(tags):
             tags = set(tags)
             tag_caches = self.cache.get_many(
-                map(tag_prepare_name, tags)
+                list(map(tag_prepare_name, tags))
             )
             tag_new_dict = {}
             for tag in tags:
@@ -95,9 +102,9 @@ class CacheTagging(object):
 
         if len(data['tag_versions']):
             tag_caches = self.cache.get_many(
-                map(tag_prepare_name, data['tag_versions'].keys())
+                list(map(tag_prepare_name, list(data['tag_versions'].keys())))
             )
-            for tag, tag_version in data['tag_versions'].iteritems():
+            for tag, tag_version in data['tag_versions'].items():
                 tag_prepared = tag_prepare_name(tag)
                 if tag_prepared not in tag_caches\
                         or tag_caches[tag_prepared] != tag_version:
@@ -108,7 +115,7 @@ class CacheTagging(object):
         """Invalidate specified tags"""
         if len(tags):
             tags = set(tags)
-            tags_prepared = map(tag_prepare_name, tags)
+            tags_prepared = list(map(tag_prepare_name, tags))
             self._add_to_scope(*tags_prepared)
             self.cache.delete_many(tags_prepared)
 
@@ -162,14 +169,14 @@ class CacheTagging(object):
 def tag_prepare_name(name):
     """Adds prefixed namespace for tag name"""
     version = str(__version__).replace('.', '')
-    name = hashlib.md5(unicode(name).encode('utf-8')).hexdigest()
-    return u'tag_{0}_{1}'.format(version, name)
+    name = hashlib.md5(force_unicode(name).encode('utf-8')).hexdigest()
+    return 'tag_{0}_{1}'.format(version, name)
 
 
 def tag_generate_version():
     """ Generates a new unique identifier for tag version."""
     pid = os.getpid()
-    tid = thread.get_ident()
+    tid = _thread.get_ident()
     hash = hashlib.md5("{0}{1}{2}{3}{4}".format(
         randrange(0, MAX_TAG_KEY),
         pid,
@@ -240,10 +247,8 @@ def autodiscover():
     from django.conf import settings
     for app in settings.INSTALLED_APPS:
         try:
-            imp.find_module("caches",
-                            __import__(app, {}, {},
-                                       [app.split(".")[-1]]).__path__)
-        except ImportError:
-            # there is no app admin.py, skip it
+            __import__(app)
+            imp.find_module("caches", sys.modules[app].__path__)
+        except ImportError, AttributeError:
             continue
-        __import__("%s.caches" % app)
+        __import__("{0}.caches".format(app))
