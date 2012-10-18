@@ -79,11 +79,11 @@ class TransactionMiddleware(object):
 
     def process_exception(self, request, exception):
         """Rolls back the database and leaves transaction management"""
-        self.cache.transaction_finish()
+        self.cache.transaction_finish_all()
 
     def process_response(self, request, response):
         """Commits and leaves transaction management."""
-        self.cache.transaction_finish()
+        self.cache.transaction_finish_all()
         return response
 
 
