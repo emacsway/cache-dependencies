@@ -1,6 +1,7 @@
 from __future__ import absolute_import, unicode_literals
 from uuid import uuid4
 
+from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.db import models
 from django.template import Context, Template
@@ -36,6 +37,11 @@ class CacheTaggingTest(TestCase):
     def setUp(self):
         self.obj1 = FirstTestModel.objects.create(title='title1')
         self.obj2 = SecondTestModel.objects.create(title='title2')
+        if 'cache_tagging.middleware.TransactionMiddleware' in settings.MIDDLEWARE_CLASSES:
+            self.OLD_MIDDLEWARE_CLASSES = settings.MIDDLEWARE_CLASSES
+            settings.MIDDLEWARE_CLASSES = list(self.OLD_MIDDLEWARE_CLASSES)
+            settings.MIDDLEWARE_CLASSES.remove('cache_tagging.middleware.TransactionMiddleware')
+            
 
     def test_cache(self):
         tags1 = ('FirstTestModel.pk:{0}'.format(self.obj1.pk), )
@@ -275,3 +281,7 @@ class CacheTaggingTest(TestCase):
         self.assertEqual(cache.get('name1'), 'value1')
         some_func()
         self.assertEqual(cache.get('name1', None), None)
+
+    def tearDown(self):
+        if hasattr(self, 'OLD_MIDDLEWARE_CLASSES'):
+            settings.MIDDLEWARE_CLASSES = self.OLD_MIDDLEWARE_CLASSES

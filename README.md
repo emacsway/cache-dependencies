@@ -9,12 +9,6 @@ Forked from https://github.com/Harut/django-cachecontrol
 
 Some ideas from http://dklab.ru/lib/Dklab_Cache/
 
-See also related articles:
-
-http://ivan.allindustry.net/en/blog/2011/10/15/cache-tagging/ (English)
-
-http://ivan.allindustry.net/blog/2011/10/16/cache-tagging/ (Russian)
-
 Cache tagging allows to manage cached values and easily link them to Model signals
 
 Usage
@@ -163,3 +157,11 @@ Usage
         # We can also invalidate cache before data changes,
         # by signals django.db.models.signals.pre_save()
         # or django.db.models.signals.pre_delete(), and do not worry.
+
+#### Transaction handler as middleware
+    MIDDLEWARE_CLASSES = [
+    # ...
+    "cache_tagging.middleware.TransactionMiddleware",  # Should be before
+    "django.middleware.transaction.TransactionMiddleware",
+    # ...
+    ]

@@ -57,6 +57,36 @@ from cache_tagging.utils import patch_response_headers, learn_cache_key
 import collections
 
 
+class TransactionMiddleware(object):
+    """
+    Transaction middleware.
+    Used before django.middleware.transaction.TransactionMiddleware
+    in settings.MIDDLEWARE_CLASSES.
+    """
+    def __init__(self, **kwargs):
+        try:
+            self.cache_alias = kwargs['cache_alias']
+            if self.cache_alias is None:
+                self.cache_alias = DEFAULT_CACHE_ALIAS
+        except KeyError:
+            self.cache_alias = DEFAULT_CACHE_ALIAS
+            # self.cache_alias = settings.CACHE_MIDDLEWARE_ALIAS
+        self.cache = get_cache(self.cache_alias)
+
+    def process_request(self, request):
+        """Enters transaction management"""
+        self.cache.transaction_begin()
+
+    def process_exception(self, request, exception):
+        """Rolls back the database and leaves transaction management"""
+        self.cache.transaction_finish()
+
+    def process_response(self, request, response):
+        """Commits and leaves transaction management."""
+        self.cache.transaction_finish()
+        return response
+
+
 class UpdateCacheMiddleware(object):
     """
     Response-phase cache middleware that updates the cache if the response is
