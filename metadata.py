@@ -2,7 +2,7 @@ import subprocess
 import os.path
 
 try:
-    # don't get confused if our sdist is unzipped in a subdir of some 
+    # don't get confused if our sdist is unzipped in a subdir of some
     # other hg repo
     if os.path.isdir('.hg'):
         p = subprocess.Popen(['hg', 'parents', r'--template={rev}\n'],
@@ -22,7 +22,7 @@ try:
 
 except (OSError, IndexError):
     pass
-    
+
 try:
     rev = open('VCSREV').read()
 except IOError:
