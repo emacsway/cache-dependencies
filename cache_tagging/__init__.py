@@ -97,7 +97,8 @@ class CacheTagging(object):
         if data is None:
             return default
 
-        if 'tag_versions' not in data or 'value' not in data:
+        if not isinstance(data, dict) or 'tag_versions' not in data\
+                or 'value' not in data:
             return data  # Returns native API
 
         if len(data['tag_versions']):
