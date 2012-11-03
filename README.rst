@@ -1,5 +1,6 @@
+==============
 Cache Tagging
-============
+==============
 
 Tags are a way to categorize cache records.
 When you save a cache, you can set a list of tags to apply for this record.
@@ -12,13 +13,14 @@ Some ideas from http://dklab.ru/lib/Dklab_Cache/
 Cache tagging allows to manage cached values and easily link them to Model signals
 
 Usage
------
+======
 
-#### project urls.py
+project urls.py::
+
     import cache_tagging
     cache_tagging.autodiscover()
 
-#### application example 1
+application example 1::
 
     # Default backend
     from cache_tagging import cache
@@ -28,7 +30,7 @@ Usage
         value = get_value_func()
         cache.set('cache_name', value, tags=('FirstModel', 'CategoryModel.pk:{0}'.format(obj.category_id)))
 
-#### application example 2
+application example 2::
 
     # Custom backend
     from cache_tagging import get_cache
@@ -39,7 +41,7 @@ Usage
         value = get_value_func()
         cache.set('cache_name', value, tags=('FirstModel', 'CategoryModel.pk:{0}'.format(obj.category_id)))
 
-#### manual invalidation
+manual invalidation::
 
     from cache_tagging import cache
     
@@ -49,7 +51,7 @@ Usage
     tag_list = ['Tag1', 'Tag2', 'Tag3', ]
     cache.invalidate_tags(*tag_list)
 
-#### appname.caches.py file
+appname.caches.py file::
 
     from cache_tagging import registry, get_cache
     from models import MyModel
@@ -78,7 +80,8 @@ Usage
     ]
     registry.register(caches)
 
-#### template
+template::
+
     {% load cache_tagging_tags %}
     {% cache_tagging 'cache_name' 'CategoryModel.pk:15' 'FirstModel' tags=tag_list_from_view timeout=3600 %}
         ...
@@ -107,7 +110,7 @@ Usage
         and context has attribute "request".
     {% endcomment %}
 
-#### view decorator
+view decorator::
 
     from cache_tagging.decorators import cache_page
 
@@ -119,7 +122,8 @@ Usage
         result = get_result()
         return HttpResponse(result)
 
-#### How about transaction and multithreading (multiprocessing)?
+How about transaction and multithreading (multiprocessing)?::
+
     from django.db import transaction
     from cache_tagging import cache
 
@@ -137,7 +141,8 @@ Usage
 
     cache.transaction_finish()  # Invalidates cache tags again, after transaction commit/rollback.
 
-#### Transaction handler as decorator
+Transaction handler as decorator::
+
     from django.db import transaction
     from cache_tagging import cache
     from cache_tagging.decorators import cache_transaction
@@ -158,7 +163,8 @@ Usage
         # by signals django.db.models.signals.pre_save()
         # or django.db.models.signals.pre_delete(), and do not worry.
 
-#### Transaction handler as middleware
+Transaction handler as middleware::
+
     MIDDLEWARE_CLASSES = [
         # ...
         "cache_tagging.middleware.TransactionMiddleware",  # Should be before
