@@ -58,11 +58,12 @@ class CacheTagging(object):
 
     def set(self, name, value, tags=(), timeout=None, version=None):
         """Sets cache value and tags."""
-        if not hasattr(tags, '__iter__'):  # Called native API
-            if timeout is not None:
+        if not hasattr(tags, '__iter__'):  # Called as native API
+            if timeout is not None and version is None:
                 version = timeout
             timeout = tags
             return self.cache.set(name, value, timeout, version)
+
         tag_versions = {}
         if len(tags):
             tags = set(tags)
@@ -80,7 +81,7 @@ class CacheTagging(object):
                     tag_version = tag_caches[tag_prepared]
                 tag_versions[tag] = tag_version
             if len(tag_new_dict):
-                self.cache.set_many(tag_new_dict, TAG_TIMEOUT)
+                self.cache.set_many(tag_new_dict, TAG_TIMEOUT, version)
 
         data = {
             'tag_versions': tag_versions,
@@ -103,7 +104,8 @@ class CacheTagging(object):
 
         if len(data['tag_versions']):
             tag_caches = self.cache.get_many(
-                list(map(tag_prepare_name, list(data['tag_versions'].keys())))
+                list(map(tag_prepare_name, list(data['tag_versions'].keys()))),
+                version
             )
             for tag, tag_version in data['tag_versions'].items():
                 tag_prepared = tag_prepare_name(tag)
@@ -112,13 +114,14 @@ class CacheTagging(object):
                     return default
         return data['value']
 
-    def invalidate_tags(self, *tags):
+    def invalidate_tags(self, *tags, **kwargs):
         """Invalidate specified tags"""
         if len(tags):
+            version = kwargs.get('version', None)
             tags = set(tags)
             tags_prepared = list(map(tag_prepare_name, tags))
-            self._add_to_scope(*tags_prepared)
-            self.cache.delete_many(tags_prepared)
+            self._add_to_scope(*tags_prepared, version=version)
+            self.cache.delete_many(tags_prepared, version=version)
 
     def transaction_begin(self):
         """Handles database transaction begin."""
@@ -136,7 +139,12 @@ class CacheTagging(object):
         or "transaction_rollback")."""
         scope = self._get_scopes().pop()
         if len(scope):
-            self.cache.delete_many(scope)
+            scope_versioned = {}
+            for tag, version in scope:
+                tags = scope_versioned.setdefault(version, [])
+                tags.append(tag)
+            for version, tags in scope_versioned.items():
+                self.cache.delete_many(list(set(tags)), version=version)
         return self
 
     def transaction_finish_all(self):
@@ -154,13 +162,14 @@ class CacheTagging(object):
             _thread_locals.cache_transaction_scopes[cls_id] = []
         return _thread_locals.cache_transaction_scopes[cls_id]
 
-    def _add_to_scope(self, *args):
+    def _add_to_scope(self, *tags, **kwargs):
         """Adds cache names to current scope."""
         scopes = self._get_scopes()
         if len(scopes):
             scope = scopes[-1]
-            for v in args:
-                scope.append(v)
+            version = kwargs.get('version', None)
+            for tag in tags:
+                scope.append((tag, version,))
 
     def __getattr__(self, name):
         """Proxy for all native methods."""
