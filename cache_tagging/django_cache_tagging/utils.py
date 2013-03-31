@@ -1,12 +1,12 @@
 from __future__ import absolute_import, unicode_literals
 import hashlib
+import collections
 from django.conf import settings
 from django.utils.http import http_date
 from django.utils.cache import cc_delim_re, _generate_cache_key,\
     _generate_cache_header_key
 
-from cache_tagging import get_cache
-import collections
+from . import get_cache
 
 
 def prevent_cache_page(request):

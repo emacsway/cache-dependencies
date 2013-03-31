@@ -3,8 +3,8 @@ from functools import wraps
 
 from django.utils.decorators import decorator_from_middleware_with_args
 
-from cache_tagging import get_cache, cache
-from cache_tagging.middleware import CacheMiddleware
+from . import get_cache, cache
+from .middleware import CacheMiddleware
 import collections
 
 

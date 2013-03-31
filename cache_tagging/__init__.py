@@ -1,30 +1,29 @@
 from __future__ import absolute_import, unicode_literals
 # -*- coding: utf-8 -*-
 import os
-import sys
 import hashlib
 import random
 import time
 
 from threading import local
 
-from django.conf import settings
-from django.core.cache import DEFAULT_CACHE_ALIAS
-from django.core.cache import get_cache as django_get_cache
-from django.db.models import signals
-from django.utils.encoding import force_unicode
-from django.utils.functional import curry
-
 try:
     import _thread
 except ImportError:
     import thread as _thread  # Python < 3.*
 
-__version__ = 0.7
+try:
+    str = unicode  # Python 2.* compatible
+    string_types = (basestring,)
+    integer_types = (int, long)
+except NameError:
+    string_types = (str,)
+    integer_types = (int,)
+
+
+__version__ = '0.7.2'
 
 _thread_locals = local()
-
-TAG_TIMEOUT = getattr(settings, 'CACHE_TAG_TIMEOUT', 24 * 3600)
 
 # Use the system (hardware-based) random number generator if it exists.
 if hasattr(random, 'SystemRandom'):
@@ -32,6 +31,7 @@ if hasattr(random, 'SystemRandom'):
 else:
     randrange = random.randrange
 
+TAG_TIMEOUT = 24 * 3600
 MAX_TAG_KEY = 18446744073709551616     # 2 << 63
 
 
@@ -179,7 +179,7 @@ class CacheTagging(object):
 def tag_prepare_name(name):
     """Adds prefixed namespace for tag name"""
     version = str(__version__).replace('.', '')
-    name = hashlib.md5(force_unicode(name).encode('utf-8')).hexdigest()
+    name = hashlib.md5(str(name).encode('utf-8')).hexdigest()
     return 'tag_{0}_{1}'.format(version, name)
 
 
@@ -187,78 +187,10 @@ def tag_generate_version():
     """ Generates a new unique identifier for tag version."""
     pid = os.getpid()
     tid = _thread.get_ident()
-    hash = hashlib.md5("{0}{1}{2}{3}{4}".format(
+    hash = hashlib.md5("{0}{1}{2}{3}".format(
         randrange(0, MAX_TAG_KEY),
         pid,
         tid,
-        time.time(),
-        settings.SECRET_KEY
+        time.time()
     )).hexdigest()
     return hash
-
-
-def get_cache(*args, **kwargs):
-    """Returns instance of CacheTagging class."""
-    cache = django_get_cache(*args, **kwargs)
-    return CacheTagging(cache)
-
-cache = get_cache(DEFAULT_CACHE_ALIAS)
-
-
-def _clear_cached(tags_func, cache=None, *args, **kwargs):
-    """
-    Model's save and delete callback
-    """
-    obj = kwargs['instance']
-    tags = tags_func(obj)
-    if not hasattr(tags, '__iter__'):
-        tags = (tags, )
-    if cache is None:
-        cache = globals()['cache']
-    cache.invalidate_tags(*tags)
-
-
-class CacheRegistry(object):
-    """
-    Stores all registered caches
-    """
-    def __init__(self):
-        """Constructor, initial registry."""
-        self._registry = []
-
-    def register(self, model_tags):
-        """Registers handlers."""
-        self._registry.append(model_tags)
-
-        for data in model_tags:
-            Model = data[0]
-            tags_func = data[1]
-            apply_cache = len(data) > 2 and data[2] or cache
-            signals.post_save.connect(curry(_clear_cached,
-                                            tags_func,
-                                            apply_cache),
-                                      sender=Model,
-                                      weak=False)
-            signals.pre_delete.connect(curry(_clear_cached,
-                                             tags_func,
-                                             apply_cache),
-                                       sender=Model,
-                                       weak=False)
-
-registry = CacheRegistry()
-
-
-def autodiscover():
-    """
-    Auto-discover INSTALLED_APPS cachecontrol.py modules
-    and fail silently when not present.
-    """
-    import imp
-    from django.conf import settings
-    for app in settings.INSTALLED_APPS:
-        try:
-            __import__(app)
-            imp.find_module("caches", sys.modules[app].__path__)
-        except ImportError, AttributeError:
-            continue
-        __import__("{0}.caches".format(app))

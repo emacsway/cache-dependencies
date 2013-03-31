@@ -15,5 +15,5 @@
 .autosave$
 ^\.search/
 ^dist/
-^django_cache_tagging.egg-info/
+^cache_tagging.egg-info/
 ^build/

@@ -2,7 +2,7 @@ from __future__ import absolute_import, unicode_literals
 from uuid import uuid4
 from django.http import HttpResponse
 
-from cache_tagging.decorators import cache_page
+from ..decorators import cache_page
 
 
 @cache_page(3600, tags=lambda request: ('FirstTestModel', ))

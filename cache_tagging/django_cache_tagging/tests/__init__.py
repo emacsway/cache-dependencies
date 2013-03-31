@@ -8,8 +8,8 @@ from django.template import Context, Template
 from django.test import TestCase
 from django.test.client import RequestFactory
 
-from cache_tagging import cache, registry
-from cache_tagging.decorators import cache_transaction, cache_transaction_all
+from .. import cache, registry
+from ..decorators import cache_transaction, cache_transaction_all
 
 
 class FirstTestModel(models.Model):
@@ -32,7 +32,7 @@ registry.register(CACHES)
 
 class CacheTaggingTest(TestCase):
 
-    urls = 'cache_tagging.tests.urls'
+    urls = 'cache_tagging.django_cache_tagging.tests.urls'
 
     def setUp(self):
         self.obj1 = FirstTestModel.objects.create(title='title1')

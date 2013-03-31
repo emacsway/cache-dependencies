@@ -17,13 +17,13 @@ Usage
 
 project urls.py::
 
-    import cache_tagging
-    cache_tagging.autodiscover()
+    from cache_tagging.django_cache_tagging import autodiscover
+    autodiscover()
 
 application example 1::
 
     # Default backend
-    from cache_tagging import cache
+    from cache_tagging.django_cache_tagging import cache
 
     value = cache.get('cache_name')
     if value is None:
@@ -33,7 +33,7 @@ application example 1::
 application example 2::
 
     # Custom backend
-    from cache_tagging import get_cache
+    from cache_tagging.django_cache_tagging import get_cache
     cache = get_cache('my_backend')
 
     value = cache.get('cache_name')
@@ -43,7 +43,7 @@ application example 2::
 
 manual invalidation::
 
-    from cache_tagging import cache
+    from cache_tagging.django_cache_tagging import cache
     
     # ...
     cache.invalidate_tags('Tag1', 'Tag2', 'Tag3')
@@ -53,7 +53,7 @@ manual invalidation::
 
 appname.caches.py file::
 
-    from cache_tagging import registry, get_cache
+    from cache_tagging.django_cache_tagging import registry, get_cache
     from models import MyModel
     from django.db.models.signals import post_save, post_delete
 
@@ -112,7 +112,7 @@ template::
 
 view decorator::
 
-    from cache_tagging.decorators import cache_page
+    from cache_tagging.django_cache_tagging.decorators import cache_page
 
     # See also useful decorator to bind view's args and kwargs to request
     # https://bitbucket.org/evotech/django-ext/src/d8b55d86680e/django_ext/middleware/view_args_to_request.py
@@ -125,7 +125,7 @@ view decorator::
 How about transaction and multithreading (multiprocessing)?::
 
     from django.db import transaction
-    from cache_tagging import cache
+    from cache_tagging.django_cache_tagging import cache
 
     cache.transaction_begin()
     with transaction.commit_on_success():
@@ -144,8 +144,8 @@ How about transaction and multithreading (multiprocessing)?::
 Transaction handler as decorator::
 
     from django.db import transaction
-    from cache_tagging import cache
-    from cache_tagging.decorators import cache_transaction
+    from cache_tagging.django_cache_tagging import cache
+    from cache_tagging.django_cache_tagging.decorators import cache_transaction
 
     @cache_transaction
     @transaction.commit_on_success():
@@ -167,7 +167,7 @@ Transaction handler as middleware::
 
     MIDDLEWARE_CLASSES = [
         # ...
-        "cache_tagging.middleware.TransactionMiddleware",  # Should be before
+        "cache_tagging.django_cache_tagging.middleware.TransactionMiddleware",  # Should be before
         "django.middleware.transaction.TransactionMiddleware",
         # ...
     ]

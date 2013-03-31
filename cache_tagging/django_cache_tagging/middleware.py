@@ -48,13 +48,12 @@ More details about how the caching works:
   headers on the response object.
 
 """
-
+import collections
 from django.conf import settings
 from django.utils.cache import get_cache_key, get_max_age
 
-from cache_tagging import get_cache, DEFAULT_CACHE_ALIAS
-from cache_tagging.utils import patch_response_headers, learn_cache_key
-import collections
+from . import get_cache, DEFAULT_CACHE_ALIAS
+from .utils import patch_response_headers, learn_cache_key
 
 
 class TransactionMiddleware(object):
