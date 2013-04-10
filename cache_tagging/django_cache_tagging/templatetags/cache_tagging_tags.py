@@ -3,10 +3,11 @@ from __future__ import absolute_import, unicode_literals
 import re
 import copy
 
+from django.core import urlresolvers
 from django.template.loader import render_to_string
 from django.template import (Library, Node, TemplateSyntaxError,
-     VariableDoesNotExist, base
-)
+    VariableDoesNotExist, base)
+from django.utils.translation import ugettext_lazy, pgettext_lazy
 
 from .. import cache, nocache as nocache_handler
 from ..utils import prevent_cache_page
@@ -132,6 +133,11 @@ class CacheNode(Node):
                 'render_to_string': render_to_string,
                 'cache': cache,
                 'filters': filters,
+                'reverse': urlresolvers.reverse,
+                '_': ugettext_lazy,
+                'ugettext_lazy': ugettext_lazy,
+                '_p': pgettext_lazy,
+                'pgettext_lazy': pgettext_lazy,
             })
             result = nocache_handler.handle(result, context_dict)
         return result
