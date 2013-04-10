@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from __future__ import absolute_import, unicode_literals
 from uuid import uuid4
 
@@ -41,15 +42,14 @@ class CacheTaggingTest(TestCase):
             self.OLD_MIDDLEWARE_CLASSES = settings.MIDDLEWARE_CLASSES
             settings.MIDDLEWARE_CLASSES = list(self.OLD_MIDDLEWARE_CLASSES)
             settings.MIDDLEWARE_CLASSES.remove('cache_tagging.middleware.TransactionMiddleware')
-            
 
     def test_cache(self):
         tags1 = ('FirstTestModel.pk:{0}'.format(self.obj1.pk), )
-        cache.set('name1', 'value1', tags1, 3600)
+        cache.set('name1', 'value1', tags1, 120)
 
         tags2 = ('SecondTestModel.pk:{0}'.format(self.obj2.pk),
                  'FirstTestModel', )
-        cache.set('name2', 'value2', tags2, 3600)
+        cache.set('name2', 'value2', tags2, 120)
 
         self.assertEqual(cache.get('name1'), 'value1')
         self.assertEqual(cache.get('name2'), 'value2')
@@ -59,8 +59,8 @@ class CacheTaggingTest(TestCase):
         self.assertEqual(cache.get('name1', None), None)
         self.assertEqual(cache.get('name2', None), None)
 
-        cache.set('name1', 'value1', tags1, 3600)
-        cache.set('name2', 'value2', tags2, 3600)
+        cache.set('name1', 'value1', tags1, 120)
+        cache.set('name2', 'value2', tags2, 120)
         self.assertEqual(cache.get('name1'), 'value1')
         self.assertEqual(cache.get('name2'), 'value2')
 
@@ -97,10 +97,65 @@ class CacheTaggingTest(TestCase):
         self.assertNotEqual(resp1.content, resp3.content)
         cache.invalidate_tags('FirstTestModel')
 
+    def test_templatetag_nocache(self):
+        cache.invalidate_tags('Tag1')
+        t = Template("""
+            {% load cache_tagging_tags %}
+            {% cache_tagging cachename|striptags 'Tag1' timeout='120' nocache=1 %}
+                {{ now }}
+                #{% nocache %}
+                     if do:
+                         context['result'] = 1
+                         echo(a + b, '\\n')
+                         echo('случай1', '\\n')
+                     else:
+                         context['result'] = 2
+                         echo(b + c, '\\n')
+                         echo('случай2', '\\n')
+                     echo('<b>bold</b>', '\\n')
+                     echo(filters.escape('<b>bold</b>'), '\\n')
+                {% endnocache %}#
+                end
+            {% end_cache_tagging %}
+            """
+        )
+        now1 = str(uuid4())
+        c = Context({
+            'request': RequestFactory().get('/'),
+            'cachename': 'nocachename',
+            'now': now1,
+            'do': True,
+            'a': 1,
+            'b': 2,
+            'c': 3,
+            'result': None
+        })
+
+        r1 = t.render(c)
+        self.assertTrue(now1 in r1)
+        self.assertTrue('end' in r1)
+        self.assertTrue('#3\n' in r1)
+        self.assertTrue('случай1' in r1)
+        self.assertEqual(c['result'], 1)
+        self.assertTrue('<b>bold</b>' in r1)
+        self.assertTrue('&lt;b&gt;bold&lt;/b&gt;' in r1)
+
+        now2 = str(uuid4())
+        c.update({'now': now2, 'do': False})
+        r2 = t.render(c)
+        self.assertTrue(now1 in r2)
+        self.assertTrue(now2 not in r2)
+        self.assertTrue('end' in r2)
+        self.assertTrue('#5\n' in r2)
+        self.assertTrue('случай2' in r2)
+        self.assertEqual(c['result'], 2)
+
+        cache.invalidate_tags('Tag1')
+
     def test_templatetag(self):
         t = Template("""
             {% load cache_tagging_tags %}
-            {% cache_tagging cachename|striptags tag1|striptags 'SecondTestModel' tags=empty_val|default:tags timeout='3600' %}
+            {% cache_tagging cachename|striptags tag1|striptags 'SecondTestModel' tags=empty_val|default:tags timeout='120' %}
                 {{ now }}
                 {% cache_add_tags tag3 %}
             {% end_cache_tagging %}
@@ -163,7 +218,7 @@ class CacheTaggingTest(TestCase):
     def test_templatetag_prevent(self):
         t = Template("""
             {% load cache_tagging_tags %}
-            {% cache_tagging cachename|striptags tag1|striptags 'SecondTestModel' tags=empty_val|default:tags timeout='3600' %}
+            {% cache_tagging cachename|striptags tag1|striptags 'SecondTestModel' tags=empty_val|default:tags timeout='120' %}
                 {{ now }}
                 {% cache_add_tags tag3 "Tag4" %}
                 {% cache_tagging_prevent %}
@@ -201,18 +256,18 @@ class CacheTaggingTest(TestCase):
 
     def test_transaction_handlers(self):
         cache.transaction_begin()  # 1
-        cache.set('name1', 'value1', ('tag1', ), 3600)
+        cache.set('name1', 'value1', ('tag1', ), 120)
         self.assertEqual(cache.get('name1'), 'value1')
 
         cache.transaction_begin()  # 2
-        cache.set('name2', 'value2', ('tag2', ), 3600)
+        cache.set('name2', 'value2', ('tag2', ), 120)
         self.assertEqual(cache.get('name2'), 'value2')
 
         cache.invalidate_tags('tag2')
         self.assertEqual(cache.get('name2', None), None)
         self.assertEqual(cache.get('name1'), 'value1')
 
-        cache.set('name2', 'value2', ('tag2', ), 3600)
+        cache.set('name2', 'value2', ('tag2', ), 120)
         self.assertEqual(cache.get('name2'), 'value2')
         self.assertEqual(cache.get('name1'), 'value1')
 
@@ -220,7 +275,7 @@ class CacheTaggingTest(TestCase):
         self.assertEqual(cache.get('name2', None), None)
         self.assertEqual(cache.get('name1'), 'value1')
 
-        cache.set('name2', 'value2', ('tag2', ), 3600)
+        cache.set('name2', 'value2', ('tag2', ), 120)
         self.assertEqual(cache.get('name2'), 'value2')
         self.assertEqual(cache.get('name1'), 'value1')
 
@@ -228,7 +283,7 @@ class CacheTaggingTest(TestCase):
         self.assertEqual(cache.get('name2'), 'value2')
         self.assertEqual(cache.get('name1', None), None)
 
-        cache.set('name1', 'value1', ('tag1', ), 3600)
+        cache.set('name1', 'value1', ('tag1', ), 120)
         self.assertEqual(cache.get('name2'), 'value2')
         self.assertEqual(cache.get('name1'), 'value1')
 
@@ -238,11 +293,11 @@ class CacheTaggingTest(TestCase):
 
         cache.transaction_begin()  # 1
         cache.transaction_begin()  # 2
-        cache.set('name1', 'value1', ('tag1', ), 3600)
+        cache.set('name1', 'value1', ('tag1', ), 120)
         self.assertEqual(cache.get('name1'), 'value1')
         cache.invalidate_tags('tag1')
         self.assertEqual(cache.get('name1', None), None)
-        cache.set('name1', 'value1', ('tag1', ), 3600)
+        cache.set('name1', 'value1', ('tag1', ), 120)
         self.assertEqual(cache.get('name1'), 'value1')
         cache.transaction_begin()  # 3
         cache.transaction_begin()  # 4
@@ -257,10 +312,10 @@ class CacheTaggingTest(TestCase):
         def some_func():
             cache.invalidate_tags('tag1')
             self.assertEqual(cache.get('name1', None), None)
-            cache.set('name1', 'value1', ('tag1', ), 3600)
+            cache.set('name1', 'value1', ('tag1', ), 120)
             self.assertEqual(cache.get('name1'), 'value1')
 
-        cache.set('name1', 'value1', ('tag1', ), 3600)
+        cache.set('name1', 'value1', ('tag1', ), 120)
         self.assertEqual(cache.get('name1'), 'value1')
         some_func()
         self.assertEqual(cache.get('name1', None), None)
@@ -272,12 +327,12 @@ class CacheTaggingTest(TestCase):
             cache.invalidate_tags('tag1')
             cache.transaction_begin()
             self.assertEqual(cache.get('name1', None), None)
-            cache.set('name1', 'value1', ('tag1', ), 3600)
+            cache.set('name1', 'value1', ('tag1', ), 120)
             self.assertEqual(cache.get('name1'), 'value1')
 
         cache.transaction_begin()
         cache.transaction_begin()
-        cache.set('name1', 'value1', ('tag1', ), 3600)
+        cache.set('name1', 'value1', ('tag1', ), 120)
         self.assertEqual(cache.get('name1'), 'value1')
         some_func()
         self.assertEqual(cache.get('name1', None), None)

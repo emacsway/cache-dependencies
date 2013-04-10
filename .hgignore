@@ -2,13 +2,9 @@
 \.swp$
 \.orig$
 \.diff$
-\env1$
-\env2$
-\env3$
 ^\.\#
 ^\#
-^etags$
-^.ropeproject/
+\.ropeproject
 ^\.project$
 ^\.pydevproject$
 ^\.settings/

@@ -1,4 +1,5 @@
 import sys
+import hashlib
 
 from django.conf import settings
 from django.core.cache import DEFAULT_CACHE_ALIAS
@@ -7,7 +8,14 @@ from django.db.models import signals
 from django.utils.encoding import force_unicode
 from django.utils.functional import curry
 
-from .. import CacheTagging
+from cache_tagging.tagging import CacheTagging
+from cache_tagging.nocache import NoCache
+
+nocache = NoCache(
+    hashlib.md5(
+        'nocache_{0}'.format(settings.SECRET_KEY)
+    ).hexdigest()
+)
 
 
 def get_cache(*args, **kwargs):

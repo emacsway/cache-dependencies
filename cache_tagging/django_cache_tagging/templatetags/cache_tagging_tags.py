@@ -3,10 +3,12 @@ from __future__ import absolute_import, unicode_literals
 import re
 import copy
 
-from django.template import Library, Node, TemplateSyntaxError,\
-     VariableDoesNotExist
+from django.template.loader import render_to_string
+from django.template import (Library, Node, TemplateSyntaxError,
+     VariableDoesNotExist, base
+)
 
-from .. import cache
+from .. import cache, nocache as nocache_handler
 from ..utils import prevent_cache_page
 
 register = Library()
@@ -55,59 +57,83 @@ class CacheNode(Node):
     def render(self, context):
         cache_name = self.fragment_name.resolve(context)
         result = cache.get(cache_name)
-        if result:
-            return result
 
-        timeout = None
-        if self.timeout_var:
-            try:
-                timeout = self.timeout_var.resolve(context)
-            except VariableDoesNotExist:
-                raise TemplateSyntaxError(
-                    '"cache" tag got an unknkown variable: {0}'.format(
-                        self.timeout_var.var
+        if not result:
+            timeout = None
+            if self.timeout_var:
+                try:
+                    timeout = self.timeout_var.resolve(context)
+                except VariableDoesNotExist:
+                    raise TemplateSyntaxError(
+                        '"cache" tag got an unknkown variable: {0}'.format(
+                            self.timeout_var.var
+                        )
                     )
-                )
-            try:
-                timeout = int(timeout)
-            except (ValueError, TypeError):
-                raise TemplateSyntaxError(
-                    '"cache" tag got a non-integer timeout value: {0}'.fomat(
-                        timeout
+                try:
+                    timeout = int(timeout)
+                except (ValueError, TypeError):
+                    raise TemplateSyntaxError(
+                        '"cache" tag got a non-integer timeout value: {0}'.fomat(
+                            timeout
+                        )
                     )
-                )
 
-        tags = [x.resolve(context) for x in self.vary_on]
-        if 'tags' in self.kwargs:
-            tags += self.kwargs['tags'].resolve(context)
+            tags = [x.resolve(context) for x in self.vary_on]
+            if 'tags' in self.kwargs:
+                tags += self.kwargs['tags'].resolve(context)
 
-        # We can also add a new tags during nodelist is rendering.
-        # And prevent caching.
-        if not 'cache_tagging_prevent' in context:
-            context['cache_tagging_prevent'] = False
-        sub_context = copy.copy(context)
-        sub_context['cache_tagging'] = set(tags)
-        # Allows nested caching
-        sub_context['cache_tagging_prevent'] = False
+            # We can also add a new tags during nodelist is rendering.
+            # And prevent caching.
+            if not 'cache_tagging_prevent' in context:
+                context['cache_tagging_prevent'] = False
 
-        result = self.nodelist.render(sub_context)
+            sub_context = copy.copy(context)
+            sub_context['cache_tagging'] = set(tags)
+            # Allows nested caching
+            sub_context['cache_tagging_prevent'] = False
+            result = self.nodelist.render(sub_context)
+            tags = sub_context['cache_tagging']
 
-        tags = sub_context['cache_tagging']
-        # Prevent caching of ancestor
-        if sub_context['cache_tagging_prevent']:
-            context['cache_tagging_prevent'] = True
-        prevent = sub_context['cache_tagging_prevent']
+            # Prevent caching of ancestor
+            if sub_context['cache_tagging_prevent']:
+                context['cache_tagging_prevent'] = True
+            prevent = sub_context['cache_tagging_prevent']
 
-        if 'request' in context:
-            request = context['request']
-            if not hasattr(request, 'cache_tagging'):
-                request.cache_tagging = set()
-            if isinstance(request.cache_tagging, set):
-                request.cache_tagging.update(tags)
-            if context['cache_tagging_prevent']:
-                prevent_cache_page(request)
-        if not prevent:
-            cache.set(cache_name, result, tags, timeout)
+            if 'request' in context:
+                request = context['request']
+                if not hasattr(request, 'cache_tagging'):
+                    request.cache_tagging = set()
+                if isinstance(request.cache_tagging, set):
+                    request.cache_tagging.update(tags)
+                if context['cache_tagging_prevent']:
+                    prevent_cache_page(request)
+
+            if not prevent:
+                cache.set(cache_name, result, tags, timeout)
+
+        if 'nocache' in self.kwargs and self.kwargs['nocache'].resolve(context):
+            # TODO: add support for https://github.com/codysoyland/django-phased
+            # if 'phased' in self.kwargs: ...
+            context_dict = {}
+            for d in context.dicts:
+                context_dict.update(d)
+
+            class Filters(object):
+                pass
+
+            filters = Filters()
+            for lib in base.builtins:
+                for k, v in lib.filters.items():
+                    setattr(filters, k, v)
+            filters.escape = filters.force_escape
+
+            context_dict.update({
+                'context': context,
+                'render_to_string': render_to_string,
+                'cache': cache,
+                'filters': filters,
+            })
+            result = nocache_handler.handle(result, context_dict)
         return result
 
 
@@ -119,7 +145,7 @@ def do_cache(parser, token):
     Usage::
 
         {% load cache_tagging_tags %}
-        {% cache_tagging cache_name [tag1]  [tag2] ... [tags=tag_list] [timeout=3600] %}
+        {% cache_tagging cache_name [tag1]  [tag2] ... [tags=tag_list] [timeout=3600] [nocache=1] %}
             .. some expensive processing ..
             {% cache_add_tags 'NewTag1' 'NewTag2' %}
         {% end_cache_tagging %}
@@ -146,10 +172,7 @@ def do_cache(parser, token):
                 args.append(parser.compile_filter(value))
 
     name = args.pop(0)
-    if 'timeout' in kwargs:
-        timeout = kwargs['timeout']
-    else:
-        timeout = None
+    timeout = kwargs.pop('timeout', None)
     return CacheNode(nodelist, name, timeout, args, kwargs)
 
 
@@ -160,3 +183,13 @@ def cache_tagging_prevent(context):
     return ''
 
 register.tag('cache_tagging', do_cache)
+
+
+@register.simple_tag
+def nocache():
+    return nocache_handler.nocache
+
+
+@register.simple_tag
+def endnocache():
+    return nocache_handler.endnocache

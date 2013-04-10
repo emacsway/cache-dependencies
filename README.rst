@@ -110,6 +110,22 @@ template::
         and context has attribute "request".
     {% endcomment %}
 
+nocache::
+
+    {% cache_tagging 'cache_name' 'CategoryModel.pk:15' 'FirstModel' tags=tag_list_from_view timeout=3600 nocache=1 %}
+        ...
+        {% nocache %}
+            # Just python code here, because template engine agnostic.
+            # See also https://github.com/codysoyland/django-phased
+
+            if request.user.is_authenticated():
+                echo('Hi, ', filters.escape(request.user.username), '!')
+                echo(render_to_string('user_menu.html', context))
+            else:
+                echo(render_to_string('login_menu.html', context))
+        {% endnocache %}
+    {% end_cache_tagging %}
+
 view decorator::
 
     from cache_tagging.django_cache_tagging.decorators import cache_page
