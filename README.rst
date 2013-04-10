@@ -1,6 +1,6 @@
-==============
-Cache Tagging
-==============
+====================================
+Cache Tagging (with Django support)
+====================================
 
 Cache tagging allows you easily invalidate all cache records tagged with a given tag(s). Django support.
 
