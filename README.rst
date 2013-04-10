@@ -2,6 +2,8 @@
 Cache Tagging
 ==============
 
+Cache tagging allows you easily invalidate all cache records tagged with a given tag(s). Django support.
+
 Tags are a way to categorize cache records.
 When you save a cache, you can set a list of tags to apply for this record.
 Then you will be able to invalidate all cache records tagged with a given tag (or tags).
@@ -10,10 +12,10 @@ Forked from https://github.com/Harut/django-cachecontrol
 
 Some ideas from http://dklab.ru/lib/Dklab_Cache/
 
-Cache tagging allows to manage cached values and easily link them to Model signals
+Cache tagging allows to manage cached values and easily link them to Model signals.
 
-Usage
-======
+Usage with Django
+==================
 
 project urls.py::
 
@@ -110,11 +112,12 @@ template::
         and context has attribute "request".
     {% endcomment %}
 
-nocache::
+nocache support::
 
     {% cache_tagging 'cache_name' 'CategoryModel.pk:15' 'FirstModel' tags=tag_list_from_view timeout=3600 nocache=1 %}
-        ...
+        ... Cached fragment here ...
         {% nocache %}
+            # Non cached fragment here.
             # Just python code here, because template engine agnostic.
             # See also https://github.com/codysoyland/django-phased
 
