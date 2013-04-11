@@ -1,6 +1,12 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, unicode_literals
 import re
+import base64
+
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
 
 try:
     from io import StringIO
@@ -25,18 +31,35 @@ class NoCache(object):
         self.tag_name = tag_name
         # nocache.nocache can be used for nested cache handling.
         # Similar like Django {% openblock %} for "{%".
-        self.nocache = '<{0} secret="{1}">'.format(self.tag_name, self.secret)
-        self.endnocache = '<{0}>'.format(self.tag_name)
+        self._start = '<{0} secret="{1}" data="{{0}}">'.format(
+            self.tag_name, self.secret
+        )
+        self._end = '<{0}>'.format(self.tag_name)
         self.nocache_pattern = r'{0}(.+?){1}'.format(
-            self.nocache, self.endnocache
+            self._start.format('([^"]+)'),
+            self._end
         )
         self.nocache_re = re.compile(self.nocache_pattern, re.U|re.S)
 
-    def handle(self, tpl, data):
+    def start(self, **data):
+        return self._start.format(self.pickle(data))
+
+    def end(self):
+        return self._end
+
+    def pickle(self, data):
+        return base64.standard_b64encode(
+            pickle.dumps(data, protocol=pickle.HIGHEST_PROTOCOL)
+        )
+
+    def unpickle(self, value):
+        return pickle.loads(base64.standard_b64decode(value))
+
+    def handle(self, tpl, **data):
         """eval nocache"""
 
         def repl(match):
-            lines = match.group(1).split('\n')
+            lines = match.group(2).split('\n')
             lines = [l.rstrip() for l in lines]
             lines_stripped = []
             start = None
@@ -57,6 +80,7 @@ class NoCache(object):
             _globals = {}
             _globals.update(globals())
             _globals['echo'] = echo
+            data.update(self.unpickle(match.group(1)))
             code = compile("\n".join(lines_stripped), '<string>', 'exec')
             eval(code, _globals, data)
             result = stdout.getvalue()

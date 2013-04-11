@@ -115,6 +115,10 @@ class CacheTaggingTest(TestCase):
                      echo('<b>bold</b>', '\\n')
                      echo(filters.escape('<b>bold</b>'), '\\n')
                 {% endnocache %}#
+                and repeat
+                {% nocache pickled=3 %}
+                     echo('pickled=', pickled, '\\n')
+                {% endnocache %}
                 end
             {% end_cache_tagging %}
             """
@@ -139,6 +143,7 @@ class CacheTaggingTest(TestCase):
         self.assertEqual(c['result'], 1)
         self.assertTrue('<b>bold</b>' in r1)
         self.assertTrue('&lt;b&gt;bold&lt;/b&gt;' in r1)
+        self.assertTrue('pickled=3\n' in r1)
 
         now2 = str(uuid4())
         c.update({'now': now2, 'do': False})

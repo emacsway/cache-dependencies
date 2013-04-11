@@ -1,5 +1,5 @@
-from __future__ import absolute_import, unicode_literals
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import, unicode_literals
 import re
 import copy
 
@@ -11,6 +11,11 @@ from django.utils.translation import ugettext_lazy, pgettext_lazy
 
 from .. import cache, nocache as nocache_handler
 from ..utils import prevent_cache_page
+
+try:
+    from phased.utils import second_pass_render as phased_render
+except ImportError:
+    phased_render = None
 
 register = Library()
 
@@ -113,8 +118,6 @@ class CacheNode(Node):
                 cache.set(cache_name, result, tags, timeout)
 
         if 'nocache' in self.kwargs and self.kwargs['nocache'].resolve(context):
-            # TODO: add support for https://github.com/codysoyland/django-phased
-            # if 'phased' in self.kwargs: ...
             context_dict = {}
             for d in context.dicts:
                 context_dict.update(d)
@@ -139,7 +142,12 @@ class CacheNode(Node):
                 '_p': pgettext_lazy,
                 'pgettext_lazy': pgettext_lazy,
             })
-            result = nocache_handler.handle(result, context_dict)
+            result = nocache_handler.handle(result, **context_dict)
+
+        if 'phased' in self.kwargs and self.kwargs['phased'].resolve(context) and phased_render:
+            # support for django-phased https://github.com/codysoyland/django-phased
+            result = phased_render(context['request'], result)
+
         return result
 
 
@@ -151,7 +159,7 @@ def do_cache(parser, token):
     Usage::
 
         {% load cache_tagging_tags %}
-        {% cache_tagging cache_name [tag1]  [tag2] ... [tags=tag_list] [timeout=3600] [nocache=1] %}
+        {% cache_tagging cache_name [tag1]  [tag2] ... [tags=tag_list] [timeout=3600] [nocache=1] [phased=1] %}
             .. some expensive processing ..
             {% cache_add_tags 'NewTag1' 'NewTag2' %}
         {% end_cache_tagging %}
@@ -192,10 +200,10 @@ register.tag('cache_tagging', do_cache)
 
 
 @register.simple_tag
-def nocache():
-    return nocache_handler.nocache
+def nocache(**kwargs):
+    return nocache_handler.start(**kwargs)
 
 
 @register.simple_tag
 def endnocache():
-    return nocache_handler.endnocache
+    return nocache_handler.end()
