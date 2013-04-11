@@ -69,7 +69,9 @@ appname.caches.py file::
         #((model, func, [cache_object, ])),
         ((Post, lambda obj: ("blog.post.pk:{0}".format(obj.pk), ), get_cache('my_cache_alias'))),
         ((Article, lambda obj: ("news.alticle.pk:{0}".format(obj.pk),
-                                "categories.category.pk:{0}.blog.type.pk:{1}".format(obj.category_id, obj.type_id),  # Complex tag
+                                "categories.category.pk:{0}.blog.type.pk:{1}".format(
+                                    obj.category_id, obj.type_id
+                                ),  # Complex tag
                                 "news.alticle"))),
     ]
     registry.register(caches)
