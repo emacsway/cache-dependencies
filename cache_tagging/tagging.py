@@ -151,7 +151,7 @@ class CacheTagging(object):
         self.get_ancestors()[name] = set()
 
     def abort(self, name):
-        """Clean tags for given template name."""
+        """Clean tags for given cache name."""
         self.get_ancestors().pop(name, set())
 
     def finish(self, name, tags, version=None):
@@ -161,7 +161,7 @@ class CacheTagging(object):
 
     def transaction_begin(self):
         """Handles database transaction begin."""
-        self.get_transaction_scopes().append([])
+        self.get_transaction_scopes().append({})
         return self
 
     def transaction_finish(self):
@@ -175,12 +175,8 @@ class CacheTagging(object):
         or "transaction_rollback")."""
         scope = self.get_transaction_scopes().pop()
         if len(scope):
-            scope_versioned = {}
-            for tag, version in scope:
-                tags = scope_versioned.setdefault(version, [])
-                tags.append(tag)
-            for version, tags in scope_versioned.items():
-                self.cache.delete_many(list(set(tags)), version=version)
+            for version, tags in scope.items():
+                self.cache.delete_many(list(tags), version=version)
         return self
 
     def transaction_finish_all(self):
@@ -199,9 +195,7 @@ class CacheTagging(object):
         """Adds cache names to current scope."""
         scopes = self.get_transaction_scopes()
         if len(scopes):
-            scope = scopes[-1]
-            for tag in tags:
-                scope.append((tag, version,))
+            scopes[-1].setdefault(version, set()).update(tags)
 
     def __getattr__(self, name):
         """Proxy for all native methods."""
