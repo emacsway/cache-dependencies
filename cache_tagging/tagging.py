@@ -21,7 +21,7 @@ except NameError:
     integer_types = (int,)
 
 
-__version__ = '0.7.4'
+__version__ = '0.7.5'
 
 _thread_locals = local()
 
