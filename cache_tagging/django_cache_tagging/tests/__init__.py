@@ -81,9 +81,9 @@ class CacheTaggingTest(TestCase):
             self.assertEqual(val2, None)
             if val2 is None:
                 val2 = 'val2'
-                cache.set('name2', 'val2', ('tag2', ), 120)
-            val1 = 'val1'
-        cache.set('name1', 'val1', ('tag1', ), 120)
+                cache.set('name2', val2, ('tag2', ), 120)
+            val1 = 'val1' + val2
+            cache.set('name1', val1, ('tag1', ), 120)
         cache.invalidate_tags('tag2')
         self.assertEqual(cache.get('name1'), None)
         self.assertEqual(cache.get('name2'), None)
@@ -96,9 +96,9 @@ class CacheTaggingTest(TestCase):
             self.assertEqual(val2, 'val2')
             if val2 is None:  # val2 is not None, it's only for demonstration
                 val2 = 'val2'
-                cache.set('name2', 'val2', ('tag2', ), 120)
-            val1 = 'val1'
-        cache.set('name1', 'val1', ('tag1', ), 120)
+                cache.set('name2', val2, ('tag2', ), 120)
+            val1 = 'val1' + val2
+            cache.set('name1', val1, ('tag1', ), 120)
         cache.invalidate_tags('tag2')
         self.assertEqual(cache.get('name1'), None)
         self.assertEqual(cache.get('name2'), None)

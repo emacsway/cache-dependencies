@@ -68,12 +68,13 @@ to the composite (parent) cache. It is done automatically::
         val2 = cache.get('name2')
         if val2 is None:
             val2 = get_val2()
-            cache.set('name2', 'val2', ('tag2', ), 120)
-        val1 = get_val1()
+            cache.set('name2', val2, ('tag2', ), 120)
+        val1 = get_val1() + val2
+        cache.set('name1', val1, ('tag1', ), 120)
     cache.invalidate_tags('tag2')
     assert cache.get('name2') == None
-    assert cache.get('name1') == None
-    # cache with name 'name1' was invalidated by tag 'tag2' of descendant.
+    assert cache.get('name1') == None  # cache with name 'name1' was invalidated
+                                       # by tag 'tag2' of descendant.
 
 
 You can turn off this logic::
