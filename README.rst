@@ -30,7 +30,10 @@ application example 1::
     value = cache.get('cache_name')
     if value is None:
         value = get_value_func()
-        cache.set('cache_name', value, tags=('blog.post', 'categories.category.pk:{0}'.format(obj.category_id)))
+        cache.set('cache_name', value, tags=(
+            'blog.post',
+            'categories.category.pk:{0}'.format(obj.category_id),
+        ))
 
 application example 2::
 
@@ -41,7 +44,10 @@ application example 2::
     value = cache.get('cache_name')
     if value is None:
         value = get_value_func()
-        cache.set('cache_name', value, tags=('blog.post', 'categories.category.pk:{0}'.format(obj.category_id)))
+        cache.set('cache_name', value, tags=(
+            'blog.post',
+            'categories.category.pk:{0}'.format(obj.category_id),
+        ))
 
 manual invalidation::
 
