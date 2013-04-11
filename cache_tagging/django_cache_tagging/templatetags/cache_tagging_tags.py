@@ -116,6 +116,8 @@ class CacheNode(Node):
 
             if not prevent:
                 cache.set(cache_name, result, tags, timeout)
+            else:
+                cache.abort(cache_name)
 
         if 'nocache' in self.kwargs and self.kwargs['nocache'].resolve(context):
             context_dict = {}

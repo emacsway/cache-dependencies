@@ -59,6 +59,37 @@ manual invalidation::
     tag_list = ['tag1', 'tag2', 'tag3', ]
     cache.invalidate_tags(*tag_list)
 
+Ancestors automatically receive tags from their descendants.
+You do not have to worry about how to pass the tags from fragment's caches
+to the composite (parent) cache. It is done automatically::
+
+    val1 = cache.get('name1')
+    if val1 is None:
+        val2 = cache.get('name2')
+        if val2 is None:
+            val2 = get_val2()
+            cache.set('name2', 'val2', ('tag2', ), 120)
+        val1 = get_val1()
+    cache.invalidate_tags('tag2')
+    assert cache.get('name2') == None
+    assert cache.get('name1') == None
+    # cache with name 'name1' was invalidated by tag 'tag2' of descendant.
+
+
+You can turn off this logic::
+
+    # turn off for cache instance
+    cache.ignore_descendants = False
+    # turn off for get template
+    cache.get('cachename', abort=True)
+    # abort cache creating
+    val = cache.get('cachename')
+    if val is None:
+        try:
+            val = get_val()
+        except Exception:
+            cache.abort('cachename')
+
 appname.caches.py file::
     
     # Variant 1. Using registry.register().

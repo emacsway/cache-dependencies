@@ -23,8 +23,6 @@ except NameError:
 
 __version__ = '0.7.5'
 
-_thread_locals = local()
-
 # Use the system (hardware-based) random number generator if it exists.
 if hasattr(random, 'SystemRandom'):
     randrange = random.SystemRandom().randrange
@@ -41,11 +39,13 @@ class CacheTagging(object):
     def __init__(self, cache):
         """Constructor of cache instance."""
         self.cache = cache
+        self.ignore_descendants = False
+        self.ctx = local()
 
     def get_or_set_callback(self, name, callback, tags=[], timeout=None,
                             version=None, args=None, kwargs=None):
-        """
-        Returns cache value if exists
+        """Returns cache value if exists
+
         Otherwise calls cache_funcs, sets cache value to it and returns it.
         """
         value = self.get(name, version=version)
@@ -64,9 +64,14 @@ class CacheTagging(object):
             timeout = tags
             return self.cache.set(name, value, timeout, version)
 
+        # pull tags from descendants (cached fragments)
+        tags = set(tags)
+        for tag, vers in self.get_ancestors().get(name, set()):
+            if vers == version:
+                tags.add(tag)
+
         tag_versions = {}
         if len(tags):
-            tags = set(tags)
             tag_caches = self.cache.get_many(
                 list(map(tag_prepare_name, tags))
             )
@@ -87,13 +92,17 @@ class CacheTagging(object):
             'tag_versions': tag_versions,
             'value': value,
         }
+
+        self.finish(name, tags, version=version)
         return self.cache.set(name, data, timeout, version)
 
-    def get(self, name, default=None, version=None):
+    def get(self, name, default=None, version=None, abort=False):
         """Gets cache value.
 
         If one of cache tags is expired, returns default.
         """
+        if not abort and not self.ignore_descendants:
+            self.begin(name)
         data = self.cache.get(name, None, version)
         if data is None:
             return default
@@ -112,6 +121,8 @@ class CacheTagging(object):
                 if tag_prepared not in tag_caches\
                         or tag_caches[tag_prepared] != tag_version:
                     return default
+
+        self.finish(name, data['tag_versions'].keys(), version=version)
         return data['value']
 
     def invalidate_tags(self, *tags, **kwargs):
@@ -120,12 +131,37 @@ class CacheTagging(object):
             version = kwargs.get('version', None)
             tags = set(tags)
             tags_prepared = list(map(tag_prepare_name, tags))
-            self._add_to_scope(*tags_prepared, version=version)
+            self.add_to_transaction_scope(tags_prepared, version=version)
             self.cache.delete_many(tags_prepared, version=version)
+
+    def get_ancestors(self):
+        """Get transaction scopes. Using threading.local()"""
+        if not hasattr(self.ctx, 'ancestors'):
+            self.ctx.ancestors = {}
+        return self.ctx.ancestors
+
+    def add_to_ancestors(self, tags, version=None):
+        """add tags to ancestor"""
+        for k, v in self.get_ancestors().items():
+            for tag in tags:
+                v.add((tag, version,))
+
+    def begin(self, name):
+        """Start cache creating."""
+        self.get_ancestors()[name] = set()
+
+    def abort(self, name):
+        """Clean tags for given template name."""
+        self.get_ancestors().pop(name, set())
+
+    def finish(self, name, tags, version=None):
+        """Start cache creating."""
+        self.get_ancestors().pop(name, set())
+        self.add_to_ancestors(tags, version=version)
 
     def transaction_begin(self):
         """Handles database transaction begin."""
-        self._get_scopes().append([])
+        self.get_transaction_scopes().append([])
         return self
 
     def transaction_finish(self):
@@ -137,7 +173,7 @@ class CacheTagging(object):
         another database session (for commit case).
         So, method is named "transaction_finish" (not "transaction_commit"
         or "transaction_rollback")."""
-        scope = self._get_scopes().pop()
+        scope = self.get_transaction_scopes().pop()
         if len(scope):
             scope_versioned = {}
             for tag, version in scope:
@@ -149,25 +185,21 @@ class CacheTagging(object):
 
     def transaction_finish_all(self):
         """Handles all database's transaction commit or rollback."""
-        while len(self._get_scopes()):
+        while len(self.get_transaction_scopes()):
             self.transaction_finish()
         return self
 
-    def _get_scopes(self):
+    def get_transaction_scopes(self):
         """Get transaction scopes."""
-        if not hasattr(_thread_locals, 'cache_transaction_scopes'):
-            _thread_locals.cache_transaction_scopes = {}
-        cls_id = id(self)
-        if cls_id not in _thread_locals.cache_transaction_scopes:
-            _thread_locals.cache_transaction_scopes[cls_id] = []
-        return _thread_locals.cache_transaction_scopes[cls_id]
+        if not hasattr(self.ctx, 'transaction_scopes'):
+            self.ctx.transaction_scopes = []
+        return self.ctx.transaction_scopes
 
-    def _add_to_scope(self, *tags, **kwargs):
+    def add_to_transaction_scope(self, tags, version=None):
         """Adds cache names to current scope."""
-        scopes = self._get_scopes()
+        scopes = self.get_transaction_scopes()
         if len(scopes):
             scope = scopes[-1]
-            version = kwargs.get('version', None)
             for tag in tags:
                 scope.append((tag, version,))
 
