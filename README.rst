@@ -97,6 +97,8 @@ appname.caches.py file::
     # Each item from list creates model's post_save and pre_delete signal.
     # Func takes changed model and returns list of tags.
     # When the signal is called, it gets varied tags and deletes all caches with this tags.
+    # Inside the handler function available all local variables from signal.
+    # Or only object. Of your choice.
 
     from cache_tagging.django_cache_tagging import registry
     from models import Post
@@ -104,7 +106,7 @@ appname.caches.py file::
 
     caches = [
         #((model, func, [cache_object, ])),
-        ((Post, lambda obj: ("blog.post.pk:{0}".format(obj.pk), ), get_cache('my_cache_alias'))),
+        ((Post, lambda *a, **kw: ("blog.post.pk:{0}".format(kw['instance'].pk), ), get_cache('my_cache_alias'))),
         ((Article, lambda obj: ("news.alticle.pk:{0}".format(obj.pk),
                                 "categories.category.pk:{0}.blog.type.pk:{1}".format(  # Complex tag
                                     obj.category_id, obj.type_id

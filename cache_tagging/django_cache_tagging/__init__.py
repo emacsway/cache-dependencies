@@ -31,7 +31,10 @@ def _clear_cached(tags_func, cache=None, *args, **kwargs):
     Model's save and delete callback
     """
     obj = kwargs['instance']
-    tags = tags_func(obj)
+    try:
+        tags = tags_func(*args, **kwargs)
+    except TypeError:
+        tags = tags_func(obj)
     if not hasattr(tags, '__iter__'):
         tags = (tags, )
     if cache is None:
