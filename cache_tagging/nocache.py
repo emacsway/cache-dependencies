@@ -34,9 +34,11 @@ class NoCache(object):
         self._start = '<{0} secret="{1}" data="{{0}}">'.format(
             self.tag_name, self.secret
         )
-        self._end = '<{0}>'.format(self.tag_name)
-        self.nocache_pattern = r'{0}(.+?){1}'.format(
+        self._end = '</{0}>'.format(self.tag_name)
+        # Usind lookahead assertion in case nested nocaches.
+        self.nocache_pattern = r'{0}(.+?)(?!<{1}){2}'.format(
             self._start.format('([^"]+)'),
+            self.tag_name,
             self._end
         )
         self.nocache_re = re.compile(self.nocache_pattern, re.U|re.S)
@@ -80,11 +82,21 @@ class NoCache(object):
             _globals = {}
             _globals.update(globals())
             _globals['echo'] = echo
-            data.update(self.unpickle(match.group(1)))
+
+            _locals = {}
+            _locals.update(data)
+            _locals.update(self.unpickle(match.group(1)))
+
             code = compile("\n".join(lines_stripped), '<string>', 'exec')
-            eval(code, _globals, data)
+            eval(code, _globals, _locals)
             result = stdout.getvalue()
             stdout.close()
+            # After eval() nocache.start() will be converted to "<nocache:py ..."
+            # and nocache.end() - to "</nocache>"
+            # So, check again.
+            if self._end in result:
+                result = self.handle(result, **data)
             return result
 
-        return self.nocache_re.sub(repl, tpl)
+        result = self.nocache_re.sub(repl, tpl)
+        return result

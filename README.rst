@@ -112,7 +112,7 @@ template::
         and context has attribute "request".
     {% endcomment %}
 
-django-phased support ( https://github.com/codysoyland/django-phased )::
+`django-phased <https://github.com/codysoyland/django-phased>`_ support::
 
     {% comment %}
         django-phased support https://github.com/codysoyland/django-phased
@@ -134,9 +134,12 @@ nocache support::
     {% cache_tagging 'cache_name' 'CategoryModel.pk:15' 'FirstModel' tags=tag_list_from_view timeout=3600 nocache=1 %}
         ... Cached fragment here ...
         {% nocache %}
-            # Non-cached fragment here.
-            # Just python code here, because template engine agnostic.
-
+            """
+            Non-cached fragment here. Just python code.
+            Why nocache, if exists django-phased?
+            Because template engine agnostic. We can use not only Django templates.
+            Of course, for only Django template engine, django-phased is the best option.
+            """
             if request.user.is_authenticated():
                 echo('Hi, ', filters.escape(request.user.username), '!')
                 echo(render_to_string('user_menu.html', context))
