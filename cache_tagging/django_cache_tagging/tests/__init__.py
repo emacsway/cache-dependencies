@@ -118,6 +118,9 @@ class CacheTaggingTest(TestCase):
                 and repeat
                 {% nocache pickled=3 %}
                      echo('pickled=', pickled, '\\n')
+                     nocache.start()
+                     echo('nested nocache', '\\n')
+                     nocache.end()
                 {% endnocache %}
                 end
             {% end_cache_tagging %}
@@ -144,6 +147,8 @@ class CacheTaggingTest(TestCase):
         self.assertTrue('<b>bold</b>' in r1)
         self.assertTrue('&lt;b&gt;bold&lt;/b&gt;' in r1)
         self.assertTrue('pickled=3\n' in r1)
+        self.assertTrue('nested nocache\n' in r1)
+        self.assertTrue('<nocache' not in r1)
 
         now2 = str(uuid4())
         c.update({'now': now2, 'do': False})

@@ -135,6 +135,7 @@ class CacheNode(Node):
                 'context': context,
                 'render_to_string': render_to_string,
                 'cache': cache,
+                'nocache': nocache_handler,
                 'filters': filters,
                 'reverse': urlresolvers.reverse,
                 '_': ugettext_lazy,
