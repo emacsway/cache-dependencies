@@ -5,7 +5,7 @@ from django.http import HttpResponse
 from ..decorators import cache_page
 
 
-@cache_page(3600, tags=lambda request: ('FirstTestModel', ))
+@cache_page(3600, tags=lambda request: ('tests.firsttestmodel', ))
 def test_decorator(request):
     now = uuid4()
     html = "<html><body>It is now {0}.</body></html>".format(now)

@@ -208,3 +208,8 @@ def nocache(**kwargs):
 @register.simple_tag
 def endnocache():
     return nocache_handler.end()
+
+
+@register.filter
+def concat(value, arg):
+    return "{0}{1}".format(value, arg)

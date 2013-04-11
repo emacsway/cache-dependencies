@@ -30,7 +30,7 @@ application example 1::
     value = cache.get('cache_name')
     if value is None:
         value = get_value_func()
-        cache.set('cache_name', value, tags=('FirstModel', 'CategoryModel.pk:{0}'.format(obj.category_id)))
+        cache.set('cache_name', value, tags=('blog.post', 'categories.category.pk:{0}'.format(obj.category_id)))
 
 application example 2::
 
@@ -41,55 +41,62 @@ application example 2::
     value = cache.get('cache_name')
     if value is None:
         value = get_value_func()
-        cache.set('cache_name', value, tags=('FirstModel', 'CategoryModel.pk:{0}'.format(obj.category_id)))
+        cache.set('cache_name', value, tags=('blog.post', 'categories.category.pk:{0}'.format(obj.category_id)))
 
 manual invalidation::
 
     from cache_tagging.django_cache_tagging import cache
     
     # ...
-    cache.invalidate_tags('Tag1', 'Tag2', 'Tag3')
+    cache.invalidate_tags('tag1', 'tag2', 'tag3')
     # or
-    tag_list = ['Tag1', 'Tag2', 'Tag3', ]
+    tag_list = ['tag1', 'tag2', 'tag3', ]
     cache.invalidate_tags(*tag_list)
 
 appname.caches.py file::
-
-    from cache_tagging.django_cache_tagging import registry, get_cache
-    from models import MyModel
-    from django.db.models.signals import post_save, post_delete
-
-    # Variant 1. Using signals for invalidation.
-    def invalidation_callback(sender, instance, **kwars):
-        cache.invalidate_tags(
-            'Tag1',
-            'Tag2',
-            'FirstModel.pk:{1}'.format(instance.pk)
-        )
-    post_save.connect(invalidation_callback, sender=FirstModel)
-    post_delete.connect(invalidation_callback, sender=FirstModel)
     
-    # Variant 2. Using registry.register().
+    # Variant 1. Using registry.register().
     # Each item from list creates model's post_save and pre_delete signal.
     # Func takes changed model and returns list of tags.
     # When the signal is called, it gets varied tags and deletes all caches with this tags.
+    # Thanks to currying, inside the handler function is available all local variables from signal.
+
+    from cache_tagging.django_cache_tagging import registry
+    from models import Post
+    from news import Article
+
     caches = [
-        #((model, func, [cache_object, ]), ),
-        ((FirstModel, lambda obj: ('FirstModel.pk:{0}'.format(obj.pk), ), get_cache('my_cache_alias'), ), ),
-        ((SecondModel, lambda obj: ('SecondModel.pk:{0}'.format(obj.pk),
-                                    'CategoryModel.pk:{0}.TypeModel.pk:{1}'.format(obj.category_id, obj.type_id),
-                                    'SecondModel', ), ), ),
+        #((model, func, [cache_object, ])),
+        ((Post, lambda obj: ("blog.post.pk:{0}".format(obj.pk), ), get_cache('my_cache_alias'))),
+        ((Article, lambda obj: ("news.alticle.pk:{0}".format(obj.pk),
+                                "categories.category.pk:{0}.blog.type.pk:{1}".format(obj.category_id, obj.type_id),  # Complex tag
+                                "news.alticle"))),
     ]
     registry.register(caches)
+
+
+    # Variant 2. Low-lewel. Using signals for invalidation.
+
+    from cache_tagging.django_cache_tagging import registry, get_cache
+    from models import Post
+    from django.db.models.signals import post_save, post_delete
+
+    def invalidation_callback(sender, instance, **kwars):
+        cache.invalidate_tags(
+            'tag1', 'tag2', 'blog.post.pk:{1}'.format(instance.pk)
+        )
+
+    post_save.connect(invalidation_callback, sender=Post)
+    post_delete.connect(invalidation_callback, sender=Post)
 
 template::
 
     {% load cache_tagging_tags %}
-    {% cache_tagging 'cache_name' 'CategoryModel.pk:15' 'FirstModel' tags=tag_list_from_view timeout=3600 %}
+    {% cache_tagging 'cache_name' 'categories.category.pk:15' 'blog.post' tags=tag_list_from_view timeout=3600 %}
         ...
-        {% cache_add_tags 'NewTag1' %}
+        {% cache_add_tags 'new_tag1' %}
         ...
-        {% cache_add_tags 'NewTag2' 'NewTag3' %}
+        {% cache_add_tags 'new_tag2' 'new_tag3' %}
         ...
         {% if do_not_cache_condition %}
             {% cache_tagging_prevent %}
@@ -120,7 +127,7 @@ template::
     {% endcomment %}
     {% load cache_tagging_tags %}
     {% load phased_tags %}
-    {% cache_tagging 'cache_name' 'CategoryModel.pk:15' 'FirstModel' tags=tag_list_from_view timeout=3600 phased=1 %}
+    {% cache_tagging 'cache_name' 'categories.category.pk:15' 'blog.post' tags=tag_list_from_view timeout=3600 phased=1 %}
         ... Cached fragment here ...
         {% phased with comment_count object %}
             {# Non-cached fragment here. #}
@@ -131,7 +138,7 @@ template::
 nocache support::
 
     {% load cache_tagging_tags %}
-    {% cache_tagging 'cache_name' 'CategoryModel.pk:15' 'FirstModel' tags=tag_list_from_view timeout=3600 nocache=1 %}
+    {% cache_tagging 'cache_name' 'categories.category.pk:15' 'blog.post' tags=tag_list_from_view timeout=3600 nocache=1 %}
         ... Cached fragment here ...
         {% nocache %}
             """
@@ -155,7 +162,7 @@ view decorator::
     # See also useful decorator to bind view's args and kwargs to request
     # https://bitbucket.org/evotech/django-ext/src/d8b55d86680e/django_ext/middleware/view_args_to_request.py
 
-    @cache_page(3600, tags=lambda request: ('FirstModel', ) + SecondModel.get_tags_for_request(request))
+    @cache_page(3600, tags=lambda request: ('blog.post', ) + Article.get_tags_for_request(request))
     def cached_view(request):
         result = get_result()
         return HttpResponse(result)
@@ -169,7 +176,7 @@ How about transaction and multithreading (multiprocessing)?::
     with transaction.commit_on_success():
         # ... some code
         # Changes a some data
-        cache.invalidate_tags('Tag1', 'Tag2', 'Tag3')
+        cache.invalidate_tags('tag1', 'tag2', 'tag3')
         # ... some long code
         # Another concurrent process/thread can obtain old data at this time,
         # after changes but before commit, and create cache with old data,
@@ -189,7 +196,7 @@ Transaction handler as decorator::
     @transaction.commit_on_success():
     def some_view(request):
         # ... some code
-        cache.invalidate_tags('Tag1', 'Tag2', 'Tag3')
+        cache.invalidate_tags('tag1', 'tag2', 'tag3')
         # ... some long code
         # Another concurrent process/thread can obtain old data at this time,
         # after changes but before commit, and create cache with old data,
