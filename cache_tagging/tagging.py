@@ -93,11 +93,12 @@ class CacheTagging(object):
             timeout = tags
             return self.cache.set(name, value, timeout, version)
 
-        # pull tags from descendants (cached fragments)
         tags = set(tags)
-        for tag, vers in self.get_ancestors().get(name, set()):
-            if vers == version:
-                tags.add(tag)
+        # pull tags from descendants (cached fragments)
+        try:
+            tags.update(self.get_ancestors()[name][version])
+        except KeyError:
+            pass
 
         tag_versions = {}
         if len(tags):
@@ -129,8 +130,7 @@ class CacheTagging(object):
         """Invalidate specified tags"""
         if len(tags):
             version = kwargs.get('version', None)
-            tags = set(tags)
-            tags_prepared = list(map(tag_prepare_name, tags))
+            tags_prepared = list(map(tag_prepare_name, set(tags)))
             self.add_to_transaction_scope(tags_prepared, version=version)
             self.cache.delete_many(tags_prepared, version=version)
 
@@ -142,21 +142,20 @@ class CacheTagging(object):
 
     def add_to_ancestors(self, tags, version=None):
         """add tags to ancestor"""
-        for k, v in self.get_ancestors().items():
-            for tag in tags:
-                v.add((tag, version,))
+        for cachename, versions in self.get_ancestors().items():
+            versions.setdefault(version, set()).update(tags)
 
     def begin(self, name):
         """Start cache creating."""
-        self.get_ancestors()[name] = set()
+        self.get_ancestors()[name] = {}
 
     def abort(self, name):
         """Clean tags for given cache name."""
-        self.get_ancestors().pop(name, set())
+        self.get_ancestors().pop(name, {})
 
     def finish(self, name, tags, version=None):
         """Start cache creating."""
-        self.get_ancestors().pop(name, set())
+        self.get_ancestors().pop(name, {})
         self.add_to_ancestors(tags, version=version)
 
     def transaction_begin(self):
