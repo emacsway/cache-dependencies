@@ -56,6 +56,35 @@ class CacheTagging(object):
             self.set(name, value, tags, timeout, version)
         return value
 
+    def get(self, name, default=None, version=None, abort=False):
+        """Gets cache value.
+
+        If one of cache tags is expired, returns default.
+        """
+        if not abort and not self.ignore_descendants:
+            self.begin(name)
+        data = self.cache.get(name, None, version)
+        if data is None:
+            return default
+
+        if not isinstance(data, dict) or 'tag_versions' not in data\
+                or 'value' not in data:
+            return data  # Returns native API
+
+        if len(data['tag_versions']):
+            tag_caches = self.cache.get_many(
+                list(map(tag_prepare_name, list(data['tag_versions'].keys()))),
+                version
+            )
+            for tag, tag_version in data['tag_versions'].items():
+                tag_prepared = tag_prepare_name(tag)
+                if tag_prepared not in tag_caches\
+                        or tag_caches[tag_prepared] != tag_version:
+                    return default
+
+        self.finish(name, data['tag_versions'].keys(), version=version)
+        return data['value']
+
     def set(self, name, value, tags=(), timeout=None, version=None):
         """Sets cache value and tags."""
         if not hasattr(tags, '__iter__'):  # Called as native API
@@ -95,35 +124,6 @@ class CacheTagging(object):
 
         self.finish(name, tags, version=version)
         return self.cache.set(name, data, timeout, version)
-
-    def get(self, name, default=None, version=None, abort=False):
-        """Gets cache value.
-
-        If one of cache tags is expired, returns default.
-        """
-        if not abort and not self.ignore_descendants:
-            self.begin(name)
-        data = self.cache.get(name, None, version)
-        if data is None:
-            return default
-
-        if not isinstance(data, dict) or 'tag_versions' not in data\
-                or 'value' not in data:
-            return data  # Returns native API
-
-        if len(data['tag_versions']):
-            tag_caches = self.cache.get_many(
-                list(map(tag_prepare_name, list(data['tag_versions'].keys()))),
-                version
-            )
-            for tag, tag_version in data['tag_versions'].items():
-                tag_prepared = tag_prepare_name(tag)
-                if tag_prepared not in tag_caches\
-                        or tag_caches[tag_prepared] != tag_version:
-                    return default
-
-        self.finish(name, data['tag_versions'].keys(), version=version)
-        return data['value']
 
     def invalidate_tags(self, *tags, **kwargs):
         """Invalidate specified tags"""
