@@ -80,7 +80,7 @@ to the composite (parent) cache. It is done automatically::
 You can turn off this logic::
 
     # turn off for cache instance
-    cache.ignore_descendants = False
+    cache.ignore_descendants = True
     # turn off for get template
     cache.get('cachename', abort=True)
     # abort cache creating
