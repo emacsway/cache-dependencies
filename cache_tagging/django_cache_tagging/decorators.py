@@ -1,5 +1,4 @@
 from __future__ import absolute_import, unicode_literals
-from functools import wraps
 from django.utils.decorators import decorator_from_middleware_with_args
 
 from ..tagging import CacheTagging

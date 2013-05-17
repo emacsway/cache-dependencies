@@ -9,8 +9,8 @@ from django.template import Context, Template
 from django.test import TestCase
 from django.test.client import RequestFactory
 
-from .. import cache, registry, DEFAULT_CACHE_ALIAS
-from ..decorators import cache_transaction, cache_transaction_all
+from .. import cache, registry
+from ..decorators import cache_transaction_all
 
 
 class FirstTestModel(models.Model):
