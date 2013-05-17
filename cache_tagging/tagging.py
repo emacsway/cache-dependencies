@@ -22,7 +22,7 @@ except NameError:
     integer_types = (int,)
 
 
-__version__ = '0.7.6.3'
+__version__ = '0.7.7.0'
 
 # Use the system (hardware-based) random number generator if it exists.
 if hasattr(random, 'SystemRandom'):
