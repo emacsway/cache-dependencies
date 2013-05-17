@@ -5,11 +5,23 @@ from django.conf import settings
 from django.core.cache import DEFAULT_CACHE_ALIAS
 from django.core.cache import get_cache as django_get_cache
 from django.db.models import signals
-from django.utils.encoding import force_unicode
 from django.utils.functional import curry
 
 from cache_tagging.tagging import CacheTagging
 from cache_tagging.nocache import NoCache
+
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
+
+try:
+    str = unicode  # Python 2.* compatible
+    string_types = (basestring,)
+    integer_types = (int, long)
+except NameError:
+    string_types = (str,)
+    integer_types = (int,)
 
 nocache = NoCache(
     hashlib.md5(
@@ -18,12 +30,29 @@ nocache = NoCache(
 )
 
 
-def get_cache(*args, **kwargs):
-    """Returns instance of CacheTagging class."""
-    cache = django_get_cache(*args, **kwargs)
-    return CacheTagging(cache)
+class CacheCollection(object):
+    """Collections of caches.
 
-cache = get_cache(DEFAULT_CACHE_ALIAS)
+    Cache Middlewares and decorators obtains the cache instances
+    by get_cache() function.
+    For correct transaction handling we should to return
+    the same instance by cache alias.
+    """
+    def __init__(self):
+        self._caches = {}
+
+    def __call__(self, backend=None, *args, **kwargs):
+        """Returns instance of CacheTagging class."""
+        backend = backend or DEFAULT_CACHE_ALIAS
+        key = pickle.dumps((backend, args, kwargs)).encode("base64")
+        if key not in self._caches:
+            self._caches[key] = CacheTagging(
+                django_get_cache(backend, *args, **kwargs)
+            )
+        return self._caches[key]
+
+get_cache = CacheCollection()
+cache = get_cache()
 
 
 def _clear_cached(tags_func, cache=None, *args, **kwargs):
@@ -81,6 +110,6 @@ def autodiscover():
         try:
             __import__(app)
             imp.find_module("caches", sys.modules[app].__path__)
-        except ImportError, AttributeError:
+        except (ImportError, AttributeError):
             continue
         __import__("{0}.caches".format(app))

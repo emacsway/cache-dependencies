@@ -64,13 +64,17 @@ You do not have to worry about how to pass the tags from fragment's caches
 to the composite (parent) cache. It is done automatically::
 
     val1 = cache.get('name1')
+
     if val1 is None:
         val2 = cache.get('name2')
+
         if val2 is None:
             val2 = get_val2()
             cache.set('name2', val2, ('tag2', ), 120)
+
         val1 = get_val1() + val2
         cache.set('name1', val1, ('tag1', ), 120)
+
     cache.invalidate_tags('tag2')
     assert cache.get('name2') == None
     assert cache.get('name1') == None  # cache with name 'name1' was invalidated
@@ -81,8 +85,10 @@ You can turn off this logic::
 
     # turn off for cache instance
     cache.ignore_descendants = True
+
     # turn off for get template
     cache.get('cachename', abort=True)
+
     # abort cache creating
     val = cache.get('cachename')
     if val is None:
@@ -212,9 +218,9 @@ How about transaction and multithreading (multiprocessing)?::
 
     from django.db import transaction
     from cache_tagging.django_cache_tagging import cache
+    from cache_tagging.django_cache_tagging import cache_transaction
 
-    cache.transaction_begin()
-    with transaction.commit_on_success():
+    with cache.transaction, transaction.commit_on_success():
         # ... some code
         # Changes a some data
         cache.invalidate_tags('tag1', 'tag2', 'tag3')
@@ -225,15 +231,13 @@ How about transaction and multithreading (multiprocessing)?::
         # Otherwise, if isolation level is "Read uncommitted", and transaction will rollback,
         # the concurrent and current process/thread can creates cache with dirty data.
 
-    cache.transaction_finish()  # Invalidates cache tags again, after transaction commit/rollback.
-
 Transaction handler as decorator::
 
     from django.db import transaction
     from cache_tagging.django_cache_tagging import cache
     from cache_tagging.django_cache_tagging.decorators import cache_transaction
 
-    @cache_transaction
+    @cache.transaction
     @transaction.commit_on_success():
     def some_view(request):
         # ... some code

@@ -1,50 +1,69 @@
 from __future__ import absolute_import, unicode_literals
 from functools import wraps
-
 from django.utils.decorators import decorator_from_middleware_with_args
 
-from . import get_cache, cache
+from ..tagging import CacheTagging
+from . import cache
 from .middleware import CacheMiddleware
 import collections
 
 
-def cache_transaction(f):
+def cache_transaction(f=None, cache=None):
     """Decorator for any callback,
 
     that automatically handles database transactions."""
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-        cache_alias = kwargs.pop('cache', None)
-        if cache_alias:
-            cache = get_cache(cache_alias)
-        else:
-            cache = globals()['cache']
-        cache.transaction_begin()
-        result = f(*args, **kwargs)
-        cache.transaction_finish()
-        return result
-    return wrapper
+    import warnings
+    warnings.warn(
+        "Decorators @cache_transaction is deprecated.  Use @cache.transaction instead",
+        PendingDeprecationWarning,
+        stacklevel=2
+    )
+    if not cache and isinstance(f, CacheTagging):
+        cache = f
+        f = None
+    elif not cache:
+        cache = globals()['cache']
+    if f:
+        return cache.transaction(f)
+    return cache.transaction
 
 
-def cache_transaction_all(f):
+def cache_transaction_all(f=None, cache=None):
     """Decorator for any callback,
 
     that automatically handles database transactions,
     and calls CacheTagging.transaction_finish_all() instead of
     CacheTagging.transaction_finish().
     So. It will handles all transaction's scopes."""
-    @wraps(f)
+    import warnings
+    warnings.warn(
+        "Decorators @cache_transaction_all is deprecated. Use cache.transaction.flush() instead",
+        PendingDeprecationWarning,
+        stacklevel=2
+    )
+    if not cache and isinstance(f, CacheTagging):
+        cache = f
+        f = None
+    elif not cache:
+        cache = globals()['cache']
+
     def wrapper(*args, **kwargs):
-        cache_alias = kwargs.pop('cache', None)
-        if cache_alias:
-            cache = get_cache(cache_alias)
-        else:
-            cache = globals()['cache']
-        cache.transaction_begin()
+        cache.transaction.begin()
         result = f(*args, **kwargs)
-        cache.transaction_finish_all()
+        cache.transaction.flush()
         return result
-    return wrapper
+
+    if f:
+        return wrapper
+
+    def wrapper_outer(f):
+        def wrapper(*args, **kwargs):
+            cache.transaction.begin()
+            result = f(*args, **kwargs)
+            cache.transaction.flush()
+            return result
+
+    return wrapper_outer
 
 
 def cache_page(*args, **kwargs):
@@ -84,6 +103,7 @@ def cache_page(*args, **kwargs):
     # patch start
     tags = kwargs.pop('tags', ())
     assert not kwargs, "The only keyword arguments are cache and key_prefix"
+
     def warn():
         import warnings
         warnings.warn('The cache_page decorator must be called like: '

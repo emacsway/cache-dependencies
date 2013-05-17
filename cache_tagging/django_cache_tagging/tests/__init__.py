@@ -9,7 +9,7 @@ from django.template import Context, Template
 from django.test import TestCase
 from django.test.client import RequestFactory
 
-from .. import cache, registry
+from .. import cache, registry, DEFAULT_CACHE_ALIAS
 from ..decorators import cache_transaction, cache_transaction_all
 
 
@@ -294,61 +294,70 @@ class CacheTaggingTest(TestCase):
         self.assertNotEqual(r2, r3)
         self.assertTrue(hasattr(c['request'], '_cache_update_cache'))
 
-    def test_transaction_handlers(self):
-        cache.transaction_begin()  # 1
+    def test_cache_transaction_handlers(self):
+        with cache.transaction:
+            cache.set('name1', 'value1', ('tag1', ), 120)
+            self.assertEqual(cache.get('name1'), 'value1')
+
+            with cache.transaction:
+                cache.set('name2', 'value2', ('tag2', ), 120)
+                self.assertEqual(cache.get('name2'), 'value2')
+
+                cache.invalidate_tags('tag2')
+                self.assertEqual(cache.get('name2', None), None)
+                self.assertEqual(cache.get('name1'), 'value1')
+
+                cache.set('name2', 'value2', ('tag2', ), 120)
+                self.assertEqual(cache.get('name2'), 'value2')
+                self.assertEqual(cache.get('name1'), 'value1')
+
+            self.assertEqual(cache.get('name2', None, abort=True), None)
+            self.assertEqual(cache.get('name1'), 'value1')
+
+            cache.set('name2', 'value2', ('tag2', ), 120)
+            self.assertEqual(cache.get('name2'), 'value2')
+            self.assertEqual(cache.get('name1'), 'value1')
+
+            cache.invalidate_tags('tag1')
+            self.assertEqual(cache.get('name2'), 'value2')
+            self.assertEqual(cache.get('name1', None), None)
+
+            cache.set('name1', 'value1', ('tag1', ), 120)
+            self.assertEqual(cache.get('name2'), 'value2')
+            self.assertEqual(cache.get('name1'), 'value1')
+
+        self.assertEqual(cache.get('name2'), 'value2')
+        self.assertEqual(cache.get('name1', None), None)
+
+        # tests for cache.transaction.flush()
+        cache.transaction.begin()  # 1
+        cache.transaction.begin()  # 2
         cache.set('name1', 'value1', ('tag1', ), 120)
         self.assertEqual(cache.get('name1'), 'value1')
-
-        cache.transaction_begin()  # 2
-        cache.set('name2', 'value2', ('tag2', ), 120)
-        self.assertEqual(cache.get('name2'), 'value2')
-
-        cache.invalidate_tags('tag2')
-        self.assertEqual(cache.get('name2', None), None)
-        self.assertEqual(cache.get('name1'), 'value1')
-
-        cache.set('name2', 'value2', ('tag2', ), 120)
-        self.assertEqual(cache.get('name2'), 'value2')
-        self.assertEqual(cache.get('name1'), 'value1')
-
-        cache.transaction_finish()  # 2
-        self.assertEqual(cache.get('name2', None, abort=True), None)
-        self.assertEqual(cache.get('name1'), 'value1')
-
-        cache.set('name2', 'value2', ('tag2', ), 120)
-        self.assertEqual(cache.get('name2'), 'value2')
-        self.assertEqual(cache.get('name1'), 'value1')
-
         cache.invalidate_tags('tag1')
-        self.assertEqual(cache.get('name2'), 'value2')
-        self.assertEqual(cache.get('name1', None), None)
-
-        cache.set('name1', 'value1', ('tag1', ), 120)
-        self.assertEqual(cache.get('name2'), 'value2')
-        self.assertEqual(cache.get('name1'), 'value1')
-
-        cache.transaction_finish()  # 1
-        self.assertEqual(cache.get('name2'), 'value2')
-        self.assertEqual(cache.get('name1', None), None)
-
-        cache.transaction_begin()  # 1
-        cache.transaction_begin()  # 2
-        cache.set('name1', 'value1', ('tag1', ), 120)
-        self.assertEqual(cache.get('name1'), 'value1')
-        cache.invalidate_tags('tag1')
         self.assertEqual(cache.get('name1', None), None)
         cache.set('name1', 'value1', ('tag1', ), 120)
         self.assertEqual(cache.get('name1'), 'value1')
-        cache.transaction_begin()  # 3
-        cache.transaction_begin()  # 4
+        cache.transaction.begin()  # 3
+        cache.transaction.begin()  # 4
 
-        cache.transaction_finish_all()  # all
+        cache.transaction.flush()  # all
         self.assertEqual(cache.get('name1', None), None)
 
         cache.invalidate_tags('tag1', 'tag2')
 
-    def test_decorator_cache_transaction(self):
-        @cache_transaction
+    def test_cache_transaction_context(self):
+        cache.set('name1', 'value1', ('tag1', ), 120)
+        self.assertEqual(cache.get('name1'), 'value1')
+        with cache.transaction:
+            cache.invalidate_tags('tag1')
+            self.assertEqual(cache.get('name1', None), None)
+            cache.set('name1', 'value1', ('tag1', ), 120)
+            self.assertEqual(cache.get('name1'), 'value1')
+        self.assertEqual(cache.get('name1', None), None)
+
+    def test_cache_transaction_decorator(self):
+        @cache.transaction
         def some_func():
             cache.invalidate_tags('tag1')
             self.assertEqual(cache.get('name1', None), None)
@@ -360,18 +369,31 @@ class CacheTaggingTest(TestCase):
         some_func()
         self.assertEqual(cache.get('name1', None), None)
 
-    def test_decorator_cache_transaction_all(self):
-        @cache_transaction_all
+    def test_cache_transaction_decorator2(self):
+        @cache.transaction()
         def some_func():
-            cache.transaction_begin()
             cache.invalidate_tags('tag1')
-            cache.transaction_begin()
             self.assertEqual(cache.get('name1', None), None)
             cache.set('name1', 'value1', ('tag1', ), 120)
             self.assertEqual(cache.get('name1'), 'value1')
 
-        cache.transaction_begin()
-        cache.transaction_begin()
+        cache.set('name1', 'value1', ('tag1', ), 120)
+        self.assertEqual(cache.get('name1'), 'value1')
+        some_func()
+        self.assertEqual(cache.get('name1', None), None)
+
+    def test_cache_transaction_decorator_all(self):
+        @cache_transaction_all
+        def some_func():
+            cache.transaction.begin()
+            cache.invalidate_tags('tag1')
+            cache.transaction.begin()
+            self.assertEqual(cache.get('name1', None), None)
+            cache.set('name1', 'value1', ('tag1', ), 120)
+            self.assertEqual(cache.get('name1'), 'value1')
+
+        cache.transaction.begin()
+        cache.transaction.begin()
         cache.set('name1', 'value1', ('tag1', ), 120)
         self.assertEqual(cache.get('name1'), 'value1')
         some_func()

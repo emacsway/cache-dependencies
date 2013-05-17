@@ -4,7 +4,8 @@ import os
 import hashlib
 import random
 import time
-
+import warnings
+from functools import wraps
 from threading import local
 
 try:
@@ -21,7 +22,7 @@ except NameError:
     integer_types = (int,)
 
 
-__version__ = '0.7.6.2'
+__version__ = '0.7.6.3'
 
 # Use the system (hardware-based) random number generator if it exists.
 if hasattr(random, 'SystemRandom'):
@@ -33,6 +34,14 @@ TAG_TIMEOUT = 24 * 3600
 MAX_TAG_KEY = 18446744073709551616     # 2 << 63
 
 
+def warn(old, new):
+    warnings.warn(
+        "{0} is deprecated. Use {1} instead".format(old, new),
+        PendingDeprecationWarning,
+        stacklevel=3
+    )
+
+
 class CacheTagging(object):
     """Tags support for Django cache."""
 
@@ -41,6 +50,7 @@ class CacheTagging(object):
         self.cache = cache
         self.ignore_descendants = False
         self.ctx = local()
+        self.transaction = Transaction(self)
 
     def get_or_set_callback(self, name, callback, tags=[], timeout=None,
                             version=None, args=None, kwargs=None):
@@ -96,7 +106,7 @@ class CacheTagging(object):
         tags = set(tags)
         # pull tags from descendants (cached fragments)
         try:
-            tags.update(self.get_ancestors()[name][version])
+            tags.update(self.ancestors[name][version])
         except KeyError:
             pass
 
@@ -131,70 +141,56 @@ class CacheTagging(object):
         if len(tags):
             version = kwargs.get('version', None)
             tags_prepared = list(map(tag_prepare_name, set(tags)))
-            self.add_to_transaction_scope(tags_prepared, version=version)
+            self.transaction.add_tags(tags_prepared, version=version)
             self.cache.delete_many(tags_prepared, version=version)
 
-    def get_ancestors(self):
-        """Get transaction scopes. Using threading.local()"""
+    @property
+    def ancestors(self):
+        """Returns ancestors dict."""
         if not hasattr(self.ctx, 'ancestors'):
             self.ctx.ancestors = {}
         return self.ctx.ancestors
 
-    def add_to_ancestors(self, tags, version=None):
-        """add tags to ancestor"""
-        for cachename, versions in self.get_ancestors().items():
+    def add_tags_to_ancestors(self, tags, version=None):
+        """add tags to ancestors"""
+        for cachename, versions in self.ancestors.items():
             versions.setdefault(version, set()).update(tags)
 
     def begin(self, name):
         """Start cache creating."""
-        self.get_ancestors()[name] = {}
+        self.ancestors[name] = {}
 
     def abort(self, name):
         """Clean tags for given cache name."""
-        self.get_ancestors().pop(name, {})
+        self.ancestors.pop(name, {})
 
     def finish(self, name, tags, version=None):
         """Start cache creating."""
-        self.get_ancestors().pop(name, {})
-        self.add_to_ancestors(tags, version=version)
+        self.ancestors.pop(name, {})
+        self.add_tags_to_ancestors(tags, version=version)
 
     def transaction_begin(self):
-        """Handles database transaction begin."""
-        self.get_transaction_scopes().append({})
+        warn('cache.transaction_begin()', 'cache.transaction.begin()')
+        self.transaction.begin()
         return self
 
     def transaction_finish(self):
-        """Handles database transaction commit or rollback.
-
-        In any case (commit or rollback) we need to invalidate tags,
-        because caches can be generated for
-        current database session (for rollback case) or
-        another database session (for commit case).
-        So, method is named "transaction_finish" (not "transaction_commit"
-        or "transaction_rollback")."""
-        scope = self.get_transaction_scopes().pop()
-        if len(scope):
-            for version, tags in scope.items():
-                self.cache.delete_many(list(tags), version=version)
+        warn('cache.transaction_finish()', 'cache.transaction.finish()')
+        self.transaction.finish()
         return self
 
     def transaction_finish_all(self):
-        """Handles all database's transaction commit or rollback."""
-        while len(self.get_transaction_scopes()):
-            self.transaction_finish()
+        warn('cache.transaction_finish_all()', 'cache.transaction.flush()')
+        self.transaction.flush()
         return self
 
     def get_transaction_scopes(self):
-        """Get transaction scopes."""
-        if not hasattr(self.ctx, 'transaction_scopes'):
-            self.ctx.transaction_scopes = []
-        return self.ctx.transaction_scopes
+        warn('cache.get_transaction_scope()', 'cache.transaction.scopes')
+        return self.transaction.scopes
 
     def add_to_transaction_scope(self, tags, version=None):
-        """Adds cache names to current scope."""
-        scopes = self.get_transaction_scopes()
-        if len(scopes):
-            scopes[-1].setdefault(version, set()).update(tags)
+        warn('cache.add_to_transaction_scope()', 'cache.transaction.add_tags()')
+        self.transaction.add_tags(tags, version)
 
     def __getattr__(self, name):
         """Proxy for all native methods."""
@@ -219,3 +215,70 @@ def tag_generate_version():
         time.time()
     )).hexdigest()
     return hash
+
+
+class Transaction(object):
+
+    def __init__(self, cache):
+        """Constructor of Transaction instance."""
+        self.cache = cache
+        self.ctx = local()
+
+    def __call__(self, f=None):
+        if f is None:
+            return self
+
+        @wraps(f)
+        def _decorated(*args, **kw):
+            with self:
+                rv = f(*args, **kw)
+            return rv
+
+        return _decorated
+
+    def __enter__(self):
+        self.begin()
+
+    def __exit__(self, *args):
+        self.finish()
+        return False
+
+    def begin(self):
+        """Handles database transaction begin."""
+        self.scopes.append({})
+        return self
+
+    def finish(self):
+        """Handles database transaction commit or rollback.
+
+        In any case (commit or rollback) we need to invalidate tags,
+        because caches can be generated for
+        current database session (for rollback case) or
+        another database session (for commit case).
+        So, method is named "finish" (not "commit"
+        or "rollback").
+        """
+        scope = self.scopes.pop()
+        if len(scope):
+            for version, tags in scope.items():
+                self.cache.delete_many(list(tags), version=version)
+        return self
+
+    def flush(self):
+        """Finishes all active transactions."""
+        while len(self.scopes):
+            self.finish()
+        return self
+
+    @property
+    def scopes(self):
+        """Get transaction scopes."""
+        if not hasattr(self.ctx, 'transaction_scopes'):
+            self.ctx.transaction_scopes = []
+        return self.ctx.transaction_scopes
+
+    def add_tags(self, tags, version=None):
+        """Adds cache names to current scope."""
+        scopes = self.scopes
+        if len(scopes):
+            scopes[-1].setdefault(version, set()).update(tags)

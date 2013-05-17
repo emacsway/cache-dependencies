@@ -74,15 +74,15 @@ class TransactionMiddleware(object):
 
     def process_request(self, request):
         """Enters transaction management"""
-        self.cache.transaction_begin()
+        self.cache.transaction.begin()
 
     def process_exception(self, request, exception):
         """Rolls back the database and leaves transaction management"""
-        self.cache.transaction_finish_all()
+        self.cache.transaction.flush()
 
     def process_response(self, request, response):
         """Commits and leaves transaction management."""
-        self.cache.transaction_finish_all()
+        self.cache.transaction.flush()
         return response
 
 
