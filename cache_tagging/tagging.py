@@ -1,5 +1,5 @@
-from __future__ import absolute_import, unicode_literals
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import, unicode_literals
 import os
 import hashlib
 import random
