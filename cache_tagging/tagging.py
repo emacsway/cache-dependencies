@@ -34,11 +34,11 @@ TAG_TIMEOUT = 24 * 3600
 MAX_TAG_KEY = 18446744073709551616     # 2 << 63
 
 
-def warn(old, new):
+def warn(old, new, stacklevel=3):
     warnings.warn(
         "{0} is deprecated. Use {1} instead".format(old, new),
         PendingDeprecationWarning,
-        stacklevel=3
+        stacklevel=stacklevel
     )
 
 
