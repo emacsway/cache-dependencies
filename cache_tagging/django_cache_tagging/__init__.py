@@ -11,11 +11,6 @@ from cache_tagging.tagging import CacheTagging
 from cache_tagging.nocache import NoCache
 
 try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
-
-try:
     str = unicode  # Python 2.* compatible
     string_types = (basestring,)
     integer_types = (int, long)
@@ -44,7 +39,7 @@ class CacheCollection(object):
     def __call__(self, backend=None, *args, **kwargs):
         """Returns instance of CacheTagging class."""
         backend = backend or DEFAULT_CACHE_ALIAS
-        key = pickle.dumps((backend, args, kwargs)).encode("base64")
+        key = (backend, args, frozenset(kwargs.items()))
         if key not in self._caches:
             self._caches[key] = CacheTagging(
                 django_get_cache(backend, *args, **kwargs)
