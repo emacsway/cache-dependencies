@@ -279,6 +279,5 @@ class Transaction(object):
 
     def add_tags(self, tags, version=None):
         """Adds cache names to current scope."""
-        scopes = self.scopes
-        if len(scopes):
-            scopes[-1].setdefault(version, set()).update(tags)
+        for scope in self.scopes:
+            scope.setdefault(version, set()).update(tags)

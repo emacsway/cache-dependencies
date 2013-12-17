@@ -314,19 +314,19 @@ class CacheTaggingTest(TestCase):
             self.assertEqual(cache.get('name2', None, abort=True), None)
             self.assertEqual(cache.get('name1'), 'value1')
 
-            cache.set('name2', 'value2', ('tag2', ), 120)
-            self.assertEqual(cache.get('name2'), 'value2')
+            cache.set('name3', 'value3', ('tag3', ), 120)
+            self.assertEqual(cache.get('name3'), 'value3')
             self.assertEqual(cache.get('name1'), 'value1')
 
             cache.invalidate_tags('tag1')
-            self.assertEqual(cache.get('name2'), 'value2')
+            self.assertEqual(cache.get('name3'), 'value3')
             self.assertEqual(cache.get('name1', None), None)
 
             cache.set('name1', 'value1', ('tag1', ), 120)
-            self.assertEqual(cache.get('name2'), 'value2')
+            self.assertEqual(cache.get('name3'), 'value3')
             self.assertEqual(cache.get('name1'), 'value1')
 
-        self.assertEqual(cache.get('name2'), 'value2')
+        self.assertEqual(cache.get('name3'), 'value3')
         self.assertEqual(cache.get('name1', None), None)
 
         # tests for cache.transaction.flush()
@@ -344,7 +344,7 @@ class CacheTaggingTest(TestCase):
         cache.transaction.flush()  # all
         self.assertEqual(cache.get('name1', None), None)
 
-        cache.invalidate_tags('tag1', 'tag2')
+        cache.invalidate_tags('tag1', 'tag2', 'tag3')
 
     def test_cache_transaction_context(self):
         cache.set('name1', 'value1', ('tag1', ), 120)
