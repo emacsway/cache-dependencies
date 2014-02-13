@@ -207,7 +207,7 @@ view decorator::
     from cache_tagging.django_cache_tagging.decorators import cache_page
 
     # See also useful decorator to bind view's args and kwargs to request
-    # https://bitbucket.org/evotech/django-ext/src/d8b55d86680e/django_ext/middleware/view_args_to_request.py
+    # https://bitbucket.org/emacsway/django-ext/src/d8b55d86680e/django_ext/middleware/view_args_to_request.py
 
     @cache_page(3600, tags=lambda request: ('blog.post', ) + Article.get_tags_for_request(request))
     def cached_view(request):

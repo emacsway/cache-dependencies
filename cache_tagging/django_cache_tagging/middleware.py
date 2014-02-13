@@ -142,7 +142,7 @@ class UpdateCacheMiddleware(object):
         tags = set()
         if self.tags:
             # Usefull to bind view, args and kwargs to request.
-            # See https://bitbucket.org/evotech/django-ext/src/d8b55d86680e/django_ext/middleware/view_args_to_request.py
+            # See https://bitbucket.org/emacsway/django-ext/src/d8b55d86680e/django_ext/middleware/view_args_to_request.py
             tags = self.tags(request)
         tags = set(tags)
         # Adds tags from request, see templatetag {% cache_add_tags ... %}
