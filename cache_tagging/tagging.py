@@ -3,6 +3,7 @@ from __future__ import absolute_import, unicode_literals
 import os
 import hashlib
 import random
+import threading
 import time
 import warnings
 from functools import wraps
@@ -222,6 +223,7 @@ class Transaction(object):
     def __init__(self, cache):
         """Constructor of Transaction instance."""
         self.cache = cache
+        self.delay = None
         self.ctx = local()
 
     def __call__(self, f=None):
@@ -248,6 +250,11 @@ class Transaction(object):
         self.scopes.append({})
         return self
 
+    def _finish_delayed(self, scope):
+        """Just helper for async"""
+        for version, tags in scope.items():
+            self.cache.delete_many(list(tags), version=version)
+
     def finish(self):
         """Handles database transaction commit or rollback.
 
@@ -259,9 +266,9 @@ class Transaction(object):
         or "rollback").
         """
         scope = self.scopes.pop()
-        if len(scope):
-            for version, tags in scope.items():
-                self.cache.delete_many(list(tags), version=version)
+        self._finish_delayed(scope)
+        if self.delay:
+            threading.Timer(self.delay, self._finish_delayed, [scope]).start()
         return self
 
     def flush(self):
