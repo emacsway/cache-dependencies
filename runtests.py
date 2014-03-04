@@ -5,40 +5,28 @@ import sys
 
 urlpatterns = []
 
-TEMPLATE_DEBUG = True
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': ':memory:'
-    }
-}
-
-
-INSTALLED_APPS = [
-    'cache_tagging.django_cache_tagging',
-]
-
-TEMPLATE_DIRS = [
-]
-
-MIDDLEWARE_CLASSES = (
-    'cache_tagging.django_cache_tagging.middleware.TransactionMiddleware',
-)
-
-ROOT_URLCONF = 'runtests'
 
 def main():
     from django.conf import settings
     settings.configure(
-        INSTALLED_APPS = INSTALLED_APPS,
-        ROOT_URLCONF = ROOT_URLCONF,
-        DATABASES = DATABASES,
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': ':memory:'
+            }
+        },
+        INSTALLED_APPS = [
+            'cache_tagging.django_cache_tagging',
+        ],
+        MIDDLEWARE_CLASSES = [
+            'cache_tagging.django_cache_tagging.middleware.TransactionMiddleware',
+        ],
+        ROOT_URLCONF = 'runtests',
         TEST_RUNNER = 'django.test.simple.DjangoTestSuiteRunner',
-        TEMPLATE_DIRS = TEMPLATE_DIRS,
-        TEMPLATE_DEBUG = TEMPLATE_DEBUG
+        TEMPLATE_DIRS = [],
+        TEMPLATE_DEBUG = True
     )
-    
+
     from cache_tagging.django_cache_tagging import autodiscover
     autodiscover()
 
