@@ -20,6 +20,10 @@ setup(
     long_description=open(os.path.join(os.path.dirname(__file__), 'README.rst')).read(),
     license = "BSD License",
     keywords = "django cache tagging",
+    tests_require = [
+        'Django>=1.3',
+    ],
+    test_suite = 'runtests.main',
     classifiers = [
         'Development Status :: 5 - Production/Stable',
         'Environment :: Web Environment',

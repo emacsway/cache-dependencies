@@ -17,6 +17,14 @@ Cache tagging allows to manage cached values and easily link them to Model signa
 Usage with Django
 ==================
 
+project settings.py::
+
+    INSTALLED_APPS = (
+        # ...
+        'cache_tagging.django_cache_tagging',
+        # ...
+    )
+
 project urls.py::
 
     from cache_tagging.django_cache_tagging import autodiscover
