@@ -111,19 +111,19 @@ class CacheTaggingTest(TestCase):
         resp1 = self.client.get(reverse("cache_tagging_test_decorator"))
         self.assertFalse(resp1.has_header('Expires'))
         self.assertFalse(resp1.has_header('Cache-Control'))
-        self.assertTrue(resp1.has_header('Last-Modified'))
+        self.assertFalse(resp1.has_header('Last-Modified'))
 
         resp2 = self.client.get(reverse("cache_tagging_test_decorator"))
         self.assertFalse(resp2.has_header('Expires'))
         self.assertFalse(resp2.has_header('Cache-Control'))
-        self.assertTrue(resp2.has_header('Last-Modified'))
+        self.assertFalse(resp2.has_header('Last-Modified'))
         self.assertEqual(resp1.content, resp2.content)
 
         cache.invalidate_tags('tests.firsttestmodel')
         resp3 = self.client.get(reverse("cache_tagging_test_decorator"))
         self.assertFalse(resp3.has_header('Expires'))
         self.assertFalse(resp3.has_header('Cache-Control'))
-        self.assertTrue(resp3.has_header('Last-Modified'))
+        self.assertFalse(resp3.has_header('Last-Modified'))
         self.assertNotEqual(resp1.content, resp3.content)
         cache.invalidate_tags('tests.firsttestmodel')
 

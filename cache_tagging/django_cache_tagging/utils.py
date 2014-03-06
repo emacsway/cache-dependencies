@@ -38,9 +38,10 @@ def patch_response_headers(response, cache_timeout=None):
             response.add_post_render_callback(_set_response_etag)
         else:
             response = _set_response_etag(response)
-    if not response.has_header('Last-Modified'):
-        response['Last-Modified'] = http_date()
     # patch start
+    # Fixed issue #2
+    # if not response.has_header('Last-Modified'):
+    #     response['Last-Modified'] = http_date()
     # We don't know, when cache will be invalid. So, skip http expires.
     # if not response.has_header('Expires'):
     #     response['Expires'] = http_date(time.time() + cache_timeout)
