@@ -115,7 +115,7 @@ class CacheTagging(object):
         if len(tags):
             tag_caches = self.cache.get_many(
                 list(map(tag_prepare_name, tags))
-            )
+            ) or {}
             tag_new_dict = {}
             for tag in tags:
                 tag_prepared = tag_prepare_name(tag)
