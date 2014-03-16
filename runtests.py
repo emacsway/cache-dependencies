@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import warnings
 import os
 import sys
 
@@ -21,10 +20,11 @@ def main():
         MIDDLEWARE_CLASSES = [
             'cache_tagging.django_cache_tagging.middleware.TransactionMiddleware',
         ],
-        ROOT_URLCONF = 'runtests',
         TEST_RUNNER = 'django.test.simple.DjangoTestSuiteRunner',
         TEMPLATE_DIRS = [],
-        TEMPLATE_DEBUG = True
+        DEBUG = True,
+        TEMPLATE_DEBUG = True,
+        ROOT_URLCONF = 'runtests',
     )
 
     from cache_tagging.django_cache_tagging import autodiscover
@@ -35,7 +35,6 @@ def main():
     TestRunner = get_runner(settings)
 
     test_runner = TestRunner(verbosity=1, interactive=False, failfast=False)
-    warnings.simplefilter("ignore")
     failures = test_runner.run_tests(['django_cache_tagging'])
     sys.exit(failures)
 
