@@ -8,10 +8,6 @@ Tags are a way to categorize cache records.
 When you save a cache, you can set a list of tags to apply for this record.
 Then you will be able to invalidate all cache records tagged with a given tag (or tags).
 
-Forked from https://github.com/Harut/django-cachecontrol
-
-Some ideas from http://dklab.ru/lib/Dklab_Cache/
-
 Cache tagging allows to manage cached values and easily link them to Model signals.
 
 Usage with Django
@@ -269,3 +265,7 @@ Transaction handler as middleware::
         "django.middleware.transaction.TransactionMiddleware",
         # ...
     ]
+
+Forked from https://github.com/Harut/django-cachecontrol
+
+Some ideas from http://dklab.ru/lib/Dklab_Cache/
