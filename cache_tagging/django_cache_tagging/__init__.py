@@ -1,5 +1,6 @@
 import sys
 import hashlib
+from threading import local
 
 from django.conf import settings
 from django.core.cache import DEFAULT_CACHE_ALIAS
@@ -29,24 +30,34 @@ class CacheCollection(object):
     """Collections of caches.
 
     Cache Middlewares and decorators obtains the cache instances
-    by get_cache() function.
+    by get_cache() function in Django <= 1.6.
     For correct transaction handling we should to return
     the same instance by cache alias.
     """
     def __init__(self):
-        self._caches = {}
+        self._caches = local()
 
     def __call__(self, backend=None, *args, **kwargs):
         """Returns instance of CacheTagging class."""
         backend = backend or DEFAULT_CACHE_ALIAS
         key = (backend, args, frozenset(kwargs.items()))
-        if key not in self._caches:
-            self._caches[key] = CacheTagging(
+
+        if not hasattr(self._caches, 'caches'):
+            self._caches.caches = {}
+
+        if key not in self._caches.caches:
+            self._caches.caches['key'] = CacheTagging(
                 django_get_cache(backend, *args, **kwargs)
             )
-        return self._caches[key]
+        return self._caches.caches['key']
 
-get_cache = CacheCollection()
+    def __getitem__(self, alias):
+        return self(alias)
+
+    def all(self):
+        return getattr(self._caches, 'caches', {}).values()
+
+caches = get_cache = CacheCollection()
 cache = get_cache()
 
 
