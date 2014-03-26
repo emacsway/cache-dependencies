@@ -30,7 +30,7 @@ class CacheCollection(object):
     """Collections of caches.
 
     Cache Middlewares and decorators obtains the cache instances
-    by get_cache() function in Django <= 1.6.
+    by get_cache() function in Django < 1.7.
     For correct transaction handling we should to return
     the same instance by cache alias.
     """
