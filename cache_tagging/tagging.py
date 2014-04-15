@@ -258,9 +258,12 @@ class Transaction(object):
     def lock_tags(self, tags, version=None):
         """Locks tags for concurrent transactions."""
         date = datetime.now()
+        timeout = TAG_LOCKING_TIMEOUT
+        if self.delay:
+            timeout += self.delay
         self.cache.set_many(
             {self.get_locked_tag_name(tag): date for tag in tags},
-            TAG_LOCKING_TIMEOUT,
+            timeout,
             version
         )
 

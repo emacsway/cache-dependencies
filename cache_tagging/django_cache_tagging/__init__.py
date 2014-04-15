@@ -49,8 +49,9 @@ class CacheCollection(object):
             options = getattr(settings, 'CACHE_TAGGING', {}).get(backend, {})
             delay = options.get('DELAY', None)
             nonrepeatable_reads = options.get('NONREPEATABLE_READS', False)
+            django_backend = options.get('BACKEND', backend)
             self._caches.caches['key'] = CacheTagging(
-                django_get_cache(backend, *args, **kwargs),
+                django_get_cache(django_backend, *args, **kwargs),
                 delay,
                 nonrepeatable_reads
             )
