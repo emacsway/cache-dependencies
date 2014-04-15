@@ -46,8 +46,13 @@ class CacheCollection(object):
             self._caches.caches = {}
 
         if key not in self._caches.caches:
+            options = getattr(settings, 'CACHE_TAGGING', {}).get(backend, {})
+            delay = options.get('DELAY', None)
+            nonrepeatable_reads = options.get('NONREPEATABLE_READS', False)
             self._caches.caches['key'] = CacheTagging(
-                django_get_cache(backend, *args, **kwargs)
+                django_get_cache(backend, *args, **kwargs),
+                delay,
+                nonrepeatable_reads
             )
         return self._caches.caches['key']
 

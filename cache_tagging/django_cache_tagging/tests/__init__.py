@@ -36,6 +36,7 @@ class CacheTaggingTest(TestCase):
     urls = 'cache_tagging.django_cache_tagging.tests.urls'
 
     def setUp(self):
+        cache.clear()
         self.obj1 = FirstTestModel.objects.create(title='title1')
         self.obj2 = SecondTestModel.objects.create(title='title2')
         if 'cache_tagging.middleware.TransactionMiddleware' in settings.MIDDLEWARE_CLASSES:
@@ -330,6 +331,7 @@ class CacheTaggingTest(TestCase):
         self.assertEqual(cache.get('name1', None), None)
 
         # tests for cache.transaction.flush()
+        cache.clear()
         cache.transaction.begin()  # 1
         cache.transaction.begin()  # 2
         cache.set('name1', 'value1', ('tag1', ), 120)

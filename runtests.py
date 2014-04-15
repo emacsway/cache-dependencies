@@ -14,6 +14,12 @@ def main():
                 'NAME': ':memory:'
             }
         },
+        CACHE_TAGGING_ = {
+            'default': {
+                'NONREPEATABLE_READS': True,
+                'DELAY': 5,
+            }
+        },
         INSTALLED_APPS = [
             'cache_tagging.django_cache_tagging',
         ],
