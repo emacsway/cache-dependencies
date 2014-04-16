@@ -116,12 +116,13 @@ class CacheTagging(object):
         tag_versions = {}
         if len(tags):
             tag_cache_names = list(map(tag_prepare_name, tags))
-            if self.transaction.is_locked_any_tag(tag_cache_names, version):
+            # tag_caches = self.cache.get_many(tag_cache_names, version) or {}
+            try:
+                tag_caches = self.transaction.get_tags(tag_cache_names, version)
+            except TagLocked:
                 self.finish(name, tags, version=version)
                 return
-            tag_caches = self.cache.get_many(
-                tag_cache_names
-            ) or {}
+
             tag_new_dict = {}
             for tag in tags:
                 tag_prepared = tag_prepare_name(tag)
@@ -224,7 +225,13 @@ def tag_generate_version():
     return hash
 
 
+class TagLocked(Exception):
+    pass
+
+
 class Transaction(object):
+
+    LOCK_PREFIX = "lock"
 
     def __init__(self, cache, delay=None, nonrepeatable_reads=False):
         """Constructor of Transaction instance."""
@@ -253,7 +260,7 @@ class Transaction(object):
         return False
 
     def get_locked_tag_name(self, tag):
-        return 'lock_{0}'.format(tag)
+        return '{0}_{1}'.format(self.LOCK_PREFIX, tag)
 
     def lock_tags(self, tags, version=None):
         """Locks tags for concurrent transactions."""
@@ -264,31 +271,34 @@ class Transaction(object):
                 timeout += self.delay
             self.cache.set_many(
                 {self.get_locked_tag_name(tag): date for tag in tags},
-                timeout,
-                version
+                timeout, version
             )
 
-    def is_locked_any_tag(self, tags, version=None):
-        """Returns True, if current transaction has been started earlier than
+    def get_tags(self, tags, version=None):
+        """Returns tags dict if all tags is not locked.
 
-        any tag has been invalidated by concurent process.
+        Raises TagLocked, if current transaction has been started earlier
+        than any tag has been invalidated by concurent process.
         Actual for SERIALIZABLE and REPEATABLE READ transaction levels.
         """
+        cache_names = list(tags)
         if self.nonrepeatable_reads and self.scopes:
             top_scope = self.scopes[0]
-            thread_tags = top_scope['tags'].get(version, set())
-            concurrent_tags = list(set(tags) - thread_tags)
-            if concurrent_tags:
-                locked_tags = self.cache.get_many(
-                    list(map(self.get_locked_tag_name, concurrent_tags))
-                ) or {}
-                transaction_start_date = top_scope['date']
-                if self.delay:
-                    transaction_start_date -= timedelta(seconds=self.delay)
-                for tag_date in locked_tags.values():
-                    if transaction_start_date <= tag_date:
-                        return True
-        return False
+            top_scope_tags = top_scope['tags'].get(version, set())
+            concurrent_tags = list(set(tags) - top_scope_tags)
+            cache_names += list(map(self.get_locked_tag_name, concurrent_tags))
+
+        caches = self.cache.get_many(cache_names, version) or {}
+        tag_caches = {k: v for k, v in caches.items() if k in tags}
+        locked_tag_caches = {k: v for k, v in caches.items() if k not in tags}
+        if locked_tag_caches:
+            transaction_start_date = top_scope['date']
+            if self.delay:
+                transaction_start_date -= timedelta(seconds=self.delay)
+            for tag_date in locked_tag_caches.values():
+                if transaction_start_date <= tag_date:
+                    raise TagLocked
+        return tag_caches
 
     def begin(self):
         """Handles database transaction begin."""
@@ -334,4 +344,4 @@ class Transaction(object):
         """Adds cache names to current scope."""
         for scope in self.scopes:
             scope['tags'].setdefault(version, set()).update(tags)
-            self.lock_tags(tags, version)
+        self.lock_tags(tags, version)
