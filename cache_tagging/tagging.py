@@ -6,7 +6,6 @@ import random
 import threading
 import time
 import warnings
-from datetime import datetime, timedelta
 from functools import wraps
 from threading import local
 
@@ -265,12 +264,12 @@ class Transaction(object):
     def lock_tags(self, tags, version=None):
         """Locks tags for concurrent transactions."""
         if self.nonrepeatable_reads:
-            date = datetime.now()
+            now = time.time()
             timeout = TAG_LOCKING_TIMEOUT
             if self.delay:
                 timeout += self.delay
             self.cache.set_many(
-                {self.get_locked_tag_name(tag): date for tag in tags},
+                {self.get_locked_tag_name(tag): now for tag in tags},
                 timeout, version
             )
 
@@ -292,17 +291,17 @@ class Transaction(object):
         tag_caches = {k: v for k, v in caches.items() if k in tags}
         locked_tag_caches = {k: v for k, v in caches.items() if k not in tags}
         if locked_tag_caches:
-            transaction_start_date = top_scope['date']
+            transaction_start_time = top_scope['time']
             if self.delay:
-                transaction_start_date -= timedelta(seconds=self.delay)
-            for tag_date in locked_tag_caches.values():
-                if transaction_start_date <= tag_date:
+                transaction_start_time -= self.delay
+            for tag_time in locked_tag_caches.values():
+                if transaction_start_time <= tag_time:
                     raise TagLocked
         return tag_caches
 
     def begin(self):
         """Handles database transaction begin."""
-        self.scopes.append({'date': datetime.now(), 'tags': {}})
+        self.scopes.append({'time': time.time(), 'tags': {}})
         return self
 
     def _finish_delayed(self, scope):
