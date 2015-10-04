@@ -6,6 +6,7 @@ urlpatterns = []
 
 
 def main():
+    import django
     from django.conf import settings
     settings.configure(
         DATABASES = {
@@ -26,12 +27,17 @@ def main():
         MIDDLEWARE_CLASSES = [
             'cache_tagging.django_cache_tagging.middleware.TransactionMiddleware',
         ],
-        TEST_RUNNER = 'django.test.simple.DjangoTestSuiteRunner',
+        TEST_RUNNER = 'django.test.runner.DiscoverRunner',
         TEMPLATE_DIRS = [],
         DEBUG = True,
         TEMPLATE_DEBUG = True,
         ROOT_URLCONF = 'runtests',
     )
+
+    try:
+        django.setup()
+    except AttributeError:
+        pass
 
     from cache_tagging.django_cache_tagging import autodiscover
     autodiscover()
@@ -41,7 +47,7 @@ def main():
     TestRunner = get_runner(settings)
 
     test_runner = TestRunner(verbosity=1, interactive=False, failfast=False)
-    failures = test_runner.run_tests(['django_cache_tagging'])
+    failures = test_runner.run_tests(['cache_tagging.django_cache_tagging.tests'])
     sys.exit(failures)
 
 
