@@ -120,7 +120,6 @@ class CacheTagging(object):
         # pull tags from descendants (cached fragments)
         try:
             tags.update(self.tags_manager.get(name).values(version))
-            # tags.update(self.ancestors[name][version])
         except KeyError:
             pass
 
@@ -171,34 +170,21 @@ class CacheTagging(object):
             self.ctx.tags_manager = TagsManager()
         return self.ctx.tags_manager
 
-    @property
-    def ancestors(self):
-        """Returns ancestors dict."""
-        if not hasattr(self.ctx, 'ancestors'):
-            self.ctx.ancestors = {}
-        return self.ctx.ancestors
-
     def add_tags_to_ancestors(self, tags, version=None):
         """add tags to ancestors"""
         self.tags_manager.current().add(tags, version)
-        for cachename, versions in self.ancestors.items():
-            versions.setdefault(version, set()).update(tags)
 
     def begin(self, name):
         """Start cache creating."""
         self.tags_manager.current(name)
-        self.ancestors[name] = {}
 
     def abort(self, name):
         """Clean tags for given cache name."""
         self.tags_manager.pop(name)
-        self.ancestors.pop(name, {})
 
     def finish(self, name, tags, version=None):
         """Start cache creating."""
         self.tags_manager.pop(name).add(tags, version)
-        self.ancestors.pop(name, {})
-        self.add_tags_to_ancestors(tags, version=version)
 
     def transaction_begin(self):
         warn('cache.transaction_begin()', 'cache.transaction.begin()')
