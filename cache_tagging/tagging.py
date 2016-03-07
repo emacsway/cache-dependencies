@@ -119,7 +119,8 @@ class CacheTagging(object):
         tags = set(tags)
         # pull tags from descendants (cached fragments)
         try:
-            tags.update(self.ancestors[name][version])
+            tags.update(self.tags_manager.get(name).values(version))
+            # tags.update(self.ancestors[name][version])
         except KeyError:
             pass
 
@@ -165,6 +166,12 @@ class CacheTagging(object):
             self.cache.delete_many(tags_prepared, version=version)
 
     @property
+    def tags_manager(self):
+        if not hasattr(self.ctx, 'tags_manager'):
+            self.ctx.tags_manager = TagsManager()
+        return self.ctx.tags_manager
+
+    @property
     def ancestors(self):
         """Returns ancestors dict."""
         if not hasattr(self.ctx, 'ancestors'):
@@ -173,19 +180,23 @@ class CacheTagging(object):
 
     def add_tags_to_ancestors(self, tags, version=None):
         """add tags to ancestors"""
+        self.tags_manager.current().add(tags, version)
         for cachename, versions in self.ancestors.items():
             versions.setdefault(version, set()).update(tags)
 
     def begin(self, name):
         """Start cache creating."""
+        self.tags_manager.current(name)
         self.ancestors[name] = {}
 
     def abort(self, name):
         """Clean tags for given cache name."""
+        self.tags_manager.pop(name)
         self.ancestors.pop(name, {})
 
     def finish(self, name, tags, version=None):
         """Start cache creating."""
+        self.tags_manager.pop(name).add(tags, version)
         self.ancestors.pop(name, {})
         self.add_tags_to_ancestors(tags, version=version)
 
@@ -243,36 +254,77 @@ class TagsManager(object):
 
     class Tags(object):
 
-        def __init__(self, parent=None):
+        def __init__(self, name, parent=None):
+            self._name = name
             self._parent = parent
+            self._tags = dict()
 
-        def add(self, tags):
-            self._tags += set(tags)
+        def parent(self):
+            return self._parent
+
+        def name(self):
+            return self._name
+
+        def add(self, tags, version=None):
+            if version not in self._tags:
+                self._tags[version] = set()
+            self._tags[version] |= set(tags)
             if self._parent is not None:
-                self._parent.add(tags)
+                self._parent.add(tags, version)
 
-        def __len__(self):
-            return len(self._tags)
+        def values(self, version=None):
+            try:
+                return self._tags[version]
+            except KeyError:
+                return set()
 
-        def __iter__(self):
-            return iter(self._tags)
+    class NoneTags(Tags):
+        """Using pattern Special Case"""
+        def __init__(self):
+            pass
+
+        def parent(self):
+            return None
+
+        def name(self):
+            return 'NoneTags'
+
+        def add(self, tags, version=None):
+            pass
+
+        def values(self, version=None):
+            return set()
+
+    class Undef(object):
+        pass
 
     def __init__(self):
         self._current = None
-        self._data = dict()
+        self._data = dict()  # recursive cache is not possible, so, using dict instead of stack.
 
     def get(self, name):
         if name not in self._data:
-            self._data[name] = self.Tags(self._current)
+            self._data[name] = self.Tags(name, self._current)
         return self._data[name]
 
     def pop(self, name):
-        return self._data.pop(name)
+        try:
+            node = self._data.pop(name)
+        except KeyError:
+            node = self.NoneTags()
 
-    def current(self, name=None):
-        if name is not None:
-            return self._current
-        self._current = self.get(name)
+        if self.current() is node:
+            self.current(node.parent())
+        return node
+
+    def current(self, name_or_node=Undef):
+        if name_or_node is self.Undef:
+            return self._current or self.NoneTags()
+        if isinstance(name_or_node, string_types):
+            node = self.get(name_or_node)
+        else:
+            node = name_or_node
+        self._current = node
 
 
 class TagLocked(Exception):
