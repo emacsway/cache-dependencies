@@ -239,6 +239,42 @@ def tag_generate_version():
     return hash
 
 
+class TagsManager(object):
+
+    class Tags(object):
+
+        def __init__(self, parent=None):
+            self._parent = parent
+
+        def add(self, tags):
+            self._tags += set(tags)
+            if self._parent is not None:
+                self._parent.add(tags)
+
+        def __len__(self):
+            return len(self._tags)
+
+        def __iter__(self):
+            return iter(self._tags)
+
+    def __init__(self):
+        self._current = None
+        self._data = dict()
+
+    def get(self, name):
+        if name not in self._data:
+            self._data[name] = self.Tags(self._current)
+        return self._data[name]
+
+    def pop(self, name):
+        return self._data.pop(name)
+
+    def current(self, name=None):
+        if name is not None:
+            return self._current
+        self._current = self.get(name)
+
+
 class TagLocked(Exception):
     pass
 
