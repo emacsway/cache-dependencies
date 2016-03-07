@@ -118,10 +118,7 @@ class CacheTagging(object):
 
         tags = set(tags)
         # pull tags from descendants (cached fragments)
-        try:
-            tags.update(self.tags_manager.get(name).values(version))
-        except KeyError:
-            pass
+        tags.update(self.tags_manager.get(name).values(version))
 
         tag_versions = {}
         if len(tags):
@@ -169,10 +166,6 @@ class CacheTagging(object):
         if not hasattr(self.ctx, 'tags_manager'):
             self.ctx.tags_manager = TagsManager()
         return self.ctx.tags_manager
-
-    def add_tags_to_ancestors(self, tags, version=None):
-        """add tags to ancestors"""
-        self.tags_manager.current().add(tags, version)
 
     def begin(self, name):
         """Start cache creating."""
