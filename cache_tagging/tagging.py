@@ -395,7 +395,7 @@ class Transaction(object):
     def _finish_delayed(self, scope):
         """Just helper for async. Actual for DB replication (slave delay)."""
         for version, tags in scope['tags'].items():
-            self.cache.delete_many(list(tags), version=version)
+            self.cache.delete_many(list(tags), version=version)  # TODO: what if signal request_finished closed connection?
             self.lock_tags(tags, self.STATUS_COMMIT, version)
 
     def finish(self):
