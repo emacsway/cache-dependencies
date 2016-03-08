@@ -8,7 +8,6 @@ import threading
 import time
 import warnings
 from functools import wraps
-from threading import local
 
 try:
     import _thread
@@ -52,8 +51,8 @@ class CacheTagging(object):
         """Constructor of cache instance."""
         self.cache = cache
         self.ignore_descendants = False
-        self.ctx = local()
         self.transaction = Transaction(self, delay, nonrepeatable_reads)
+        self.tags_manager = TagsManager()
 
     def get_or_set_callback(self, name, callback, tags=[], timeout=None,
                             version=None, args=None, kwargs=None):
@@ -161,12 +160,6 @@ class CacheTagging(object):
             self.transaction.add_tags(tags_prepared, version=version)
             self.cache.delete_many(tags_prepared, version=version)
 
-    @property
-    def tags_manager(self):
-        if not hasattr(self.ctx, 'tags_manager'):
-            self.ctx.tags_manager = TagsManager()
-        return self.ctx.tags_manager
-
     def begin(self, name):
         """Start cache creating."""
         self.tags_manager.current(name)
@@ -178,6 +171,11 @@ class CacheTagging(object):
     def finish(self, name, tags, version=None):
         """Start cache creating."""
         self.tags_manager.pop(name).add(tags, version)
+
+    def close(self):
+        self.transaction.flush()
+        self.tags_manager.clear()
+        # self.cache.close()
 
     def transaction_begin(self):
         warn('cache.transaction_begin()', 'cache.transaction.begin()')
@@ -305,6 +303,9 @@ class TagsManager(object):
             node = name_or_node
         self._current = node
 
+    def clear(self):
+        self._data = dict()
+
 
 class TagLocked(Exception):
     pass
@@ -321,7 +322,7 @@ class Transaction(object):
         self.cache = cache
         self.delay = delay
         self.nonrepeatable_reads = nonrepeatable_reads
-        self.ctx = local()
+        self.scopes = []
 
     def __call__(self, f=None):
         if f is None:
@@ -418,13 +419,6 @@ class Transaction(object):
         while len(self.scopes):
             self.finish()
         return self
-
-    @property
-    def scopes(self):
-        """Get transaction scopes."""
-        if not hasattr(self.ctx, 'transaction_scopes'):
-            self.ctx.transaction_scopes = []
-        return self.ctx.transaction_scopes
 
     def add_tags(self, tags, version=None):
         """Adds cache names to current scope."""
