@@ -29,7 +29,7 @@ class CacheAddTagsNode(Node):
 
     def render(self, context):
         tags = [tag.resolve(context) for tag in self.tags]
-        if len(tags) == 1 and hasattr(tags[0], '__iter__'):
+        if len(tags) == 1 and isinstance(tags[0], (list, tuple, set, frozenset)):
             tags = tags[0]
         context['cache_tagging'].update(tags)
         return ''

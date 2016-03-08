@@ -1,3 +1,4 @@
+from __future__ import absolute_import, unicode_literals
 import sys
 import hashlib
 from threading import local
@@ -26,7 +27,7 @@ except NameError:
 
 nocache = NoCache(
     hashlib.md5(
-        'nocache_{0}'.format(settings.SECRET_KEY)
+        'nocache_{0}'.format(settings.SECRET_KEY).encode('utf8')
     ).hexdigest()
 )
 
@@ -83,7 +84,7 @@ def _clear_cached(tags_func, cache=None, *args, **kwargs):
         tags = tags_func(*args, **kwargs)
     except TypeError:
         tags = tags_func(obj)
-    if not hasattr(tags, '__iter__'):
+    if not isinstance(tags, (list, tuple, set, frozenset)):
         tags = (tags, )
     if cache is None:
         cache = globals()['cache']

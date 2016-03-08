@@ -110,7 +110,7 @@ class CacheTagging(object):
 
     def set(self, name, value, tags=(), timeout=None, version=None):
         """Sets cache value and tags."""
-        if not hasattr(tags, '__iter__'):  # Called as native API
+        if not isinstance(tags, (list, tuple, set, frozenset)):  # Called as native API
             if timeout is not None and version is None:
                 version = timeout
             timeout = tags
@@ -225,7 +225,7 @@ def tag_generate_version():
     """ Generates a new unique identifier for tag version."""
     hash = hashlib.md5("{0}{1}{2}".format(
         randrange(0, MAX_TAG_KEY), get_thread_id(), time.time()
-    )).hexdigest()
+    ).encode('utf8')).hexdigest()
     return hash
 
 
