@@ -139,6 +139,7 @@ class CacheTaggingTest(TestCase):
                          context['result'] = 1
                          echo(a + b, '\\n')
                          echo('случай1', '\\n')
+                         echo(u, '\\n')
                      else:
                          context['result'] = 2
                          echo(b + c, '\\n')
@@ -147,8 +148,9 @@ class CacheTaggingTest(TestCase):
                      echo(filters.escape('<b>bold</b>'), '\\n')
                 {% endnocache %}#
                 and repeat
-                {% nocache pickled=3 %}
+                {% nocache pickled=3 pickled_unicode=u %}
                      echo('pickled=', pickled, '\\n')
+                     echo('pickled_unicode=', pickled_unicode, '\\n')
                      nocache.start()
                      echo('nested nocache', '\\n')
                      nocache.end()
@@ -166,6 +168,7 @@ class CacheTaggingTest(TestCase):
             'a': 1,
             'b': 2,
             'c': 3,
+            'u': 'юникод',
             'result': None
         })
 
@@ -174,10 +177,12 @@ class CacheTaggingTest(TestCase):
         self.assertTrue('end' in r1)
         self.assertTrue('#3\n' in r1)
         self.assertTrue('случай1' in r1)
+        self.assertTrue('юникод' in r1)
         self.assertEqual(c['result'], 1)
         self.assertTrue('<b>bold</b>' in r1)
         self.assertTrue('&lt;b&gt;bold&lt;/b&gt;' in r1)
         self.assertTrue('pickled=3\n' in r1)
+        self.assertTrue('pickled_unicode=юникод\n' in r1)
         self.assertTrue('nested nocache\n' in r1)
         self.assertTrue('<nocache' not in r1)
 

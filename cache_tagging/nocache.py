@@ -52,10 +52,10 @@ class NoCache(object):
     def pickle(self, data):
         return base64.standard_b64encode(
             pickle.dumps(data, protocol=pickle.HIGHEST_PROTOCOL)
-        )
+        ).decode('ascii')
 
     def unpickle(self, value):
-        return pickle.loads(base64.standard_b64decode(value))
+        return pickle.loads(base64.standard_b64decode(value.encode('ascii')))
 
     def handle(self, tpl, **data):
         """eval nocache"""

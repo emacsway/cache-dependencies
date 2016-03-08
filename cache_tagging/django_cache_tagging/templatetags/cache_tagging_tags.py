@@ -8,6 +8,7 @@ from django.template.loader import render_to_string
 from django.template import (Library, Node, TemplateSyntaxError,
     VariableDoesNotExist, base)
 from django.utils.translation import ugettext_lazy, pgettext_lazy
+from django.utils.safestring import mark_safe
 
 from .. import cache, nocache as nocache_handler
 from ..utils import prevent_cache_page
@@ -53,12 +54,13 @@ register.tag('cache_add_tags', do_cache_add_tags)
 
 
 class CacheNode(Node):
-    def __init__(self, nodelist, fragment_name, timeout_var, vary_on, kwargs):
+    def __init__(self, nodelist, fragment_name, timeout_var, vary_on, kwargs, filters):
         self.nodelist = nodelist
         self.timeout_var = timeout_var
         self.fragment_name = fragment_name
         self.vary_on = vary_on
         self.kwargs = kwargs
+        self.filters = filters
 
     def render(self, context):
         cache_name = self.fragment_name.resolve(context)
@@ -128,9 +130,8 @@ class CacheNode(Node):
                 pass
 
             filters = Filters()
-            for lib in base.builtins:
-                for k, v in lib.filters.items():
-                    setattr(filters, k, v)
+            for k, v in self.filters.items():
+                setattr(filters, k, v)
             filters.escape = filters.force_escape
 
             context_dict.update({
@@ -190,7 +191,14 @@ def do_cache(parser, token):
 
     name = args.pop(0)
     timeout = kwargs.pop('timeout', None)
-    return CacheNode(nodelist, name, timeout, args, kwargs)
+    try:
+        filters = {}
+        for lib in base.builtins:
+            filters.update(lib.filters)
+    except AttributeError:
+        filters = parser.filters
+
+    return CacheNode(nodelist, name, timeout, args, kwargs, filters)
 
 
 @register.simple_tag(takes_context=True)
@@ -204,12 +212,12 @@ register.tag('cache_tagging', do_cache)
 
 @register.simple_tag
 def nocache(**kwargs):
-    return nocache_handler.start(**kwargs)
+    return mark_safe(nocache_handler.start(**kwargs))
 
 
 @register.simple_tag
 def endnocache():
-    return nocache_handler.end()
+    return mark_safe(nocache_handler.end())
 
 
 @register.filter
