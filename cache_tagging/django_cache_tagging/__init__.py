@@ -4,9 +4,14 @@ from threading import local
 
 from django.conf import settings
 from django.core.cache import DEFAULT_CACHE_ALIAS
-from django.core.cache import get_cache as django_get_cache
 from django.db.models import signals
 from django.utils.functional import curry
+try:
+    from django.core.cache import get_cache as django_get_cache
+    django_caches = None
+except ImportError:
+    from django.core.cache import caches as django_caches
+    django_get_cache = None
 
 from cache_tagging.tagging import CacheTagging
 from cache_tagging.nocache import NoCache
@@ -50,10 +55,12 @@ class CacheCollection(object):
             delay = options.get('DELAY', None)
             nonrepeatable_reads = options.get('NONREPEATABLE_READS', False)
             django_backend = options.get('BACKEND', backend)
+            if django_caches:
+                django_cache = django_caches[django_backend]
+            else:
+                django_cache = django_get_cache(django_backend, *args, **kwargs)
             self._caches.caches['key'] = CacheTagging(
-                django_get_cache(django_backend, *args, **kwargs),
-                delay,
-                nonrepeatable_reads
+                django_cache, delay, nonrepeatable_reads
             )
         return self._caches.caches['key']
 
