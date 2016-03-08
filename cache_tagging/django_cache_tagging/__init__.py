@@ -50,11 +50,6 @@ class CacheCollection(object):
         key = (backend, args, frozenset(kwargs.items()))
 
         if key not in self._caches:
-            # TODO: prevent multiple instances for
-            # "cache_tagging/django_cache_tagging/middleware.py"
-            # self.cache = get_cache(self.cache_alias, **cache_kwargs)
-            # with args: ('default', (), {('TIMEOUT', 3600)})
-
             options = getattr(settings, 'CACHE_TAGGING', {}).get(backend, {})
             delay = options.get('DELAY', None)
             nonrepeatable_reads = options.get('NONREPEATABLE_READS', False)

@@ -311,7 +311,7 @@ class TagLocked(Exception):
     pass
 
 
-# TODO: Replace Type Code with Subclasses
+# TODO: Replace Type Code with State/Strategy?
 class Transaction(object):
 
     LOCK_PREFIX = "lock"
