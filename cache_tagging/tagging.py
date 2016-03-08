@@ -47,12 +47,12 @@ def warn(old, new, stacklevel=3):
 class CacheTagging(object):
     """Tags support for Django cache."""
 
-    def __init__(self, cache, delay=None, nonrepeatable_reads=False):
+    def __init__(self, cache, tags_manager, transaction):
         """Constructor of cache instance."""
         self.cache = cache
         self.ignore_descendants = False
-        self.transaction = Transaction(self, delay, nonrepeatable_reads)
-        self.tags_manager = TagsManager()
+        self.transaction = transaction
+        self.tags_manager = tags_manager
 
     def get_or_set_callback(self, name, callback, tags=[], timeout=None,
                             version=None, args=None, kwargs=None):
@@ -311,15 +311,16 @@ class TagLocked(Exception):
     pass
 
 
+# TODO: Replace Type Code with Subclasses
 class Transaction(object):
 
     LOCK_PREFIX = "lock"
     STATUS_INVALIDATION = 0
     STATUS_COMMIT = 1
 
-    def __init__(self, cache, delay=None, nonrepeatable_reads=False):
+    def __init__(self, thread_safe_cache_accessor, delay=None, nonrepeatable_reads=False):
         """Constructor of Transaction instance."""
-        self.cache = cache
+        self.cache = thread_safe_cache_accessor
         self.delay = delay
         self.nonrepeatable_reads = nonrepeatable_reads
         self.scopes = []
@@ -353,7 +354,7 @@ class Transaction(object):
             if self.delay:
                 timeout += self.delay
             data = (time.time(), status, get_thread_id())
-            self.cache.set_many(
+            self.cache().set_many(
                 {self.get_locked_tag_name(tag): data for tag in tags},
                 timeout, version
             )
@@ -371,7 +372,7 @@ class Transaction(object):
             top_scope_tags = top_scope['tags'].get(version, set())
             cache_names += list(map(self.get_locked_tag_name, top_scope_tags))
 
-        caches = self.cache.get_many(cache_names, version) or {}
+        caches = self.cache().get_many(cache_names, version) or {}
         tag_caches = {k: v for k, v in caches.items() if k in tags}
         locked_tag_caches = {k: v for k, v in caches.items() if k not in tags}
 
@@ -381,9 +382,9 @@ class Transaction(object):
                 transaction_start_time -= self.delay
             current_tread_id = get_thread_id()
             for tag_time, tag_status, tag_thread_id in locked_tag_caches.values():
-                if (current_tread_id != tag_thread_id
-                    and (transaction_start_time <= tag_time
-                         or tag_status == self.STATUS_INVALIDATION)):
+                if (current_tread_id != tag_thread_id and
+                    (transaction_start_time <= tag_time or
+                     tag_status == self.STATUS_INVALIDATION)):
                     raise TagLocked
         return tag_caches
 
@@ -395,7 +396,7 @@ class Transaction(object):
     def _finish_delayed(self, scope):
         """Just helper for async. Actual for DB replication (slave delay)."""
         for version, tags in scope['tags'].items():
-            self.cache.delete_many(list(tags), version=version)  # TODO: what if signal request_finished closed connection?
+            self.cache().delete_many(list(tags), version=version)
             self.lock_tags(tags, self.STATUS_COMMIT, version)
 
     def finish(self):

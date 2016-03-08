@@ -15,7 +15,7 @@ except ImportError:
     from django.core.cache import caches as django_caches
     django_get_cache = None
 
-from cache_tagging.tagging import CacheTagging
+from cache_tagging.tagging import CacheTagging, TagsManager, Transaction
 from cache_tagging.nocache import NoCache
 
 try:
@@ -50,6 +50,11 @@ class CacheCollection(object):
         key = (backend, args, frozenset(kwargs.items()))
 
         if key not in self._caches:
+            # TODO: prevent multiple instances for
+            # "cache_tagging/django_cache_tagging/middleware.py"
+            # self.cache = get_cache(self.cache_alias, **cache_kwargs)
+            # with args: ('default', (), {('TIMEOUT', 3600)})
+
             options = getattr(settings, 'CACHE_TAGGING', {}).get(backend, {})
             delay = options.get('DELAY', None)
             nonrepeatable_reads = options.get('NONREPEATABLE_READS', False)
@@ -58,8 +63,14 @@ class CacheCollection(object):
                 django_cache = django_caches[django_backend]
             else:
                 django_cache = django_get_cache(django_backend, *args, **kwargs)
+
+            def thread_safe_cache_accessor():
+                return self(backend, *args, **kwargs)
+
+            transaction = Transaction(thread_safe_cache_accessor, delay, nonrepeatable_reads)
+            tags_manager = TagsManager()
             self._caches[key] = CacheTagging(
-                django_cache, delay, nonrepeatable_reads
+                django_cache, tags_manager, transaction
             )
         return self._caches[key]
 
