@@ -16,7 +16,7 @@ setup(
 
     author = "Ivan Zakrevsky",
     author_email = "ivzak@yandex.ru",
-    description = "Cache-tagging allows you easily invalidate all cache records tagged with a given tag(s). Django support.",
+    description = "Cache-tagging allows you easily invalidate all cache records tagged with a given tag(s). Supports Django.",
     long_description=open(os.path.join(os.path.dirname(__file__), 'README.rst')).read(),
     license = "BSD License",
     keywords = "django cache tagging",
