@@ -424,7 +424,7 @@ class RepeatableReadsTagsLock(TagsLock):
             current_tread_id = get_thread_id()
             for tag_time, tag_status, tag_thread_id in locked_tag_caches.values():
                 if current_tread_id == tag_thread_id:
-                    # Asquired by concurent thread, ignore it
+                    # Acquired by current thread, ignore it
                     continue
                 else:
                     if transaction_start_time <= (tag_time + self._delay):
