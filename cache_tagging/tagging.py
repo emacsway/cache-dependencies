@@ -32,7 +32,6 @@ else:
     randrange = random.randrange
 
 TAG_TIMEOUT = 24 * 3600
-TAG_LOCKING_TIMEOUT = 5
 MAX_TAG_KEY = 18446744073709551616     # 2 << 63
 
 
@@ -87,9 +86,9 @@ class CacheTagging(object):
         # Cache can be many times rewrited on highload with
         # high overlap of transactions.
         # if self.transaction.scopes:
-        #     transaction_start_time = self.transaction.scopes[0]['time']
-        #     if self.transaction.delay:
-        #         transaction_start_time -= self.transaction.delay
+        #     transaction_start_time = self.transaction.scopes[0]['start_time']
+        #     if self.transaction.lock.delay:
+        #         transaction_start_time -= self.transaction.lock.delay
         #     if transaction_start_time <= data['time'] and data['thread_id'] != get_thread_id():
         #         return default
 
@@ -311,18 +310,138 @@ class TagLocked(Exception):
     pass
 
 
-# TODO: Replace Type Code with State/Strategy?
-class Transaction(object):
+class TagsLock(object):
+
+    def acquire_tags(self, tags, version=None):
+        raise NotImplementedError
+
+    def release_tags(self, tags, version=None):
+        raise NotImplementedError
+
+    def get_tags(self, tags, transaction_start_time, version=None):
+        raise NotImplementedError
+
+    @staticmethod
+    def make(isolation_level, thread_safe_cache_accessor, delay):
+        if isolation_level == 'READ UNCOMMITED':
+            return ReadUncommittedTagsLock(thread_safe_cache_accessor, delay)
+        elif isolation_level == 'READ COMMITED':
+            return ReadCommittedTagsLock(thread_safe_cache_accessor, delay)
+        elif isolation_level == 'REPEATABLE READS':
+            return RepeatableReadsTagsLock(thread_safe_cache_accessor, delay)
+        elif isolation_level == 'SERIALIZABLE':
+            return SerializableTagsLock(thread_safe_cache_accessor, delay)
+
+
+class ReadUncommittedTagsLock(TagsLock):
+    """
+    Tag Lock for Read Ucnommited and higher transaction isolation level.
+    """
+
+    def __init__(self, thread_safe_cache_accessor, delay=None):
+        self.cache = thread_safe_cache_accessor
+        self.delay = delay  # For master/slave
+
+    def acquire_tags(self, tags, version=None):
+        pass
+
+    def release_tags(self, tags, version=None):
+        if self.delay:
+            threading.Timer(self.delay, self._release_tags_delayed, [tags, version]).start()
+
+    def _release_tags_delayed(self, tags, version=None):
+        self.cache().delete_many(list(tags), version=version)
+
+    def get_tags(self, tags, transaction_start_time, version=None):
+        return self.cache().get_many(tags, version) or {}
+
+
+class ReadCommittedTagsLock(ReadUncommittedTagsLock):
+    def release_tags(self, tags, version=None):
+        self._release_tags_delayed(tags, version)
+        super(ReadCommittedTagsLock, self).release_tags(tags, version)
+
+
+class RepeatableReadsTagsLock(TagsLock):
+    """
+    Tag Lock for Repeatable Reads and higher transaction isolation level.
+    """
 
     LOCK_PREFIX = "lock"
-    STATUS_INVALIDATION = 0
-    STATUS_COMMIT = 1
+    LOCK_TIMEOUT = 5
 
-    def __init__(self, thread_safe_cache_accessor, delay=None, nonrepeatable_reads=False):
-        """Constructor of Transaction instance."""
+    class STATUS(object):
+        ASQUIRED = 0
+        RELEASED = 1
+
+    def __init__(self, thread_safe_cache_accessor, delay=None):
         self.cache = thread_safe_cache_accessor
-        self.delay = delay
-        self.nonrepeatable_reads = nonrepeatable_reads
+        self.delay = delay  # For master/slave
+
+    def acquire_tags(self, tags, version=None):
+        return self._set_tags_status(tags, self.STATUS.ASQUIRED, version)
+
+    def release_tags(self, tags, version=None):
+        return self._set_tags_status(tags, self.STATUS.RELEASED, version)
+
+    def _set_tags_status(self, tags, status, version=None):
+        """Locks tags for concurrent transactions."""
+        data = (time.time(), status, get_thread_id())
+        self.cache().set_many(
+            {self._get_locked_tag_name(tag): data for tag in tags}, self._get_timeout(), version
+        )
+
+    def _get_locked_tag_name(self, tag):
+        return '{0}_{1}'.format(self.LOCK_PREFIX, tag)
+
+    def _get_timeout(self):
+        timeout = self.LOCK_TIMEOUT
+        if self.delay:
+            timeout += self.delay
+        return timeout
+
+    def get_tags(self, tags, transaction_start_time, version=None):
+        """Returns tags dict if all tags is not locked.
+
+        Raises TagLocked, if current transaction has been started earlier
+        than any tag has been invalidated by concurent process.
+        Actual for SERIALIZABLE and REPEATABLE READ transaction levels.
+        """
+        tags = set(tags)
+        cache_names = tags | set(map(self._get_locked_tag_name, tags))
+        caches = self.cache().get_many(list(cache_names), version) or {}
+        tag_caches = {k: v for k, v in caches.items() if k in tags}
+        locked_tag_caches = {k: v for k, v in caches.items() if k not in tags}
+
+        if locked_tag_caches:
+            current_tread_id = get_thread_id()
+            for tag_time, tag_status, tag_thread_id in locked_tag_caches.values():
+                if current_tread_id == tag_thread_id:
+                    # Asquired by concurent thread, ignore it
+                    continue
+                else:
+                    if transaction_start_time <= (tag_time + self.delay):
+                        # Released after current transaction has started
+                        # (concurent transaction can be shorten or earlier than current).
+                        # Not't affect concurent transaction in rebeatable reads (or higher) isolation level.
+                        raise TagLocked
+                    if tag_status == self.STATUS.ASQUIRED:
+                        # Still asquired
+                        raise TagLocked
+        return tag_caches
+
+
+class SerializableTagsLock(RepeatableReadsTagsLock):
+    pass
+
+
+class TransactionManager(object):
+
+    def __init__(self, lock):
+        """
+        :type lock: TagLock
+        """
+        self.lock = lock
         self.scopes = []
 
     def __call__(self, f=None):
@@ -344,21 +463,6 @@ class Transaction(object):
         self.finish()
         return False
 
-    def get_locked_tag_name(self, tag):
-        return '{0}_{1}'.format(self.LOCK_PREFIX, tag)
-
-    def lock_tags(self, tags, status, version=None):
-        """Locks tags for concurrent transactions."""
-        if self.nonrepeatable_reads:
-            timeout = TAG_LOCKING_TIMEOUT
-            if self.delay:
-                timeout += self.delay
-            data = (time.time(), status, get_thread_id())
-            self.cache().set_many(
-                {self.get_locked_tag_name(tag): data for tag in tags},
-                timeout, version
-            )
-
     def get_tags(self, tags, version=None):
         """Returns tags dict if all tags is not locked.
 
@@ -366,38 +470,16 @@ class Transaction(object):
         than any tag has been invalidated by concurent process.
         Actual for SERIALIZABLE and REPEATABLE READ transaction levels.
         """
-        cache_names = list(tags)
-        if self.nonrepeatable_reads and self.scopes:
-            top_scope = self.scopes[0]
-            top_scope_tags = top_scope['tags'].get(version, set())
-            cache_names += list(map(self.get_locked_tag_name, top_scope_tags))
-
-        caches = self.cache().get_many(cache_names, version) or {}
-        tag_caches = {k: v for k, v in caches.items() if k in tags}
-        locked_tag_caches = {k: v for k, v in caches.items() if k not in tags}
-
-        if locked_tag_caches:
-            transaction_start_time = top_scope['time']
-            if self.delay:
-                transaction_start_time -= self.delay
-            current_tread_id = get_thread_id()
-            for tag_time, tag_status, tag_thread_id in locked_tag_caches.values():
-                if (current_tread_id != tag_thread_id and
-                    (transaction_start_time <= tag_time or
-                     tag_status == self.STATUS_INVALIDATION)):
-                    raise TagLocked
-        return tag_caches
+        try:
+            transaction_start_time = self.scopes[0]['start_time']
+        except LookupError:
+            transaction_start_time = time.time()
+        return self.lock.get_tags(tags, transaction_start_time, version)
 
     def begin(self):
         """Handles database transaction begin."""
-        self.scopes.append({'time': time.time(), 'tags': {}})
+        self.scopes.append({'start_time': time.time(), 'tags': dict()})
         return self
-
-    def _finish_delayed(self, scope):
-        """Just helper for async. Actual for DB replication (slave delay)."""
-        for version, tags in scope['tags'].items():
-            self.cache().delete_many(list(tags), version=version)
-            self.lock_tags(tags, self.STATUS_COMMIT, version)
 
     def finish(self):
         """Handles database transaction commit or rollback.
@@ -410,9 +492,8 @@ class Transaction(object):
         or "rollback").
         """
         scope = self.scopes.pop()
-        self._finish_delayed(scope)
-        if self.delay and not self.nonrepeatable_reads:
-            threading.Timer(self.delay, self._finish_delayed, [scope]).start()
+        for version, tags in scope['tags'].items():
+            self.lock.release_tags(tags, version)
         return self
 
     def flush(self):
@@ -425,4 +506,4 @@ class Transaction(object):
         """Adds cache names to current scope."""
         for scope in self.scopes:
             scope['tags'].setdefault(version, set()).update(tags)
-        self.lock_tags(tags, self.STATUS_INVALIDATION, version)
+        self.lock.acquire_tags(tags, version)
