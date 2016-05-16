@@ -317,7 +317,7 @@ class CacheTaggingTest(TestCase):
                 self.assertEqual(cache.get('name2'), 'value2')
                 self.assertEqual(cache.get('name1'), 'value1')
 
-            self.assertEqual(cache.get('name2', None, abort=True), None)
+            self.assertEqual(cache.get('name2', None, abort=True), 'value2')
             self.assertEqual(cache.get('name1'), 'value1')
 
             cache.set('name3', 'value3', ('tag3', ), 120)
@@ -334,6 +334,7 @@ class CacheTaggingTest(TestCase):
 
         self.assertEqual(cache.get('name3'), 'value3')
         self.assertEqual(cache.get('name1', None), None)
+        self.assertEqual(cache.get('name2', None, abort=True), None)
 
         # tests for cache.transaction.flush()
         cache.clear()

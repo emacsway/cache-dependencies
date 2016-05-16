@@ -123,7 +123,7 @@ class CacheTagging(object):
             tag_cache_names = list(map(tag_prepare_name, tags))
             # tag_caches = self.cache.get_many(tag_cache_names, version) or {}
             try:
-                tag_caches = self.transaction.get_tags(tag_cache_names, version)
+                tag_caches = self.transaction.current().get_tags(tag_cache_names, version)
             except TagLocked:
                 self.finish(name, tags, version=version)
                 return
@@ -156,7 +156,7 @@ class CacheTagging(object):
         if len(tags):
             version = kwargs.get('version', None)
             tags_prepared = list(map(tag_prepare_name, set(tags)))
-            self.transaction.add_tags(tags_prepared, version=version)
+            self.transaction.current().add_tags(tags_prepared, version=version)
             self.cache.delete_many(tags_prepared, version=version)
 
     def begin(self, name):
@@ -191,14 +191,6 @@ class CacheTagging(object):
         self.transaction.flush()
         return self
 
-    def get_transaction_scopes(self):
-        warn('cache.get_transaction_scope()', 'cache.transaction.scopes')
-        return self.transaction.scopes
-
-    def add_to_transaction_scope(self, tags, version=None):
-        warn('cache.add_to_transaction_scope()', 'cache.transaction.add_tags()')
-        self.transaction.add_tags(tags, version)
-
     def __getattr__(self, name):
         """Proxy for all native methods."""
         return getattr(self.cache, name)
@@ -226,9 +218,27 @@ def tag_generate_version():
     return hash
 
 
+class Undef(object):
+    pass
+
+
 class TagsManager(object):
 
-    class Tags(object):
+    class ITags(object):
+
+        def parent(self):
+            raise NotImplementedError
+
+        def name(self):
+            raise NotImplementedError
+
+        def add(self, tags, version=None):
+            raise NotImplementedError
+
+        def values(self, version=None):  # TODO: rename to get()?
+            raise NotImplementedError
+
+    class Tags(ITags):
 
         def __init__(self, name, parent=None):
             self._name = name
@@ -254,7 +264,7 @@ class TagsManager(object):
             except KeyError:
                 return set()
 
-    class NoneTags(Tags):
+    class NoneTags(ITags):
         """Using pattern Special Case"""
         def __init__(self):
             pass
@@ -270,9 +280,6 @@ class TagsManager(object):
 
         def values(self, version=None):
             return set()
-
-    class Undef(object):
-        pass
 
     def __init__(self):
         self._current = None
@@ -294,7 +301,7 @@ class TagsManager(object):
         return node
 
     def current(self, name_or_node=Undef):
-        if name_or_node is self.Undef:
+        if name_or_node is Undef:
             return self._current or self.NoneTags()
         if isinstance(name_or_node, string_types):
             node = self.get(name_or_node)
@@ -339,21 +346,21 @@ class ReadUncommittedTagsLock(TagsLock):
     """
 
     def __init__(self, thread_safe_cache_accessor, delay=None):
-        self.cache = thread_safe_cache_accessor
-        self.delay = delay  # For master/slave
+        self._cache = thread_safe_cache_accessor
+        self._delay = delay  # For master/slave
 
     def acquire_tags(self, tags, version=None):
         pass
 
     def release_tags(self, tags, version=None):
-        if self.delay:
-            threading.Timer(self.delay, self._release_tags_delayed, [tags, version]).start()
+        if self._delay:
+            threading.Timer(self._delay, self._release_tags_delayed, [tags, version]).start()
 
     def _release_tags_delayed(self, tags, version=None):
-        self.cache().delete_many(list(tags), version=version)
+        self._cache().delete_many(list(tags), version=version)
 
     def get_tags(self, tags, transaction_start_time, version=None):
-        return self.cache().get_many(tags, version) or {}
+        return self._cache().get_many(tags, version) or {}
 
 
 class ReadCommittedTagsLock(ReadUncommittedTagsLock):
@@ -375,8 +382,8 @@ class RepeatableReadsTagsLock(TagsLock):
         RELEASED = 1
 
     def __init__(self, thread_safe_cache_accessor, delay=None):
-        self.cache = thread_safe_cache_accessor
-        self.delay = delay  # For master/slave
+        self._cache = thread_safe_cache_accessor
+        self._delay = delay  # For master/slave
 
     def acquire_tags(self, tags, version=None):
         return self._set_tags_status(tags, self.STATUS.ASQUIRED, version)
@@ -387,7 +394,7 @@ class RepeatableReadsTagsLock(TagsLock):
     def _set_tags_status(self, tags, status, version=None):
         """Locks tags for concurrent transactions."""
         data = (time.time(), status, get_thread_id())
-        self.cache().set_many(
+        self._cache().set_many(
             {self._get_locked_tag_name(tag): data for tag in tags}, self._get_timeout(), version
         )
 
@@ -396,8 +403,8 @@ class RepeatableReadsTagsLock(TagsLock):
 
     def _get_timeout(self):
         timeout = self.LOCK_TIMEOUT
-        if self.delay:
-            timeout += self.delay
+        if self._delay:
+            timeout += self._delay
         return timeout
 
     def get_tags(self, tags, transaction_start_time, version=None):
@@ -409,7 +416,7 @@ class RepeatableReadsTagsLock(TagsLock):
         """
         tags = set(tags)
         cache_names = tags | set(map(self._get_locked_tag_name, tags))
-        caches = self.cache().get_many(list(cache_names), version) or {}
+        caches = self._cache().get_many(list(cache_names), version) or {}
         tag_caches = {k: v for k, v in caches.items() if k in tags}
         locked_tag_caches = {k: v for k, v in caches.items() if k not in tags}
 
@@ -420,7 +427,7 @@ class RepeatableReadsTagsLock(TagsLock):
                     # Asquired by concurent thread, ignore it
                     continue
                 else:
-                    if transaction_start_time <= (tag_time + self.delay):
+                    if transaction_start_time <= (tag_time + self._delay):
                         # Released after current transaction has started
                         # (concurent transaction can be shorten or earlier than current).
                         # Not't affect concurent transaction in rebeatable reads (or higher) isolation level.
@@ -437,12 +444,83 @@ class SerializableTagsLock(RepeatableReadsTagsLock):
 
 class TransactionManager(object):
 
+    class ITransaction(object):
+        def parent(self):
+            raise NotImplementedError
+
+        def add_tags(self, tags, version=None):
+            raise NotImplementedError
+
+        def get_tags(self, tags, version=None):
+            raise NotImplementedError
+
+        def finish(self):
+            raise NotImplementedError
+
+        @staticmethod
+        def _curret_time():
+            return time.time()
+
+    class Transaction(ITransaction):
+        def __init__(self, lock):
+            self._lock = lock
+            self._tags = dict()
+            self.start_time = self._curret_time()
+
+        def parent(self):
+            return None
+
+        def add_tags(self, tags, version=None):
+            if version not in self._tags:
+                self._tags[version] = set()
+            self._tags[version] |= set(tags)
+            self._lock.acquire_tags(tags, version)
+
+        def get_tags(self, tags, version=None):
+            return self._lock.get_tags(tags, self.start_time, version)
+
+        def finish(self):
+            for version, tags in self._tags.items():
+                self._lock.release_tags(tags, version)
+
+    class SavePoint(Transaction):
+        def __init__(self, lock, parent):
+            super(TransactionManager.SavePoint, self).__init__(lock)
+            assert parent is not None
+            assert isinstance(parent, (TransactionManager.SavePoint, TransactionManager.Transaction))
+            self._parent = parent
+            self.start_time = parent.start_time
+
+        def parent(self):
+            return self._parent
+
+        def add_tags(self, tags, version=None):
+            super(TransactionManager.SavePoint, self).add_tags(tags, version)
+            self._parent.add_tags(tags, version)
+
+        def finish(self):
+            pass
+
+    class NoneTransaction(ITransaction):
+
+        def parent(self):
+            return None
+
+        def add_tags(self, tags, version=None):
+            pass
+
+        def get_tags(self, tags, version=None):
+            return set()
+
+        def finish(self):
+            pass
+
     def __init__(self, lock):
         """
         :type lock: TagLock
         """
-        self.lock = lock
-        self.scopes = []
+        self._lock = lock
+        self._current = None
 
     def __call__(self, f=None):
         if f is None:
@@ -463,23 +541,26 @@ class TransactionManager(object):
         self.finish()
         return False
 
-    def get_tags(self, tags, version=None):
-        """Returns tags dict if all tags is not locked.
+    def add_tags(self, tags, version=None):
+        warn('transaction.add_tags()', 'transaction.current().add_tags()')
+        self.current().add_tags(tags, version)
 
-        Raises TagLocked, if current transaction has been started earlier
-        than any tag has been invalidated by concurent process.
-        Actual for SERIALIZABLE and REPEATABLE READ transaction levels.
-        """
-        try:
-            transaction_start_time = self.scopes[0]['start_time']
-        except LookupError:
-            transaction_start_time = time.time()
-        return self.lock.get_tags(tags, transaction_start_time, version)
+    def get_tags(self, tags, version=None):
+        warn('transaction.get_tags()', 'transaction.current().get_tags()')
+        return self.current().get_tags(tags, version)
+
+    def current(self, node=Undef):
+        if node is Undef:
+            return self._current or self.NoneTransaction()
+        self._current = node
 
     def begin(self):
         """Handles database transaction begin."""
-        self.scopes.append({'start_time': time.time(), 'tags': dict()})
-        return self
+        if self._current is None:
+            self.current(self.Transaction(self._lock))
+        else:
+            self.current(self.SavePoint(self._lock, self.current()))
+        return self.current()
 
     def finish(self):
         """Handles database transaction commit or rollback.
@@ -491,19 +572,10 @@ class TransactionManager(object):
         So, method is named "finish" (not "commit"
         or "rollback").
         """
-        scope = self.scopes.pop()
-        for version, tags in scope['tags'].items():
-            self.lock.release_tags(tags, version)
-        return self
+        self.current().finish()
+        self.current(self.current().parent())
 
     def flush(self):
         """Finishes all active transactions."""
-        while len(self.scopes):
+        while self._current:
             self.finish()
-        return self
-
-    def add_tags(self, tags, version=None):
-        """Adds cache names to current scope."""
-        for scope in self.scopes:
-            scope['tags'].setdefault(version, set()).update(tags)
-        self.lock.acquire_tags(tags, version)
