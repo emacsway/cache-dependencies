@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, unicode_literals
 import os
-import hashlib
+import time
 import random
 import socket
-import threading
-import time
+import hashlib
 import warnings
+import threading
+import collections
 from functools import wraps
 
 try:
@@ -196,7 +197,7 @@ class CacheTagging(object):
         return getattr(self.cache, name)
 
 
-def get_thread_id():
+def get_thread_id():  # TODO: Cache result in thread-safe variable
     """Returs id for current thread."""
     return '{0}.{1}.{2}'.format(
         socket.gethostname(), os.getpid(), _thread.get_ident()
@@ -381,6 +382,8 @@ class RepeatableReadsTagsLock(TagsLock):
         ASQUIRED = 0
         RELEASED = 1
 
+    TagBean = collections.namedtuple('TagBean', ('time', 'status', 'thread_id'))
+
     def __init__(self, thread_safe_cache_accessor, delay=None):
         self._cache = thread_safe_cache_accessor
         self._delay = delay  # For master/slave
@@ -393,7 +396,7 @@ class RepeatableReadsTagsLock(TagsLock):
 
     def _set_tags_status(self, tags, status, version=None):
         """Locks tags for concurrent transactions."""
-        data = (time.time(), status, get_thread_id())
+        data = self.TagBean(time.time(), status, get_thread_id())
         self._cache().set_many(
             {self._get_locked_tag_name(tag): data for tag in tags}, self._get_timeout(), version
         )
@@ -421,21 +424,21 @@ class RepeatableReadsTagsLock(TagsLock):
         locked_tag_caches = {k: v for k, v in caches.items() if k not in tags}
 
         if locked_tag_caches:
-            current_tread_id = get_thread_id()
-            for tag_time, tag_status, tag_thread_id in locked_tag_caches.values():
-                if current_tread_id == tag_thread_id:
-                    # Acquired by current thread, ignore it
-                    continue
-                else:
-                    if transaction_start_time <= (tag_time + self._delay):
-                        # Released after current transaction has started
-                        # (concurent transaction can be shorten or earlier than current).
-                        # Not't affect concurent transaction in rebeatable reads (or higher) isolation level.
-                        raise TagLocked
-                    if tag_status == self.STATUS.ASQUIRED:
-                        # Still asquired
+            for tag_bean in locked_tag_caches.values():
+                if self._tag_is_locked(tag_bean, transaction_start_time):
                         raise TagLocked
         return tag_caches
+
+    def _tag_is_locked(self, tag_bean, transaction_start_time):
+        if tag_bean.thread_id == get_thread_id():
+            # Acquired by current thread, ignore it
+            return False
+        if tag_bean.status == self.STATUS.ASQUIRED:
+            # Tag still is asquired
+            return True
+        if transaction_start_time <= (tag_bean.time + self._delay):
+            # We don't create cache in all transactions started earlier than finished the transaction which has invalidated tag.
+            return True
 
 
 class SerializableTagsLock(RepeatableReadsTagsLock):

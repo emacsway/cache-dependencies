@@ -271,4 +271,4 @@ Transaction handler as middleware::
 
 Forked from https://github.com/Harut/django-cachecontrol
 
-Some ideas from http://dklab.ru/lib/Dklab_Cache/
+See also article "`About problems cache invalidation. Tagging cache. <http://emacsway.bitbucket.org/ru/cache-tagging/>`_" (in Russian).
