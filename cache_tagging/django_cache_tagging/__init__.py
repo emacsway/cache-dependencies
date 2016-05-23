@@ -61,7 +61,6 @@ class CacheCollection(object):
 
             def thread_safe_cache_accessor():
                 return self(backend, *args, **kwargs)
-
             tags_lock = TagsLock.make(isolation_level, thread_safe_cache_accessor, delay)
             transaction = TransactionManager(tags_lock)
             tags_manager = TagsManager()

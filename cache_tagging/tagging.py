@@ -370,6 +370,9 @@ class ReadCommittedTagsLock(ReadUncommittedTagsLock):
         super(ReadCommittedTagsLock, self).release_tags(tags, version)
 
 
+TagBean = collections.namedtuple('TagBean', ('time', 'status', 'thread_id'))
+
+
 class RepeatableReadsTagsLock(TagsLock):
     """
     Tag Lock for Repeatable Reads and higher transaction isolation level.
@@ -381,8 +384,6 @@ class RepeatableReadsTagsLock(TagsLock):
     class STATUS(object):
         ASQUIRED = 0
         RELEASED = 1
-
-    TagBean = collections.namedtuple('TagBean', ('time', 'status', 'thread_id'))
 
     def __init__(self, thread_safe_cache_accessor, delay=None):
         self._cache = thread_safe_cache_accessor
@@ -396,7 +397,7 @@ class RepeatableReadsTagsLock(TagsLock):
 
     def _set_tags_status(self, tags, status, version=None):
         """Locks tags for concurrent transactions."""
-        data = self.TagBean(time.time(), status, get_thread_id())
+        data = TagBean(time.time(), status, get_thread_id())
         self._cache().set_many(
             {self._get_locked_tag_name(tag): data for tag in tags}, self._get_timeout(), version
         )

@@ -9,7 +9,7 @@ from django.template import Context, Template
 from django.test import TestCase
 from django.test.client import RequestFactory
 
-from .. import cache, registry
+from .. import cache, caches, registry
 from ..decorators import cache_transaction_all
 
 
@@ -34,6 +34,19 @@ registry.register(CACHES)
 class CacheTaggingTest(TestCase):
 
     urls = 'cache_tagging.django_cache_tagging.tests.urls'
+
+    @classmethod
+    def setUpClass(cls):
+        cls.original_caches = caches._caches.copy()
+        caches._caches.clear()
+        cls.ORIGINAL_CACHE_TAGGING = settings.CACHE_TAGGING
+        settings.CACHE_TAGGING = {'default': {}}
+
+    @classmethod
+    def tearDownClass(cls):
+        caches._caches.clear()
+        caches._caches.update(cls.original_caches)
+        settings.CACHE_TAGGING = cls.ORIGINAL_CACHE_TAGGING
 
     def setUp(self):
         cache.clear()
@@ -157,8 +170,7 @@ class CacheTaggingTest(TestCase):
                 {% endnocache %}
                 end
             {% end_cache_tagging %}
-            """
-        )
+            """)
         now1 = str(uuid4())
         c = Context({
             'request': RequestFactory().get('/'),
@@ -205,8 +217,7 @@ class CacheTaggingTest(TestCase):
                 {{ now }}
                 {% cache_add_tags tag3 %}
             {% end_cache_tagging %}
-            """
-        )
+            """)
         c = Context({
             'request': RequestFactory().get('/'),
             'now': uuid4(),
@@ -222,7 +233,7 @@ class CacheTaggingTest(TestCase):
         r1 = t.render(c)
         self.assertTrue(hasattr(c['request'], 'cache_tagging'))
         self.assertTrue('tests.firsttestmodel' in c['request'].cache_tagging)
-        self.assertTrue('tests.secondtestmodel.pk:{0}'.format(self.obj2.pk)\
+        self.assertTrue('tests.secondtestmodel.pk:{0}'.format(self.obj2.pk)
                         in c['request'].cache_tagging)
         self.assertTrue('tag3' in c['request'].cache_tagging)
 
@@ -269,8 +280,7 @@ class CacheTaggingTest(TestCase):
                 {% cache_add_tags tag3 "tag4" %}
                 {% cache_tagging_prevent %}
             {% end_cache_tagging %}
-            """
-        )
+            """)
         c = Context({
             'request': RequestFactory().get('/'),
             'now': uuid4(),
@@ -284,7 +294,7 @@ class CacheTaggingTest(TestCase):
         r1 = t.render(c)
         self.assertTrue(hasattr(c['request'], 'cache_tagging'))
         self.assertTrue('tests.firsttestmodel' in c['request'].cache_tagging)
-        self.assertTrue('tests.secondtestmodel.pk:{0}'.format(self.obj2.pk)\
+        self.assertTrue('tests.secondtestmodel.pk:{0}'.format(self.obj2.pk)
                         in c['request'].cache_tagging)
         self.assertTrue('tag3' in c['request'].cache_tagging)
         self.assertTrue('tag4' in c['request'].cache_tagging)
