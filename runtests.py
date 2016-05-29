@@ -48,7 +48,11 @@ def main():
     TestRunner = get_runner(settings)
 
     test_runner = TestRunner(verbosity=1, interactive=False, failfast=False)
-    failures = test_runner.run_tests(['cache_tagging.django_cache_tagging.tests'])
+    failures = test_runner.run_tests([
+        'cache_tagging.django_cache_tagging.tests',
+        'cache_tagging.tests.test_test_utils',
+        'cache_tagging.tests.test_tagging',
+    ])
     sys.exit(failures)
 
 

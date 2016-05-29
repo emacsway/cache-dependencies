@@ -31,7 +31,7 @@ CACHES = (
 registry.register(CACHES)
 
 
-class CacheTaggingTest(TestCase):
+class CacheTaggingIntegrationTest(TestCase):
 
     urls = 'cache_tagging.django_cache_tagging.tests.urls'
 
@@ -39,14 +39,18 @@ class CacheTaggingTest(TestCase):
     def setUpClass(cls):
         cls.original_caches = caches._caches.copy()
         caches._caches.clear()
-        cls.ORIGINAL_CACHE_TAGGING = settings.CACHE_TAGGING
+        if hasattr(settings, 'CACHE_TAGGING'):
+            cls.ORIGINAL_CACHE_TAGGING = settings.CACHE_TAGGING
         settings.CACHE_TAGGING = {'default': {}}
 
     @classmethod
     def tearDownClass(cls):
         caches._caches.clear()
         caches._caches.update(cls.original_caches)
-        settings.CACHE_TAGGING = cls.ORIGINAL_CACHE_TAGGING
+        if hasattr(cls, 'ORIGINAL_CACHE_TAGGING'):
+            settings.CACHE_TAGGING = cls.ORIGINAL_CACHE_TAGGING
+        else:
+            del settings.CACHE_TAGGING
 
     def setUp(self):
         cache.clear()

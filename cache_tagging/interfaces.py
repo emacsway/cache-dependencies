@@ -4,11 +4,26 @@ import warnings
 MEMCACHE_MAX_KEY_LENGTH = 250
 
 
+def default_key_func(key, key_prefix, version):
+    """
+    Default function to generate keys.
+
+    Constructs the key used by all other methods. By default it prepends
+    the `key_prefix'. KEY_FUNCTION can be used to specify an alternate
+    function with custom key making behavior.
+    """
+    return '%s:%s:%s' % (key_prefix, version, key)
+
+
 class BaseCache(object):
     """Historically used Django API interface.
 
     You can make wrapper for any cache system.
     """
+
+    key_prefix = ''
+    version = 1
+    key_func = staticmethod(default_key_func)
 
     def make_key(self, key, version=None):
         """Constructs the key used by all other methods. By default it
