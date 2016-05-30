@@ -16,7 +16,7 @@ class TagsLock(object):
     def release_tags(self, tags, version=None):
         raise NotImplementedError
 
-    def get_tags(self, tags, transaction_start_time, version=None):
+    def get_tag_versions(self, tags, transaction_start_time, version=None):
         raise NotImplementedError
 
     @staticmethod
@@ -50,7 +50,7 @@ class ReadUncommittedTagsLock(TagsLock):
     def _release_tags_delayed(self, tags, version=None):
         self._cache().delete_many(list(tags), version=version)
 
-    def get_tags(self, tags, transaction_start_time, version=None):
+    def get_tag_versions(self, tags, transaction_start_time, version=None):
         return self._cache().get_many(tags, version) or {}
 
 
@@ -98,7 +98,7 @@ class RepeatableReadsTagsLock(TagsLock):
             timeout += self._delay
         return timeout
 
-    def get_tags(self, tags, transaction_start_time, version=None):
+    def get_tag_versions(self, tags, transaction_start_time, version=None):
         """Returns tags dict if all tags is not locked.
 
         Raises TagLocked, if current transaction has been started earlier

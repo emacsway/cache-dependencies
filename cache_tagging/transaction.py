@@ -12,7 +12,7 @@ class TransactionManager(object):
         def add_tags(self, tags, version=None):
             raise NotImplementedError
 
-        def get_tags(self, tags, version=None):
+        def get_tag_versions(self, tags, version=None):
             raise NotImplementedError
 
         def finish(self):
@@ -37,8 +37,8 @@ class TransactionManager(object):
             self._tags[version] |= set(tags)
             self._lock.acquire_tags(tags, version)
 
-        def get_tags(self, tags, version=None):
-            return self._lock.get_tags(tags, self.start_time, version)
+        def get_tag_versions(self, tags, version=None):
+            return self._lock.get_tag_versions(tags, self.start_time, version)
 
         def finish(self):
             for version, tags in self._tags.items():
@@ -70,7 +70,7 @@ class TransactionManager(object):
         def add_tags(self, tags, version=None):
             pass
 
-        def get_tags(self, tags, version=None):
+        def get_tag_versions(self, tags, version=None):
             return set()
 
         def finish(self):
@@ -101,14 +101,6 @@ class TransactionManager(object):
     def __exit__(self, *args):
         self.finish()
         return False
-
-    def add_tags(self, tags, version=None):
-        warn('transaction.add_tags()', 'transaction.current().add_tags()')
-        self.current().add_tags(tags, version)
-
-    def get_tags(self, tags, version=None):
-        warn('transaction.get_tags()', 'transaction.current().get_tags()')
-        return self.current().get_tags(tags, version)
 
     def current(self, node=Undef):
         if node is Undef:

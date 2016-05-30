@@ -84,8 +84,7 @@ class CacheTagging(object):
             )
             for tag, tag_version in data['tag_versions'].items():
                 tag_prepared = tag_prepare_name(tag)
-                if tag_prepared not in tag_caches\
-                        or tag_caches[tag_prepared] != tag_version:
+                if tag_prepared not in tag_caches or tag_caches[tag_prepared] != tag_version:
                     return default
 
         self.finish(name, data['tag_versions'].keys(), version=version)
@@ -108,7 +107,7 @@ class CacheTagging(object):
             tag_cache_names = list(map(tag_prepare_name, tags))
             # tag_caches = self.cache.get_many(tag_cache_names, version) or {}
             try:
-                tag_caches = self.transaction.current().get_tags(tag_cache_names, version)
+                tag_caches = self.transaction.current().get_tag_versions(tag_cache_names, version)
             except TagLocked:
                 self.finish(name, tags, version=version)
                 return
@@ -116,8 +115,7 @@ class CacheTagging(object):
             tag_new_dict = {}
             for tag in tags:
                 tag_prepared = tag_prepare_name(tag)
-                if tag_prepared not in tag_caches\
-                        or tag_caches[tag_prepared] is None:
+                if tag_prepared not in tag_caches or tag_caches[tag_prepared] is None:
                     tag_version = tag_generate_version()
                     tag_new_dict[tag_prepared] = tag_version
                 else:
