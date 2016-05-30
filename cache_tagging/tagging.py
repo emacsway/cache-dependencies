@@ -31,12 +31,12 @@ MAX_TAG_KEY = 18446744073709551616     # 2 << 63
 class CacheTagging(object):
     """Tags support for Django cache."""
 
-    def __init__(self, cache, tags_manager, transaction):
+    def __init__(self, cache, relation_manager, transaction):
         """Constructor of cache instance."""
         self.cache = cache
         self.ignore_descendants = False
         self.transaction = transaction
-        self.tags_manager = tags_manager
+        self.relation_manager = relation_manager
 
     def get_or_set_callback(self, name, callback, tags=[], timeout=None,
                             version=None, args=None, kwargs=None):
@@ -101,7 +101,7 @@ class CacheTagging(object):
 
         tags = set(tags)
         # pull tags from descendants (cached fragments)
-        tags.update(self.tags_manager.get(name).values(version))
+        tags.update(self.relation_manager.get(name).get_tags(version))
 
         tag_versions = {}
         if len(tags):
@@ -146,19 +146,19 @@ class CacheTagging(object):
 
     def begin(self, name):
         """Start cache creating."""
-        self.tags_manager.current(name)
+        self.relation_manager.current(name)
 
     def abort(self, name):
         """Clean tags for given cache name."""
-        self.tags_manager.pop(name)
+        self.relation_manager.pop(name)
 
     def finish(self, name, tags, version=None):
         """Start cache creating."""
-        self.tags_manager.pop(name).add(tags, version)
+        self.relation_manager.pop(name).add_tags(tags, version)
 
     def close(self):
         self.transaction.flush()
-        self.tags_manager.clear()
+        self.relation_manager.clear()
         # self.cache.close()
 
     def transaction_begin(self):

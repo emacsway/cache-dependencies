@@ -11,7 +11,7 @@ except NameError:
 
 class RelationManager(object):
 
-    class ITags(object):
+    class ICacheNode(object):
 
         def parent(self):
             raise NotImplementedError
@@ -19,13 +19,13 @@ class RelationManager(object):
         def name(self):
             raise NotImplementedError
 
-        def add(self, tags, version=None):
+        def add_tags(self, tags, version=None):
             raise NotImplementedError
 
-        def values(self, version=None):  # TODO: rename to get()?
+        def get_tags(self, version=None):  # TODO: rename to get()?
             raise NotImplementedError
 
-    class Tags(ITags):
+    class CacheNode(ICacheNode):
 
         def __init__(self, name, parent=None):
             self._name = name
@@ -38,20 +38,20 @@ class RelationManager(object):
         def name(self):
             return self._name
 
-        def add(self, tags, version=None):
+        def add_tags(self, tags, version=None):
             if version not in self._tags:
                 self._tags[version] = set()
             self._tags[version] |= set(tags)
             if self._parent is not None:
-                self._parent.add(tags, version)
+                self._parent.add_tags(tags, version)
 
-        def values(self, version=None):
+        def get_tags(self, version=None):
             try:
                 return self._tags[version]
             except KeyError:
                 return set()
 
-    class NoneTags(ITags):
+    class NoneCacheNode(ICacheNode):
         """Using pattern Special Case"""
         def __init__(self):
             pass
@@ -60,12 +60,12 @@ class RelationManager(object):
             return None
 
         def name(self):
-            return 'NoneTags'
+            return 'NoneCache'
 
-        def add(self, tags, version=None):
+        def add_tags(self, tags, version=None):
             pass
 
-        def values(self, version=None):
+        def get_tags(self, version=None):
             return set()
 
     def __init__(self):
@@ -74,14 +74,14 @@ class RelationManager(object):
 
     def get(self, name):
         if name not in self._data:
-            self._data[name] = self.Tags(name, self._current)
+            self._data[name] = self.CacheNode(name, self._current)
         return self._data[name]
 
     def pop(self, name):
         try:
             node = self._data.pop(name)
         except KeyError:
-            node = self.NoneTags()
+            node = self.NoneCacheNode()
 
         if self.current() is node:
             self.current(node.parent())
@@ -89,7 +89,7 @@ class RelationManager(object):
 
     def current(self, name_or_node=Undef):
         if name_or_node is Undef:
-            return self._current or self.NoneTags()
+            return self._current or self.NoneCacheNode()
         if isinstance(name_or_node, string_types):
             node = self.get(name_or_node)
         else:

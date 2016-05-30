@@ -66,9 +66,9 @@ class CacheCollection(object):
                 return self(backend, *args, **kwargs)
             tags_lock = TagsLock.make(isolation_level, thread_safe_cache_accessor, delay)
             transaction = TransactionManager(tags_lock)
-            tags_manager = RelationManager()
+            relation_manager = RelationManager()
             self._caches[key] = CacheTagging(
-                django_cache, tags_manager, transaction
+                django_cache, relation_manager, transaction
             )
         return self._caches[key]
 

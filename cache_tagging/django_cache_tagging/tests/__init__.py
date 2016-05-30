@@ -153,12 +153,18 @@ class CacheTaggingIntegrationTest(TestCase):
         self.assertFalse(resp2.has_header('Last-Modified'))
         self.assertEqual(resp1.content, resp2.content)
 
-        cache.invalidate_tags('tests.firsttestmodel')
         resp3 = self.client.get(url)
         self.assertFalse(resp3.has_header('Expires'))
         self.assertFalse(resp3.has_header('Cache-Control'))
         self.assertFalse(resp3.has_header('Last-Modified'))
-        self.assertNotEqual(resp1.content, resp3.content)
+        self.assertEqual(resp1.content, resp3.content)
+
+        cache.invalidate_tags('tests.firsttestmodel')
+        resp4 = self.client.get(url)
+        self.assertFalse(resp4.has_header('Expires'))
+        self.assertFalse(resp4.has_header('Cache-Control'))
+        self.assertFalse(resp4.has_header('Last-Modified'))
+        self.assertNotEqual(resp1.content, resp4.content)
         cache.invalidate_tags('tests.firsttestmodel')
 
     def test_templatetag_nocache(self):
