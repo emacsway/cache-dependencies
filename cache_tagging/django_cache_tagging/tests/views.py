@@ -45,7 +45,7 @@ class TestDecoratorView3(View):
 
 class TestDecoratorView4(View):
 
-    def invalidate_tags(self, request):
+    def get_tags(self, request):
         return ('tests.firsttestmodel', )
 
     def get(self, request):
@@ -54,6 +54,6 @@ class TestDecoratorView4(View):
         return HttpResponse(html)
 
     def dispatch(self, *args, **kwargs):
-        return cache_page(3600, tags=self.invalidate_tags)(
+        return cache_page(3600, tags=self.get_tags)(
             super(TestDecoratorView4, self).dispatch
         )(*args, **kwargs)
