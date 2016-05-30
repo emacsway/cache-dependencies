@@ -130,6 +130,12 @@ class CacheTaggingIntegrationTest(TestCase):
     def test_decorator_cache_page_cbv2(self):
         self._test_decorator_cache_page("cache_tagging_test_decorator_cbv2")
 
+    def test_decorator_cache_page_cbv3(self):
+        self._test_decorator_cache_page("cache_tagging_test_decorator_cbv3")
+
+    def test_decorator_cache_page_cbv4(self):
+        self._test_decorator_cache_page("cache_tagging_test_decorator_cbv4")
+
     def _test_decorator_cache_page(self, url_name):
         url = reverse(url_name)
         resp1 = self.client.get(url)

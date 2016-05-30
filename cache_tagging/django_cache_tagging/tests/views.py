@@ -29,3 +29,31 @@ class TestDecoratorView2(View):
         now = uuid4()
         html = "<html><body>It is now {0}.</body></html>".format(now)
         return HttpResponse(html)
+
+
+class TestDecoratorView3(View):
+
+    def get(self, request):
+        now = uuid4()
+        html = "<html><body>It is now {0}.</body></html>".format(now)
+        return HttpResponse(html)
+
+    @method_decorator(cache_page(3600, tags=lambda request: ('tests.firsttestmodel', )))
+    def dispatch(self, *args, **kwargs):
+        return super(TestDecoratorView3, self).dispatch(*args, **kwargs)
+
+
+class TestDecoratorView4(View):
+
+    def invalidate_tags(self, request):
+        return ('tests.firsttestmodel', )
+
+    def get(self, request):
+        now = uuid4()
+        html = "<html><body>It is now {0}.</body></html>".format(now)
+        return HttpResponse(html)
+
+    def dispatch(self, *args, **kwargs):
+        return cache_page(3600, tags=self.invalidate_tags)(
+            super(TestDecoratorView4, self).dispatch
+        )(*args, **kwargs)
