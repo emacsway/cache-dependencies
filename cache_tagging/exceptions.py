@@ -1,0 +1,4 @@
+
+
+class TagLocked(Exception):
+    pass

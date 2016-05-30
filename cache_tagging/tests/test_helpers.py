@@ -1,5 +1,5 @@
 from unittest import TestCase
-from .utils import CacheStub
+from .helpers import CacheStub
 
 
 class CacheStubTest(TestCase):

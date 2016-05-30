@@ -15,7 +15,10 @@ except ImportError:
     from django.core.cache import caches as django_caches
     django_get_cache = None
 
-from cache_tagging.tagging import CacheTagging, TagsManager, TagsLock, TransactionManager
+from cache_tagging.tagging import CacheTagging
+from cache_tagging.relations import RelationManager
+from cache_tagging.locks import TagsLock
+from cache_tagging.transaction import TransactionManager
 from cache_tagging.nocache import NoCache
 
 try:
@@ -63,7 +66,7 @@ class CacheCollection(object):
                 return self(backend, *args, **kwargs)
             tags_lock = TagsLock.make(isolation_level, thread_safe_cache_accessor, delay)
             transaction = TransactionManager(tags_lock)
-            tags_manager = TagsManager()
+            tags_manager = RelationManager()
             self._caches[key] = CacheTagging(
                 django_cache, tags_manager, transaction
             )
