@@ -1,6 +1,6 @@
 import time
 from functools import wraps
-from cache_tagging.utils import Undef, warn
+from cache_tagging.utils import Undef
 
 
 class TransactionManager(object):

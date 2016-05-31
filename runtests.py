@@ -16,7 +16,7 @@ def main():
                 'NAME': ':memory:'
             }
         },
-        CACHE_TAGGING_DISABLED = {
+        CACHE_TAGGING = {
             'default': {
                 'ISOLATION_LEVEL': 'REPEATABLE READS',
                 'DELAY': 5,

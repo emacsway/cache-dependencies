@@ -60,21 +60,10 @@ class CacheTagging(object):
         if data is None:
             return default
 
-        if not isinstance(data, dict) or 'tag_versions' not in data\
-                or 'value' not in data:
+        if not isinstance(data, dict) or 'tag_versions' not in data or 'value' not in data:
             return data  # Returns native API
 
-        # Just idea, and, maybe, not good idea.
-        # Cache can be many times rewrited on highload with
-        # high overlap of transactions.
-        # if self.transaction.scopes:
-        #     transaction_start_time = self.transaction.scopes[0]['start_time']
-        #     if self.transaction.lock.delay:
-        #         transaction_start_time -= self.transaction.lock.delay
-        #     if transaction_start_time <= data['time'] and data['thread_id'] != get_thread_id():
-        #         return default
-
-        if len(data['tag_versions']):
+        if data['tag_versions']:
             tag_caches = self.cache.get_many(
                 list(map(make_tag_cache_name, list(data['tag_versions'].keys()))),
                 version
@@ -100,32 +89,26 @@ class CacheTagging(object):
         tags.update(self.relation_manager.get(name).get_tags(version))
 
         tag_versions = {}
-        if len(tags):
-            tag_cache_names = list(map(make_tag_cache_name, tags))
-            # tag_caches = self.cache.get_many(tag_cache_names, version) or {}
+        if tags:
             try:
-                tag_caches = self.transaction.current().get_tag_versions(tag_cache_names, version)
+                tag_versions = self.transaction.current().get_tag_versions(tags, version)
             except TagLocked:
                 self.finish(name, tags, version=version)
                 return
 
             new_tag_dict = {}
             for tag in tags:
-                tag_cache_name = make_tag_cache_name(tag)
-                if tag_caches.get(tag_cache_name) is None:
-                    tag_version = tag_generate_version()
-                    new_tag_dict[tag_cache_name] = tag_version
-                else:
-                    tag_version = tag_caches[tag_cache_name]
-                tag_versions[tag] = tag_version
-            if len(new_tag_dict):
+                if tag_versions.get(tag) is None:
+                    tag_version = generate_tag_version()
+                    new_tag_dict[make_tag_cache_name(tag)] = tag_version
+                    tag_versions[tag] = tag_version
+
+            if new_tag_dict:
                 self.cache.set_many(new_tag_dict, TAG_TIMEOUT, version)
 
         data = {
             'tag_versions': tag_versions,
             'value': value,
-            # 'time': time.time(),
-            # 'thread_id': get_thread_id(),
         }
 
         self.finish(name, tags, version=version)
@@ -135,8 +118,8 @@ class CacheTagging(object):
         """Invalidate specified tags"""
         if len(tags):
             version = kwargs.get('version', None)
-            tag_cache_names = list(map(make_tag_cache_name, set(tags)))
-            self.transaction.current().add_tags(tag_cache_names, version=version)
+            self.transaction.current().add_tags(tags, version=version)
+            tag_cache_names = list(map(make_tag_cache_name, tags))
             self.cache.delete_many(tag_cache_names, version=version)
 
     def begin(self, name):
@@ -176,7 +159,7 @@ class CacheTagging(object):
         return getattr(self.cache, name)
 
 
-def tag_generate_version():
+def generate_tag_version():
     """ Generates a new unique identifier for tag version."""
     hash = hashlib.md5("{0}{1}{2}".format(
         randrange(0, MAX_TAG_KEY), get_thread_id(), time.time()

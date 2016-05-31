@@ -2,7 +2,7 @@ import time
 import threading
 import collections
 from cache_tagging.exceptions import TagLocked
-from cache_tagging.utils import get_thread_id
+from cache_tagging.utils import get_thread_id, make_tag_cache_name
 
 
 TagBean = collections.namedtuple('TagBean', ('time', 'status', 'thread_id'))
@@ -48,10 +48,12 @@ class ReadUncommittedTagsLock(TagsLock):
             threading.Timer(self._delay, self._release_tags_delayed, [tags, version]).start()
 
     def _release_tags_delayed(self, tags, version=None):
-        self._cache().delete_many(list(tags), version=version)
+        self._cache().delete_many(list(map(make_tag_cache_name, tags)), version=version)
 
     def get_tag_versions(self, tags, transaction_start_time, version=None):
-        return self._cache().get_many(tags, version) or {}
+        tag_cache_names = {tag: make_tag_cache_name(tag) for tag in tags}
+        caches = self._cache().get_many(list(tag_cache_names.values()), version) or {}
+        return {tag: caches[tag_cache_name] for tag, tag_cache_name in tag_cache_names.items() if tag_cache_name in caches}
 
 
 class ReadCommittedTagsLock(ReadUncommittedTagsLock):
@@ -86,11 +88,11 @@ class RepeatableReadsTagsLock(TagsLock):
         """Locks tags for concurrent transactions."""
         data = TagBean(time.time(), status, get_thread_id())
         self._cache().set_many(
-            {self._get_locked_tag_name(tag): data for tag in tags}, self._get_timeout(), version
+            {self._get_locked_tag_cache_name(tag): data for tag in tags}, self._get_timeout(), version
         )
 
-    def _get_locked_tag_name(self, tag):
-        return '{0}_{1}'.format(self.LOCK_PREFIX, tag)
+    def _get_locked_tag_cache_name(self, tag):
+        return '{0}_{1}'.format(self.LOCK_PREFIX, make_tag_cache_name(tag))
 
     def _get_timeout(self):
         timeout = self.LOCK_TIMEOUT
@@ -106,10 +108,16 @@ class RepeatableReadsTagsLock(TagsLock):
         Actual for SERIALIZABLE and REPEATABLE READ transaction levels.
         """
         tags = set(tags)
-        cache_names = tags | set(map(self._get_locked_tag_name, tags))
-        caches = self._cache().get_many(list(cache_names), version) or {}
-        tag_caches = {k: v for k, v in caches.items() if k in tags}
-        locked_tag_caches = {k: v for k, v in caches.items() if k not in tags}
+        tag_cache_names = {tag: make_tag_cache_name(tag) for tag in tags}
+        locked_tag_cache_names = {tag: self._get_locked_tag_cache_name(tag) for tag in tags}
+        all_cache_names = set(tag_cache_names.values()) | set(locked_tag_cache_names.values())
+        all_caches = self._cache().get_many(list(all_cache_names), version) or {}
+        tag_caches = {tag: all_caches[tag_cache_name]
+                      for tag, tag_cache_name in tag_cache_names.items()
+                      if tag_cache_name in all_caches}
+        locked_tag_caches = {tag: all_caches[tag_cache_name]
+                             for tag, tag_cache_name in locked_tag_cache_names.items()
+                             if tag_cache_name in all_caches}
 
         if locked_tag_caches:
             for tag_bean in locked_tag_caches.values():
