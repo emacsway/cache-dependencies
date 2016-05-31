@@ -60,17 +60,32 @@ class CacheTagging(object):
         if data is None:
             return default
 
-        if not isinstance(data, dict) or 'tag_versions' not in data or 'value' not in data:
+        if not self._is_packed_data(data):
             return data  # Returns native API
 
-        tag_versions = data['tag_versions']
+        value, tag_versions = self._unpack_data(data)
         try:
             self._validate_tag_versions(tag_versions)
         except InvalidTag:
             return default
 
         self.finish(name, tag_versions.keys(), version=version)
-        return data['value']
+        return value
+
+    @staticmethod
+    def _is_packed_data(data):
+        return isinstance(data, dict) and 'tag_versions' in data and 'value' in data
+
+    @staticmethod
+    def _pack_data(value, tag_versions):
+        return {
+            'value': value,
+            'tag_versions': tag_versions,
+        }
+
+    @staticmethod
+    def _unpack_data(data):
+        return data['value'], data['tag_versions']
 
     def _validate_tag_versions(self, tag_versions, version=None):
         if tag_versions:
@@ -96,31 +111,25 @@ class CacheTagging(object):
         # pull tags from descendants (cached fragments)
         tags.update(self.relation_manager.get(name).get_tags(version))
 
-        tag_versions = {}
-        if tags:
-            try:
-                tag_versions = self.transaction.current().get_tag_versions(tags, version)
-            except TagLocked:
-                self.finish(name, tags, version=version)
-                return
-
-            new_tag_dict = {}
-            for tag in tags:
-                if tag_versions.get(tag) is None:
-                    tag_version = generate_tag_version()
-                    new_tag_dict[make_tag_key(tag)] = tag_version
-                    tag_versions[tag] = tag_version
-
-            if new_tag_dict:
-                self.cache.set_many(new_tag_dict, TAG_TIMEOUT, version)
-
-        data = {
-            'tag_versions': tag_versions,
-            'value': value,
-        }
+        try:
+            tag_versions = self._make_tag_versions(tags, version)
+        except TagLocked:
+            self.finish(name, tags, version=version)
+            return
 
         self.finish(name, tags, version=version)
-        return self.cache.set(name, data, timeout, version)
+        return self.cache.set(name, self._pack_data(value, tag_versions), timeout, version)
+
+    def _make_tag_versions(self, tags, version=None):
+        tag_versions = {}
+        if tags:
+            tag_versions = self.transaction.current().get_tag_versions(tags, version)
+            new_tag_versions = {tag: generate_tag_version() for tag in tags if tag_versions.get(tag) is None}
+            if new_tag_versions:
+                tag_versions.update(new_tag_versions)
+                new_tag_key_versions = {make_tag_key(tag): tag_version for tag, tag_version in new_tag_versions.items()}
+                self.cache.set_many(new_tag_key_versions, TAG_TIMEOUT, version)
+        return tag_versions
 
     def invalidate_tags(self, *tags, **kwargs):
         """Invalidate specified tags"""
