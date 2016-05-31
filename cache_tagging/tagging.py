@@ -4,7 +4,7 @@ import time
 import random
 import hashlib
 
-from cache_tagging.exceptions import TagLocked
+from cache_tagging.exceptions import TagLocked, InvalidTag
 from cache_tagging.utils import get_thread_id, warn, make_tag_key
 
 try:
@@ -64,18 +64,25 @@ class CacheTagging(object):
             return data  # Returns native API
 
         tag_versions = data['tag_versions']
-        if tag_versions:
-            tag_caches = self.cache.get_many(
-                list(map(make_tag_key, list(tag_versions.keys()))),
-                version
-            )
-            for tag, tag_version in tag_versions.items():
-                tag_key = make_tag_key(tag)
-                if tag_caches.get(tag_key) != tag_version:
-                    return default
+        try:
+            self._validate_tag_versions(tag_versions)
+        except InvalidTag:
+            return default
 
         self.finish(name, tag_versions.keys(), version=version)
         return data['value']
+
+    def _validate_tag_versions(self, tag_versions, version=None):
+        if tag_versions:
+            actual_tag_versions = self._get_tag_versions(tag_versions.keys(), version)
+            for tag, tag_version in tag_versions.items():
+                if actual_tag_versions.get(tag) != tag_version:
+                    raise InvalidTag(tag)
+
+    def _get_tag_versions(self, tags, version=None):
+        tag_keys = {tag: make_tag_key(tag) for tag in tags}
+        caches = self.cache.get_many(list(tag_keys.values()), version) or {}
+        return {tag: caches[tag_key] for tag, tag_key in tag_keys.items() if tag_key in caches}
 
     def set(self, name, value, tags=(), timeout=None, version=None):
         """Sets cache value and tags."""
