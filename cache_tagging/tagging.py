@@ -63,17 +63,18 @@ class CacheTagging(object):
         if not isinstance(data, dict) or 'tag_versions' not in data or 'value' not in data:
             return data  # Returns native API
 
-        if data['tag_versions']:
+        tag_versions = data['tag_versions']
+        if tag_versions:
             tag_caches = self.cache.get_many(
-                list(map(make_tag_cache_name, list(data['tag_versions'].keys()))),
+                list(map(make_tag_cache_name, list(tag_versions.keys()))),
                 version
             )
-            for tag, tag_version in data['tag_versions'].items():
+            for tag, tag_version in tag_versions.items():
                 tag_cache_name = make_tag_cache_name(tag)
                 if tag_caches.get(tag_cache_name) != tag_version:
                     return default
 
-        self.finish(name, data['tag_versions'].keys(), version=version)
+        self.finish(name, tag_versions.keys(), version=version)
         return data['value']
 
     def set(self, name, value, tags=(), timeout=None, version=None):
