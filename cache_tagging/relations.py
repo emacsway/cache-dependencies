@@ -9,64 +9,67 @@ except NameError:
     integer_types = (int,)
 
 
-class RelationManager(object):
+class ICacheNode(object):
 
-    class ICacheNode(object):
+    def parent(self):
+        raise NotImplementedError
 
-        def parent(self):
-            raise NotImplementedError
+    def name(self):
+        raise NotImplementedError
 
-        def name(self):
-            raise NotImplementedError
+    def add_tags(self, tags, version=None):
+        raise NotImplementedError
 
-        def add_tags(self, tags, version=None):
-            raise NotImplementedError
+    def get_tags(self, version=None):  # TODO: rename to get()?
+        raise NotImplementedError
 
-        def get_tags(self, version=None):  # TODO: rename to get()?
-            raise NotImplementedError
 
-    class CacheNode(ICacheNode):
+class CacheNode(ICacheNode):
 
-        def __init__(self, name, parent=None):
-            self._name = name
-            self._parent = parent
-            self._tags = dict()
+    def __init__(self, name, parent=None):
+        self._name = name
+        self._parent = parent
+        self._tags = dict()
 
-        def parent(self):
-            return self._parent
+    def parent(self):
+        return self._parent
 
-        def name(self):
-            return self._name
+    def name(self):
+        return self._name
 
-        def add_tags(self, tags, version=None):
-            if version not in self._tags:
-                self._tags[version] = set()
-            self._tags[version] |= set(tags)
-            if self._parent is not None:
-                self._parent.add_tags(tags, version)
+    def add_tags(self, tags, version=None):
+        if version not in self._tags:
+            self._tags[version] = set()
+        self._tags[version] |= set(tags)
+        if self._parent is not None:
+            self._parent.add_tags(tags, version)
 
-        def get_tags(self, version=None):
-            try:
-                return self._tags[version]
-            except KeyError:
-                return set()
-
-    class NoneCacheNode(ICacheNode):
-        """Using pattern Special Case"""
-        def __init__(self):
-            pass
-
-        def parent(self):
-            return None
-
-        def name(self):
-            return 'NoneCache'
-
-        def add_tags(self, tags, version=None):
-            pass
-
-        def get_tags(self, version=None):
+    def get_tags(self, version=None):
+        try:
+            return self._tags[version]
+        except KeyError:
             return set()
+
+
+class NoneCacheNode(ICacheNode):
+    """Using pattern Special Case"""
+    def __init__(self):
+        pass
+
+    def parent(self):
+        return None
+
+    def name(self):
+        return 'NoneCache'
+
+    def add_tags(self, tags, version=None):
+        pass
+
+    def get_tags(self, version=None):
+        return set()
+
+
+class RelationManager(object):
 
     def __init__(self):
         self._current = None
@@ -74,14 +77,14 @@ class RelationManager(object):
 
     def get(self, name):
         if name not in self._data:
-            self._data[name] = self.CacheNode(name, self._current)
+            self._data[name] = CacheNode(name, self._current)
         return self._data[name]
 
     def pop(self, name):
         try:
             node = self._data.pop(name)
         except KeyError:
-            node = self.NoneCacheNode()
+            node = NoneCacheNode()
 
         if self.current() is node:
             self.current(node.parent())
@@ -89,7 +92,7 @@ class RelationManager(object):
 
     def current(self, name_or_node=Undef):
         if name_or_node is Undef:
-            return self._current or self.NoneCacheNode()
+            return self._current or NoneCacheNode()
         if isinstance(name_or_node, string_types):
             node = self.get(name_or_node)
         else:
