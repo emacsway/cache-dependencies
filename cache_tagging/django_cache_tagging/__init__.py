@@ -115,7 +115,7 @@ class DefaultCacheProxy(object):
 cache = DefaultCacheProxy()
 
 
-def _clear_cached(tags_func, cache=None, *args, **kwargs):
+def _clear_cached(tags_func, cache_alias='default', *args, **kwargs):
     """
     Model's save and delete callback
     """
@@ -126,8 +126,10 @@ def _clear_cached(tags_func, cache=None, *args, **kwargs):
         tags = tags_func(obj)
     if not isinstance(tags, (list, tuple, set, frozenset)):
         tags = (tags, )
-    if cache is None:
-        cache = globals()['cache']
+    if isinstance(cache_alias, string_types):
+        cache = caches[cache_alias]
+    else:
+        cache = cache_alias
     cache.invalidate_tags(*tags)
 
 
@@ -146,7 +148,7 @@ class CacheRegistry(object):
         for data in model_tags:
             Model = data[0]
             tags_func = data[1]
-            apply_cache = len(data) > 2 and data[2] or cache
+            apply_cache = len(data) > 2 and data[2] or 'default'
             model_signals.post_save.connect(
                 curry(_clear_cached, tags_func, apply_cache),
                 sender=Model, weak=False

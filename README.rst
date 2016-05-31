@@ -45,8 +45,9 @@ application example::
 
 manual invalidation::
 
-    from cache_tagging.django_cache_tagging import cache
-    
+    from cache_tagging.django_cache_tagging import caches
+    cache = caches['default']
+
     # ...
     cache.invalidate_tags('tag1', 'tag2', 'tag3')
     # or
@@ -100,25 +101,25 @@ appname.caches.py file::
     # Inside the handler function available all local variables from signal.
     # Or only object. Of your choice.
 
-    from cache_tagging.django_cache_tagging import registry
+    from cache_tagging.django_cache_tagging import registry, caches
     from models import Post
     from news import Article
 
-    caches = [
-        #((model, func, [cache_object, ])),
-        ((Post, lambda *a, **kw: ("blog.post.pk:{0}".format(kw['instance'].pk), ), get_cache('my_cache_alias'))),
-        ((Article, lambda obj: ("news.alticle.pk:{0}".format(obj.pk),
-                                "categories.category.pk:{0}.blog.type.pk:{1}".format(  # Complex tag
-                                    obj.category_id, obj.type_id
-                                ),
-                                "news.alticle"))),
+    cache_handlers = [
+        #(model, func, [cache_alias, ]),
+        (Post, lambda *a, **kw: ("blog.post.pk:{0}".format(kw['instance'].pk), ), 'my_cache_alias'),
+        (Article, lambda obj: (
+            "news.alticle.pk:{0}".format(obj.pk),
+            "categories.category.pk:{0}.blog.type.pk:{1}".format(obj.category_id, obj.type_id),  # Composite tag
+            "news.alticle"
+        )),
     ]
-    registry.register(caches)
+    registry.register(cache_handlers)
 
 
     # Variant 2. Low-lewel. Using signals for invalidation.
 
-    from cache_tagging.django_cache_tagging import registry, get_cache
+    from cache_tagging.django_cache_tagging import registry
     from models import Post
     from django.db.models.signals import post_save, post_delete
 
