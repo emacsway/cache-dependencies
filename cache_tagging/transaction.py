@@ -71,7 +71,7 @@ class TransactionManager(object):
             pass
 
         def get_tag_versions(self, tags, version=None):
-            return set()
+            return dict()
 
         def finish(self):
             pass

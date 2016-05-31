@@ -5,7 +5,7 @@ import random
 import hashlib
 
 from cache_tagging.exceptions import TagLocked
-from cache_tagging.utils import get_thread_id, warn
+from cache_tagging.utils import get_thread_id, warn, make_tag_cache_name
 
 try:
     str = unicode  # Python 2.* compatible
@@ -14,9 +14,6 @@ try:
 except NameError:
     string_types = (str,)
     integer_types = (int,)
-
-
-__version__ = '0.7.7.0'
 
 # Use the system (hardware-based) random number generator if it exists.
 if hasattr(random, 'SystemRandom'):
@@ -79,12 +76,12 @@ class CacheTagging(object):
 
         if len(data['tag_versions']):
             tag_caches = self.cache.get_many(
-                list(map(tag_prepare_name, list(data['tag_versions'].keys()))),
+                list(map(make_tag_cache_name, list(data['tag_versions'].keys()))),
                 version
             )
             for tag, tag_version in data['tag_versions'].items():
-                tag_prepared = tag_prepare_name(tag)
-                if tag_prepared not in tag_caches or tag_caches[tag_prepared] != tag_version:
+                tag_cache_name = make_tag_cache_name(tag)
+                if tag_caches.get(tag_cache_name) != tag_version:
                     return default
 
         self.finish(name, data['tag_versions'].keys(), version=version)
@@ -104,7 +101,7 @@ class CacheTagging(object):
 
         tag_versions = {}
         if len(tags):
-            tag_cache_names = list(map(tag_prepare_name, tags))
+            tag_cache_names = list(map(make_tag_cache_name, tags))
             # tag_caches = self.cache.get_many(tag_cache_names, version) or {}
             try:
                 tag_caches = self.transaction.current().get_tag_versions(tag_cache_names, version)
@@ -112,17 +109,17 @@ class CacheTagging(object):
                 self.finish(name, tags, version=version)
                 return
 
-            tag_new_dict = {}
+            new_tag_dict = {}
             for tag in tags:
-                tag_prepared = tag_prepare_name(tag)
-                if tag_prepared not in tag_caches or tag_caches[tag_prepared] is None:
+                tag_cache_name = make_tag_cache_name(tag)
+                if tag_caches.get(tag_cache_name) is None:
                     tag_version = tag_generate_version()
-                    tag_new_dict[tag_prepared] = tag_version
+                    new_tag_dict[tag_cache_name] = tag_version
                 else:
-                    tag_version = tag_caches[tag_prepared]
+                    tag_version = tag_caches[tag_cache_name]
                 tag_versions[tag] = tag_version
-            if len(tag_new_dict):
-                self.cache.set_many(tag_new_dict, TAG_TIMEOUT, version)
+            if len(new_tag_dict):
+                self.cache.set_many(new_tag_dict, TAG_TIMEOUT, version)
 
         data = {
             'tag_versions': tag_versions,
@@ -138,9 +135,9 @@ class CacheTagging(object):
         """Invalidate specified tags"""
         if len(tags):
             version = kwargs.get('version', None)
-            tags_prepared = list(map(tag_prepare_name, set(tags)))
-            self.transaction.current().add_tags(tags_prepared, version=version)
-            self.cache.delete_many(tags_prepared, version=version)
+            tag_cache_names = list(map(make_tag_cache_name, set(tags)))
+            self.transaction.current().add_tags(tag_cache_names, version=version)
+            self.cache.delete_many(tag_cache_names, version=version)
 
     def begin(self, name):
         """Start cache creating."""
@@ -177,13 +174,6 @@ class CacheTagging(object):
     def __getattr__(self, name):
         """Proxy for all native methods."""
         return getattr(self.cache, name)
-
-
-def tag_prepare_name(name):
-    """Adds prefixed namespace for tag name"""
-    version = str(__version__).replace('.', '')
-    name = hashlib.md5(str(name).encode('utf-8')).hexdigest()
-    return 'tag_{0}_{1}'.format(version, name)
 
 
 def tag_generate_version():

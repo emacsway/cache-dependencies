@@ -1,6 +1,8 @@
 import os
 import socket
+import hashlib
 import warnings
+from cache_tagging import __version__
 
 try:
     import _thread
@@ -32,3 +34,10 @@ def warn(old, new, stacklevel=3):
         PendingDeprecationWarning,
         stacklevel=stacklevel
     )
+
+
+def make_tag_cache_name(name):
+    """Adds prefixed namespace for tag name"""
+    version = str(__version__).replace('.', '')
+    name = hashlib.md5(str(name).encode('utf-8')).hexdigest()
+    return 'tag_{0}_{1}'.format(version, name)
