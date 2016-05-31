@@ -29,24 +29,11 @@ project urls.py::
     from cache_tagging.django_cache_tagging import autodiscover
     autodiscover()
 
-application example 1::
+application example::
 
     # Default backend
-    from cache_tagging.django_cache_tagging import cache
-
-    value = cache.get('cache_name')
-    if value is None:
-        value = get_value_func()
-        cache.set('cache_name', value, tags=(
-            'blog.post',
-            'categories.category.pk:{0}'.format(obj.category_id),
-        ))
-
-application example 2::
-
-    # Custom backend
-    from cache_tagging.django_cache_tagging import get_cache
-    cache = get_cache('my_backend')
+    from cache_tagging.django_cache_tagging import caches
+    cache = caches['default']
 
     value = cache.get('cache_name')
     if value is None:
@@ -83,8 +70,8 @@ to the composite (parent) cache. It is done automatically::
         cache.set('name1', val1, ('tag1', ), 120)
 
     cache.invalidate_tags('tag2')
-    assert cache.get('name2') == None
-    assert cache.get('name1') == None  # cache with name 'name1' was invalidated
+    assert cache.get('name2') is None
+    assert cache.get('name1') is None  # cache with name 'name1' was invalidated
                                        # by tag 'tag2' of descendant.
 
 
@@ -256,9 +243,9 @@ Transaction handler as decorator::
         # Otherwise, if isolation level is "Read uncommitted", and transaction will rollback,
         # the concurrent and current process/thread can creates cache with dirty data.
         #
-        # We can also invalidate cache before data changes,
+        # We can even invalidate cache before data changes,
         # by signals django.db.models.signals.pre_save()
-        # or django.db.models.signals.pre_delete(), and do not worry.
+        # or django.db.models.signals.pre_delete(), and don't worry.
 
 Transaction handler as middleware::
 
