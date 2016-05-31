@@ -5,7 +5,7 @@ import random
 import hashlib
 
 from cache_tagging.exceptions import TagLocked
-from cache_tagging.utils import get_thread_id, warn, make_tag_cache_name
+from cache_tagging.utils import get_thread_id, warn, make_tag_key
 
 try:
     str = unicode  # Python 2.* compatible
@@ -66,12 +66,12 @@ class CacheTagging(object):
         tag_versions = data['tag_versions']
         if tag_versions:
             tag_caches = self.cache.get_many(
-                list(map(make_tag_cache_name, list(tag_versions.keys()))),
+                list(map(make_tag_key, list(tag_versions.keys()))),
                 version
             )
             for tag, tag_version in tag_versions.items():
-                tag_cache_name = make_tag_cache_name(tag)
-                if tag_caches.get(tag_cache_name) != tag_version:
+                tag_key = make_tag_key(tag)
+                if tag_caches.get(tag_key) != tag_version:
                     return default
 
         self.finish(name, tag_versions.keys(), version=version)
@@ -101,7 +101,7 @@ class CacheTagging(object):
             for tag in tags:
                 if tag_versions.get(tag) is None:
                     tag_version = generate_tag_version()
-                    new_tag_dict[make_tag_cache_name(tag)] = tag_version
+                    new_tag_dict[make_tag_key(tag)] = tag_version
                     tag_versions[tag] = tag_version
 
             if new_tag_dict:
@@ -120,8 +120,8 @@ class CacheTagging(object):
         if len(tags):
             version = kwargs.get('version', None)
             self.transaction.current().add_tags(tags, version=version)
-            tag_cache_names = list(map(make_tag_cache_name, tags))
-            self.cache.delete_many(tag_cache_names, version=version)
+            tag_keys = list(map(make_tag_key, tags))
+            self.cache.delete_many(tag_keys, version=version)
 
     def begin(self, name):
         """Start cache creating."""

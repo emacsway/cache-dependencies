@@ -36,7 +36,7 @@ def warn(old, new, stacklevel=3):
     )
 
 
-def make_tag_cache_name(name):
+def make_tag_key(name):
     """Adds prefixed namespace for tag name"""
     version = str(__version__).replace('.', '')
     name = hashlib.md5(str(name).encode('utf-8')).hexdigest()

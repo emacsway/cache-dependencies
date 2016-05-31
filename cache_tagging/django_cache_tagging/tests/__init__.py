@@ -57,9 +57,13 @@ class CacheTaggingIntegrationTest(TestCase):
         self.obj1 = FirstTestModel.objects.create(title='title1')
         self.obj2 = SecondTestModel.objects.create(title='title2')
         if 'cache_tagging.middleware.TransactionMiddleware' in settings.MIDDLEWARE_CLASSES:
-            self.OLD_MIDDLEWARE_CLASSES = settings.MIDDLEWARE_CLASSES
-            settings.MIDDLEWARE_CLASSES = list(self.OLD_MIDDLEWARE_CLASSES)
+            self.ORIGINAL_MIDDLEWARE_CLASSES = settings.MIDDLEWARE_CLASSES
+            settings.MIDDLEWARE_CLASSES = list(self.ORIGINAL_MIDDLEWARE_CLASSES)
             settings.MIDDLEWARE_CLASSES.remove('cache_tagging.middleware.TransactionMiddleware')
+
+    def tearDown(self):
+        if hasattr(self, 'ORIGINAL_MIDDLEWARE_CLASSES'):
+            settings.MIDDLEWARE_CLASSES = self.ORIGINAL_MIDDLEWARE_CLASSES
 
     def test_cache(self):
         tags1 = ('tests.firsttestmodel.pk:{0}'.format(self.obj1.pk), )
@@ -442,7 +446,3 @@ class CacheTaggingIntegrationTest(TestCase):
         self.assertEqual(cache.get('name1'), 'value1')
         some_func()
         self.assertEqual(cache.get('name1', None), None)
-
-    def tearDown(self):
-        if hasattr(self, 'OLD_MIDDLEWARE_CLASSES'):
-            settings.MIDDLEWARE_CLASSES = self.OLD_MIDDLEWARE_CLASSES
