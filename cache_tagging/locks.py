@@ -112,9 +112,10 @@ class RepeatableReadsTagsLock(TagsLock):
                              if tag_key in all_caches}
 
         if locked_tag_caches:
-            for tag, tag_bean in locked_tag_caches.items():
-                if self._tag_is_locked(tag_bean, transaction_start_time):
-                        raise TagLocked(tag)
+            locked_tags = set(tag for tag, tag_bean in locked_tag_caches.items()
+                              if self._tag_is_locked(tag_bean, transaction_start_time))
+            if locked_tags:
+                raise TagLocked(locked_tags)
         return tag_caches
 
     def _tag_is_locked(self, tag_bean, transaction_start_time):
