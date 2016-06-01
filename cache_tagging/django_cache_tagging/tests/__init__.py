@@ -68,6 +68,11 @@ class CacheTaggingIntegrationTest(TestCase):
     def tearDown(self):
         pass
 
+    def test_native_interface(self):
+        self.assertIsNone(cache.get('name1'))
+        cache.set('name1', 5, 10)
+        self.assertEqual(cache.get('name1'), 5)
+
     def test_cache(self):
         tags1 = ('tests.firsttestmodel.pk:{0}'.format(self.obj1.pk), )
         cache.set('name1', 'value1', tags1, 120)
@@ -81,41 +86,46 @@ class CacheTaggingIntegrationTest(TestCase):
 
         self.obj1.title = 'title1.2'
         self.obj1.save()
-        self.assertEqual(cache.get('name1', None), None)
-        self.assertEqual(cache.get('name2', None), None)
+        self.assertIsNone(cache.get('name1'))
+        self.assertIsNone(cache.get('name2'))
 
         cache.set('name1', 'value1', tags1, 120)
         cache.set('name2', 'value2', tags2, 120)
         self.assertEqual(cache.get('name1'), 'value1')
         self.assertEqual(cache.get('name2'), 'value2')
 
+        self.assertDictEqual(cache.get_many(('name1', 'name2')), {
+            u'name1': u'value1',
+            u'name2': u'value2'
+        })
+
         self.obj2.title = 'title2.2'
         self.obj2.save()
         self.assertEqual(cache.get('name1'), 'value1')
-        self.assertEqual(cache.get('name2', None), None)
+        self.assertIsNone(cache.get('name2'))
 
         cache.invalidate_tags(*(tags1 + tags2))
         cache.invalidate_tags('non_existen_tag')
-        self.assertEqual(cache.get('name1', None), None)
+        self.assertIsNone(cache.get('name1'))
 
     def test_ancestors(self):
         val1 = cache.get('name1')
-        self.assertEqual(val1, None)
+        self.assertIsNone(val1)
         if val1 is None:
             val2 = cache.get('name2')
-            self.assertEqual(val2, None)
+            self.assertIsNone(val2)
             if val2 is None:
                 val2 = 'val2'
                 cache.set('name2', val2, ('tag2', ), 120)
             val1 = 'val1' + val2
             cache.set('name1', val1, ('tag1', ), 120)
         cache.invalidate_tags('tag2')
-        self.assertEqual(cache.get('name1'), None)
-        self.assertEqual(cache.get('name2'), None)
+        self.assertIsNone(cache.get('name1'))
+        self.assertIsNone(cache.get('name2'))
 
         cache.set('name2', 'val2', ('tag2', ), 120)
         val1 = cache.get('name1')
-        self.assertEqual(val1, None)
+        self.assertIsNone(val1)
         if val1 is None:
             val2 = cache.get('name2')
             self.assertEqual(val2, 'val2')
@@ -125,8 +135,8 @@ class CacheTaggingIntegrationTest(TestCase):
             val1 = 'val1' + val2
             cache.set('name1', val1, ('tag1', ), 120)
         cache.invalidate_tags('tag2')
-        self.assertEqual(cache.get('name1'), None)
-        self.assertEqual(cache.get('name2'), None)
+        self.assertIsNone(cache.get('name1'))
+        self.assertIsNone(cache.get('name2'))
 
     def test_decorator_cache_page(self):
         self._test_decorator_cache_page("cache_tagging_test_decorator")
@@ -353,14 +363,14 @@ class CacheTaggingIntegrationTest(TestCase):
                 self.assertEqual(cache.get('name2'), 'value2')
 
                 cache.invalidate_tags('tag2')
-                self.assertEqual(cache.get('name2', None), None)
+                self.assertIsNone(cache.get('name2'))
                 self.assertEqual(cache.get('name1'), 'value1')
 
                 cache.set('name2', 'value2', ('tag2', ), 120)
                 self.assertEqual(cache.get('name2'), 'value2')
                 self.assertEqual(cache.get('name1'), 'value1')
 
-            self.assertEqual(cache.get('name2', None, abort=True), 'value2')
+            self.assertEqual(cache.get('name2', abort=True), 'value2')
             self.assertEqual(cache.get('name1'), 'value1')
 
             cache.set('name3', 'value3', ('tag3', ), 120)
@@ -369,15 +379,15 @@ class CacheTaggingIntegrationTest(TestCase):
 
             cache.invalidate_tags('tag1')
             self.assertEqual(cache.get('name3'), 'value3')
-            self.assertEqual(cache.get('name1', None), None)
+            self.assertIsNone(cache.get('name1'))
 
             cache.set('name1', 'value1', ('tag1', ), 120)
             self.assertEqual(cache.get('name3'), 'value3')
             self.assertEqual(cache.get('name1'), 'value1')
 
         self.assertEqual(cache.get('name3'), 'value3')
-        self.assertEqual(cache.get('name1', None), None)
-        self.assertEqual(cache.get('name2', None, abort=True), None)
+        self.assertIsNone(cache.get('name1'))
+        self.assertIsNone(cache.get('name2', abort=True))
 
         # tests for cache.transaction.flush()
         cache.clear()
@@ -386,14 +396,14 @@ class CacheTaggingIntegrationTest(TestCase):
         cache.set('name1', 'value1', ('tag1', ), 120)
         self.assertEqual(cache.get('name1'), 'value1')
         cache.invalidate_tags('tag1')
-        self.assertEqual(cache.get('name1', None), None)
+        self.assertIsNone(cache.get('name1'))
         cache.set('name1', 'value1', ('tag1', ), 120)
         self.assertEqual(cache.get('name1'), 'value1')
         cache.transaction.begin()  # 3
         cache.transaction.begin()  # 4
 
         cache.transaction.flush()  # all
-        self.assertEqual(cache.get('name1', None), None)
+        self.assertIsNone(cache.get('name1'))
 
         cache.invalidate_tags('tag1', 'tag2', 'tag3')
 
@@ -402,36 +412,36 @@ class CacheTaggingIntegrationTest(TestCase):
         self.assertEqual(cache.get('name1'), 'value1')
         with cache.transaction:
             cache.invalidate_tags('tag1')
-            self.assertEqual(cache.get('name1', None), None)
+            self.assertIsNone(cache.get('name1'))
             cache.set('name1', 'value1', ('tag1', ), 120)
             self.assertEqual(cache.get('name1'), 'value1')
-        self.assertEqual(cache.get('name1', None), None)
+        self.assertIsNone(cache.get('name1'))
 
     def test_cache_transaction_decorator(self):
         @cache.transaction
         def some_func():
             cache.invalidate_tags('tag1')
-            self.assertEqual(cache.get('name1', None), None)
+            self.assertIsNone(cache.get('name1'))
             cache.set('name1', 'value1', ('tag1', ), 120)
             self.assertEqual(cache.get('name1'), 'value1')
 
         cache.set('name1', 'value1', ('tag1', ), 120)
         self.assertEqual(cache.get('name1'), 'value1')
         some_func()
-        self.assertEqual(cache.get('name1', None), None)
+        self.assertIsNone(cache.get('name1'))
 
     def test_cache_transaction_decorator2(self):
         @cache.transaction()
         def some_func():
             cache.invalidate_tags('tag1')
-            self.assertEqual(cache.get('name1', None), None)
+            self.assertIsNone(cache.get('name1'))
             cache.set('name1', 'value1', ('tag1', ), 120)
             self.assertEqual(cache.get('name1'), 'value1')
 
         cache.set('name1', 'value1', ('tag1', ), 120)
         self.assertEqual(cache.get('name1'), 'value1')
         some_func()
-        self.assertEqual(cache.get('name1', None), None)
+        self.assertIsNone(cache.get('name1'))
 
     def test_cache_transaction_decorator_all(self):
         @cache_transaction_all
@@ -439,7 +449,7 @@ class CacheTaggingIntegrationTest(TestCase):
             cache.transaction.begin()
             cache.invalidate_tags('tag1')
             cache.transaction.begin()
-            self.assertEqual(cache.get('name1', None), None)
+            self.assertIsNone(cache.get('name1'))
             cache.set('name1', 'value1', ('tag1', ), 120)
             self.assertEqual(cache.get('name1'), 'value1')
 
@@ -448,4 +458,4 @@ class CacheTaggingIntegrationTest(TestCase):
         cache.set('name1', 'value1', ('tag1', ), 120)
         self.assertEqual(cache.get('name1'), 'value1')
         some_func()
-        self.assertEqual(cache.get('name1', None), None)
+        self.assertIsNone(cache.get('name1'))
