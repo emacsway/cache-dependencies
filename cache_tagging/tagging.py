@@ -3,6 +3,7 @@ from __future__ import absolute_import, unicode_literals
 import time
 import random
 import hashlib
+import operator
 
 from cache_tagging.exceptions import TagLocked, InvalidTag
 from cache_tagging.utils import get_thread_id, warn, make_tag_key
@@ -65,7 +66,7 @@ class CacheTagging(object):
 
         value, tag_versions = self._unpack_data(data)
         try:
-            self._validate_tag_versions(tag_versions)
+            self._validate_tag_versions(tag_versions.items())
         except InvalidTag:
             return default
 
@@ -89,10 +90,11 @@ class CacheTagging(object):
 
     def _validate_tag_versions(self, tag_versions, version=None):
         if tag_versions:
-            actual_tag_versions = self._get_tag_versions(tag_versions.keys(), version)
-            for tag, tag_version in tag_versions.items():
-                if actual_tag_versions.get(tag) != tag_version:
-                    raise InvalidTag(tag)
+            actual_tag_versions = self._get_tag_versions(set(map(operator.itemgetter(0), tag_versions)), version)
+            invalid_tags = set((tag, tag_version) for tag, tag_version in tag_versions
+                               if actual_tag_versions.get(tag) != tag_version)
+            if invalid_tags:
+                raise InvalidTag(invalid_tags)
 
     def _get_tag_versions(self, tags, version=None):
         tag_keys = {tag: make_tag_key(tag) for tag in tags}
