@@ -16,9 +16,9 @@ except ImportError:
     django_get_cache = None
 
 from cache_tagging.tagging import CacheTagging
-from cache_tagging.relations import RelationManager
+from cache_tagging.relations import RelationManager, ThreadSafeRelationManagerDecorator
 from cache_tagging.locks import TagsLock
-from cache_tagging.transaction import TransactionManager
+from cache_tagging.transaction import TransactionManager, ThreadSafeTransactionManagerDecorator
 from cache_tagging.nocache import NoCache
 
 try:
@@ -65,8 +65,8 @@ class CacheCollection(object):
             def thread_safe_cache_accessor():
                 return self(backend, *args, **kwargs)
             tags_lock = TagsLock.make(isolation_level, thread_safe_cache_accessor, delay)
-            transaction = TransactionManager(tags_lock)
-            relation_manager = RelationManager()
+            transaction = ThreadSafeTransactionManagerDecorator(TransactionManager(tags_lock))
+            relation_manager = ThreadSafeRelationManagerDecorator(RelationManager())
             self._caches[key] = CacheTagging(
                 django_cache, relation_manager, transaction
             )

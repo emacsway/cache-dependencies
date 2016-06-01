@@ -70,19 +70,18 @@ class TransactionMiddleware(object):
         except KeyError:
             self.cache_alias = DEFAULT_CACHE_ALIAS
             # self.cache_alias = settings.CACHE_MIDDLEWARE_ALIAS
-        self.cache = caches[self.cache_alias]
 
     def process_request(self, request):
         """Enters transaction management"""
-        self.cache.transaction.begin()
+        caches[self.cache_alias].transaction.begin()
 
     def process_exception(self, request, exception):
         """Rolls back the database and leaves transaction management"""
-        self.cache.transaction.flush()
+        caches[self.cache_alias].transaction.flush()
 
     def process_response(self, request, response):
         """Commits and leaves transaction management."""
-        self.cache.transaction.flush()
+        caches[self.cache_alias].transaction.flush()
         return response
 
 
@@ -100,7 +99,12 @@ class UpdateCacheMiddleware(object):
         self.key_prefix = settings.CACHE_MIDDLEWARE_KEY_PREFIX
         self.cache_anonymous_only = getattr(settings, 'CACHE_MIDDLEWARE_ANONYMOUS_ONLY', False)
         self.cache_alias = settings.CACHE_MIDDLEWARE_ALIAS
-        self.cache = caches[self.cache_alias]
+
+    # patch start
+    @property
+    def cache(self):
+        return caches[self.cache_alias]
+    # patch end
 
     def _session_accessed(self, request):
         try:
@@ -174,7 +178,12 @@ class FetchFromCacheMiddleware(object):
         self.key_prefix = settings.CACHE_MIDDLEWARE_KEY_PREFIX
         self.cache_anonymous_only = getattr(settings, 'CACHE_MIDDLEWARE_ANONYMOUS_ONLY', False)
         self.cache_alias = settings.CACHE_MIDDLEWARE_ALIAS
-        self.cache = caches[self.cache_alias]
+
+    # patch start
+    @property
+    def cache(self):
+        return caches[self.cache_alias]
+    # patch end
 
     def process_request(self, request):
         """
@@ -249,4 +258,3 @@ class CacheMiddleware(UpdateCacheMiddleware, FetchFromCacheMiddleware):
         if cache_timeout is None:
             cache_timeout = settings.CACHE_MIDDLEWARE_SECONDS
         self.cache_timeout = cache_timeout
-        self.cache = caches[self.cache_alias]

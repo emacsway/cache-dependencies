@@ -2,22 +2,14 @@ import time
 import threading
 import collections
 from cache_tagging.exceptions import TagLocked
+from cache_tagging.interfaces import ITagsLock
 from cache_tagging.utils import get_thread_id, make_tag_key
 
 
 TagBean = collections.namedtuple('TagBean', ('time', 'status', 'thread_id'))
 
 
-class TagsLock(object):
-
-    def acquire_tags(self, tags, version=None):
-        raise NotImplementedError
-
-    def release_tags(self, tags, version=None):
-        raise NotImplementedError
-
-    def get_tag_versions(self, tags, transaction_start_time, version=None):
-        raise NotImplementedError
+class TagsLock(ITagsLock):
 
     @staticmethod
     def make(isolation_level, thread_safe_cache_accessor, delay):

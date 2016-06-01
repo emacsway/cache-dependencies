@@ -23,9 +23,15 @@ def main():
             }
         },
         INSTALLED_APPS = [
+            'django.contrib.sessions',
+            'django.contrib.messages',
             'cache_tagging.django_cache_tagging',
         ],
         MIDDLEWARE_CLASSES = [
+            'django.middleware.common.CommonMiddleware',
+            'django.contrib.sessions.middleware.SessionMiddleware',
+            'django.middleware.csrf.CsrfViewMiddleware',
+            'django.contrib.messages.middleware.MessageMiddleware',
             'cache_tagging.django_cache_tagging.middleware.TransactionMiddleware',
         ],
         TEST_RUNNER = 'django.test.runner.DiscoverRunner',

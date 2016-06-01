@@ -1,3 +1,5 @@
+from cache_tagging.interfaces import ICacheNode, IRelationManager
+from cache_tagging.mixins import ThreadSafeDecoratorMixIn
 from cache_tagging.utils import Undef
 
 try:
@@ -7,21 +9,6 @@ try:
 except NameError:
     string_types = (str,)
     integer_types = (int,)
-
-
-class ICacheNode(object):
-
-    def parent(self):
-        raise NotImplementedError
-
-    def name(self):
-        raise NotImplementedError
-
-    def add_tags(self, tags, version=None):
-        raise NotImplementedError
-
-    def get_tags(self, version=None):  # TODO: rename to get()?
-        raise NotImplementedError
 
 
 class CacheNode(ICacheNode):
@@ -69,7 +56,7 @@ class NoneCacheNode(ICacheNode):
         return set()
 
 
-class RelationManager(object):
+class RelationManager(IRelationManager):
 
     def __init__(self):
         self._current = None
@@ -101,3 +88,22 @@ class RelationManager(object):
 
     def clear(self):
         self._data = dict()
+
+
+class ThreadSafeRelationManagerDecorator(ThreadSafeDecoratorMixIn, IRelationManager):
+
+    def get(self, name):
+        self._validate_thread_sharing()
+        return self._delegate.get(name)
+
+    def pop(self, name):
+        self._validate_thread_sharing()
+        return self._delegate.pop(name)
+
+    def current(self, name_or_node=Undef):
+        self._validate_thread_sharing()
+        return self._delegate.current(name_or_node)
+
+    def clear(self):
+        self._validate_thread_sharing()
+        return self._delegate.clear()
