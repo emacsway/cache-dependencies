@@ -16,7 +16,7 @@ class ICacheNode(object):
     def add_tags(self, tags, version=None):
         raise NotImplementedError
 
-    def get_tags(self, version=None):  # TODO: rename to get()?
+    def get_tags(self, version=None):
         raise NotImplementedError
 
 
