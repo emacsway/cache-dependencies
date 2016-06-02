@@ -9,7 +9,7 @@ app_name = os.path.basename(os.path.dirname(os.path.abspath(__file__)))
 
 setup(
     name = app_name,
-    version = '0.7.7.20',
+    version = '0.7.7.21',
 
     packages = find_packages(),
     include_package_data=True,
