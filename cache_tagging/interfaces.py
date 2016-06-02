@@ -10,7 +10,7 @@ class ICacheNode(object):
     def parent(self):
         raise NotImplementedError
 
-    def name(self):
+    def key(self):
         raise NotImplementedError
 
     def add_tags(self, tags, version=None):
@@ -22,13 +22,13 @@ class ICacheNode(object):
 
 class IRelationManager(object):
 
-    def get(self, name):
+    def get(self, key):
         raise NotImplementedError
 
-    def pop(self, name):
+    def pop(self, key):
         raise NotImplementedError
 
-    def current(self, name_or_node=Undef):
+    def current(self, key_or_node=Undef):
         raise NotImplementedError
 
     def clear(self):

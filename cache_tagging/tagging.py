@@ -37,28 +37,28 @@ class CacheTagging(object):
         self.transaction = transaction
         self.relation_manager = relation_manager
 
-    def get_or_set_callback(self, name, callback, tags=[], timeout=None,
+    def get_or_set_callback(self, key, callback, tags=[], timeout=None,
                             version=None, args=None, kwargs=None):
         """Returns cache value if exists
 
         Otherwise calls cache_funcs, sets cache value to it and returns it.
         """
-        value = self.get(name, version=version)
+        value = self.get(key, version=version)
         if value is None:
             args = args or []
             kwargs = kwargs or {}
             value = callback(*args, **kwargs)
-            self.set(name, value, tags, timeout, version)
+            self.set(key, value, tags, timeout, version)
         return value
 
-    def get(self, name, default=None, version=None, abort=False):
+    def get(self, key, default=None, version=None, abort=False):
         """Gets cache value.
 
         If one of cache tags is expired, returns default.
         """
         if not abort and not self.ignore_descendants:
-            self.begin(name)
-        data = self.cache.get(name, None, version)
+            self.begin(key)
+        data = self.cache.get(key, None, version)
         if data is None:
             return default
 
@@ -68,7 +68,7 @@ class CacheTagging(object):
         except InvalidTag:
             return default
 
-        self.finish(name, tag_versions.keys(), version=version)
+        self.finish(key, tag_versions.keys(), version=version)
         return value
 
     @staticmethod
@@ -133,27 +133,27 @@ class CacheTagging(object):
                 return False
         return True
 
-    def set(self, name, value, tags=(), timeout=None, version=None):
+    def set(self, key, value, tags=(), timeout=None, version=None):
         """Sets cache value and tags."""
         if not isinstance(tags, (list, tuple, set, frozenset)):  # Called as native API
             if timeout is not None and version is None:
                 version = timeout
             timeout = tags
-            self.finish(name, (), version=version)
-            return self.cache.set(name, value, timeout, version)
+            self.finish(key, (), version=version)
+            return self.cache.set(key, value, timeout, version)
 
         tags = set(tags)
         # pull tags from descendants (cached fragments)
-        tags.update(self.relation_manager.get(name).get_tags(version))
+        tags.update(self.relation_manager.get(key).get_tags(version))
 
         try:
             tag_versions = self._make_tag_versions(tags, version)
         except TagLocked:
-            self.finish(name, tags, version=version)
+            self.finish(key, tags, version=version)
             return
 
-        self.finish(name, tags, version=version)
-        return self.cache.set(name, self._pack_data(value, tag_versions), timeout, version)
+        self.finish(key, tags, version=version)
+        return self.cache.set(key, self._pack_data(value, tag_versions), timeout, version)
 
     def _make_tag_versions(self, tags, version=None):
         tag_versions = {}
@@ -174,17 +174,17 @@ class CacheTagging(object):
             tag_keys = list(map(make_tag_key, tags))
             self.cache.delete_many(tag_keys, version=version)
 
-    def begin(self, name):
+    def begin(self, key):
         """Start cache creating."""
-        self.relation_manager.current(name)
+        self.relation_manager.current(key)
 
-    def abort(self, name):
-        """Clean tags for given cache name."""
-        self.relation_manager.pop(name)
+    def abort(self, key):
+        """Clean tags for given cache key."""
+        self.relation_manager.pop(key)
 
-    def finish(self, name, tags, version=None):
+    def finish(self, key, tags, version=None):
         """Start cache creating."""
-        self.relation_manager.pop(name).add_tags(tags, version)
+        self.relation_manager.pop(key).add_tags(tags, version)
 
     def close(self):
         self.transaction.flush()

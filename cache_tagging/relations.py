@@ -13,16 +13,16 @@ except NameError:
 
 class CacheNode(ICacheNode):
 
-    def __init__(self, name, parent=None):
-        self._name = name
+    def __init__(self, key, parent=None):
+        self._key = key
         self._parent = parent
         self._tags = dict()
 
     def parent(self):
         return self._parent
 
-    def name(self):
-        return self._name
+    def key(self):
+        return self._key
 
     def add_tags(self, tags, version=None):
         if version not in self._tags:
@@ -46,7 +46,7 @@ class NoneCacheNode(ICacheNode):
     def parent(self):
         return None
 
-    def name(self):
+    def key(self):
         return 'NoneCache'
 
     def add_tags(self, tags, version=None):
@@ -62,14 +62,14 @@ class RelationManager(IRelationManager):
         self._current = None
         self._data = dict()  # recursive cache is not possible, so, using dict instead of stack.
 
-    def get(self, name):
-        if name not in self._data:
-            self._data[name] = CacheNode(name, self._current)
-        return self._data[name]
+    def get(self, key):
+        if key not in self._data:
+            self._data[key] = CacheNode(key, self._current)
+        return self._data[key]
 
-    def pop(self, name):
+    def pop(self, key):
         try:
-            node = self._data.pop(name)
+            node = self._data.pop(key)
         except KeyError:
             node = NoneCacheNode()
 
@@ -77,13 +77,13 @@ class RelationManager(IRelationManager):
             self.current(node.parent())
         return node
 
-    def current(self, name_or_node=Undef):
-        if name_or_node is Undef:
+    def current(self, key_or_node=Undef):
+        if key_or_node is Undef:
             return self._current or NoneCacheNode()
-        if isinstance(name_or_node, string_types):
-            node = self.get(name_or_node)
+        if isinstance(key_or_node, string_types):
+            node = self.get(key_or_node)
         else:
-            node = name_or_node
+            node = key_or_node
         self._current = node
 
     def clear(self):
@@ -92,17 +92,17 @@ class RelationManager(IRelationManager):
 
 class ThreadSafeRelationManagerDecorator(ThreadSafeDecoratorMixIn, IRelationManager):
 
-    def get(self, name):
+    def get(self, key):
         self._validate_thread_sharing()
-        return self._delegate.get(name)
+        return self._delegate.get(key)
 
-    def pop(self, name):
+    def pop(self, key):
         self._validate_thread_sharing()
-        return self._delegate.pop(name)
+        return self._delegate.pop(key)
 
-    def current(self, name_or_node=Undef):
+    def current(self, key_or_node=Undef):
         self._validate_thread_sharing()
-        return self._delegate.current(name_or_node)
+        return self._delegate.current(key_or_node)
 
     def clear(self):
         self._validate_thread_sharing()
