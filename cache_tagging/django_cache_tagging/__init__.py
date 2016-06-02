@@ -3,17 +3,12 @@ import sys
 import hashlib
 from threading import local
 
+import django.core.cache
 from django.conf import settings
 from django.core import signals as core_signals
 from django.core.cache import DEFAULT_CACHE_ALIAS
 from django.db.models import signals as model_signals
 from django.utils.functional import curry
-try:
-    from django.core.cache import get_cache as django_get_cache
-    django_caches = None
-except ImportError:
-    from django.core.cache import caches as django_caches
-    django_get_cache = None
 
 from cache_tagging.tagging import CacheTagging
 from cache_tagging.relations import RelationManager, ThreadSafeRelationManagerDecorator
@@ -57,10 +52,10 @@ class CacheCollection(object):
             delay = options.get('DELAY', 0) or 0
             isolation_level = options.get('ISOLATION_LEVEL', 'READ COMMITED')
             django_backend = options.get('BACKEND', backend)
-            if django_caches:
-                django_cache = django_caches[django_backend]
+            if hasattr(django.core.cache, 'caches'):
+                cache = django.core.cache.caches[django_backend]
             else:
-                django_cache = django_get_cache(django_backend, *args, **kwargs)
+                cache = django.core.cache.get_cache(django_backend, *args, **kwargs)
 
             def thread_safe_cache_accessor():
                 return self(backend, *args, **kwargs)
@@ -68,7 +63,7 @@ class CacheCollection(object):
             transaction = ThreadSafeTransactionManagerDecorator(TransactionManager(tags_lock))
             relation_manager = ThreadSafeRelationManagerDecorator(RelationManager())
             self._caches[key] = CacheTagging(
-                django_cache, relation_manager, transaction
+                cache, relation_manager, transaction
             )
         return self._caches[key]
 
