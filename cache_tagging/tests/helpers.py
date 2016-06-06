@@ -2,15 +2,12 @@ import time
 import pickle
 from cache_tagging.interfaces import BaseCache
 
-_caches = {}
-_expire_info = {}
-
 
 class CacheStub(BaseCache):
 
-    def __init__(self, name):
-        self._cache = _caches.setdefault(name, {})
-        self._expire_info = _expire_info.setdefault(name, {})
+    def __init__(self):
+        self._cache = {}
+        self._expire_info = {}
         self.default_timeout = 300
 
     def set(self, key, value, timeout=None, version=None):

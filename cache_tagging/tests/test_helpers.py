@@ -7,7 +7,7 @@ class CacheStubTest(TestCase):
     CACHE_NAME = 'default'
 
     def setUp(self):
-        self.cache = CacheStub(self.CACHE_NAME)
+        self.cache = CacheStub()
 
     def test_set(self):
         self.cache.set('key1', 'value1')
