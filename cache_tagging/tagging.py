@@ -168,7 +168,10 @@ class CacheTagging(object):
 
     def invalidate_tags(self, *tags, **kwargs):
         """Invalidate specified tags"""
-        if len(tags):
+        if len(tags) == 1 and isinstance(tags[0], (list, tuple, set, frozenset)):
+            tags = tags[0]
+
+        if tags:
             version = kwargs.get('version', None)
             self.transaction.current().add_tags(tags, version=version)
             tag_keys = list(map(make_tag_key, tags))
