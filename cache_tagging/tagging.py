@@ -122,7 +122,7 @@ class CacheTagging(object):
                 if not self._is_valid_tag_versions(tag_versions, e.args[0]):
                     values.pop(key, None)
 
-        for key in values:  # Looping trought filtered result
+        for key in values:  # Looping through filtered result
             self.finish(key, all_tag_versions[key], version=version)
         return values
 
