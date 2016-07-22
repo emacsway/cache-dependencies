@@ -70,14 +70,14 @@ class NoneTransaction(BaseTransaction):
 
 class BaseTransactionManager(ITransactionManager):
 
-    def __call__(self, f=None):
-        if f is None:
+    def __call__(self, func=None):
+        if func is None:
             return self
 
-        @wraps(f)
+        @wraps(func)
         def _decorated(*args, **kw):
             with self:
-                rv = f(*args, **kw)
+                rv = func(*args, **kw)
             return rv
 
         return _decorated

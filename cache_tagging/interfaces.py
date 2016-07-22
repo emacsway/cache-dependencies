@@ -48,7 +48,7 @@ class ITagsLock(object):
 
     @staticmethod
     def make(isolation_level, thread_safe_cache_accessor, delay):
-        raise NotImplemented
+        raise NotImplementedError
     
 
 class ITransaction(object):
@@ -60,7 +60,7 @@ class ITransaction(object):
         raise NotImplementedError
 
     def get_tag_versions(self, tags, version=None):
-        raise NotImplemented
+        raise NotImplementedError
 
     def finish(self):
         raise NotImplementedError
@@ -68,7 +68,7 @@ class ITransaction(object):
 
 class ITransactionManager(object):
 
-    def __call__(self, f=None):
+    def __call__(self, func=None):
         raise NotImplementedError
 
     def __enter__(self):
