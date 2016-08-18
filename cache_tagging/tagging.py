@@ -37,7 +37,7 @@ class CacheTagging(object):
         self.transaction = transaction
         self.relation_manager = relation_manager
 
-    def get_or_set_callback(self, key, callback, tags=[], timeout=None,
+    def get_or_set_callback(self, key, callback, tags=(), timeout=None,
                             version=None, args=None, kwargs=None):
         """Returns cache value if exists
 

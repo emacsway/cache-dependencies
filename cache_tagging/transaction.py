@@ -9,13 +9,13 @@ from cache_tagging.utils import Undef
 class BaseTransaction(ITransaction):
     def __init__(self, lock):
         self._lock = lock
-        self.start_time = self._curret_time()
+        self.start_time = self._current_time()
 
     def get_tag_versions(self, tags, version=None):
         return self._lock.get_tag_versions(tags, self.start_time, version)
 
     @staticmethod
-    def _curret_time():
+    def _current_time():
         return time.time()
 
 
