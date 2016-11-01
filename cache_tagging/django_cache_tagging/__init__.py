@@ -58,7 +58,7 @@ class CacheCollection(object):
                 cache = django.core.cache.get_cache(django_backend, *args, **kwargs)
 
             def thread_safe_cache_accessor():
-                return self(backend, *args, **kwargs)
+                return self(backend, *args, **kwargs).cache
             tags_lock = TagsLock.make(isolation_level, thread_safe_cache_accessor, delay)
             transaction = ThreadSafeTransactionManagerDecorator(TransactionManager(tags_lock))
             relation_manager = ThreadSafeRelationManagerDecorator(RelationManager())
