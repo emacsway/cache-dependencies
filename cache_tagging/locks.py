@@ -1,6 +1,8 @@
 import time
+import operator
 import threading
 import collections
+from functools import reduce
 from cache_tagging.exceptions import TagLocked
 from cache_tagging.interfaces import ITagsLock
 from cache_tagging.utils import get_thread_id, make_tag_key
@@ -10,6 +12,23 @@ TagBean = collections.namedtuple('TagBean', ('time', 'status', 'thread_id'))
 
 
 class TagsLock(ITagsLock):
+
+    def __init__(self, thread_safe_cache_accessor, delay=None):
+        self._cache = thread_safe_cache_accessor
+        self._delay = delay  # For master/slave
+
+    def get_tag_versions(self, tags, transaction_start_time, version=None):
+        deferred = Deferred(self._cache().get_many, version)
+        self._get_tag_versions(tags, deferred)
+        return deferred.pop()
+
+    def _get_tag_versions(self, tags, deferred):
+        tag_keys = {tag: make_tag_key(tag) for tag in tags}
+        deferred.append(
+            tag_keys.values(),
+            lambda _, caches: {tag: caches[tag_key] for tag, tag_key in tag_keys.items() if tag_key in caches}
+        )
+        return deferred
 
     @staticmethod
     def make(isolation_level, thread_safe_cache_accessor, delay):
@@ -27,11 +46,6 @@ class ReadUncommittedTagsLock(TagsLock):
     """
     Tag Lock for Read Ucnommited and higher transaction isolation level.
     """
-
-    def __init__(self, thread_safe_cache_accessor, delay=None):
-        self._cache = thread_safe_cache_accessor
-        self._delay = delay  # For master/slave
-
     def acquire_tags(self, tags, version=None):
         pass
 
@@ -41,11 +55,6 @@ class ReadUncommittedTagsLock(TagsLock):
 
     def _release_tags_delayed(self, tags, version=None):
         self._cache().delete_many(list(map(make_tag_key, tags)), version=version)
-
-    def get_tag_versions(self, tags, transaction_start_time, version=None):
-        tag_keys = {tag: make_tag_key(tag) for tag in tags}
-        caches = self._cache().get_many(list(tag_keys.values()), version) or {}
-        return {tag: caches[tag_key] for tag, tag_key in tag_keys.items() if tag_key in caches}
 
 
 class ReadCommittedTagsLock(ReadUncommittedTagsLock):
@@ -58,17 +67,12 @@ class RepeatableReadsTagsLock(TagsLock):
     """
     Tag Lock for Repeatable Reads and higher transaction isolation level.
     """
-
     LOCK_PREFIX = "lock"
     LOCK_TIMEOUT = 5
 
     class STATUS(object):
         ASQUIRED = 0
         RELEASED = 1
-
-    def __init__(self, thread_safe_cache_accessor, delay=None):
-        self._cache = thread_safe_cache_accessor
-        self._delay = delay  # For master/slave
 
     def acquire_tags(self, tags, version=None):
         return self._set_tags_status(tags, self.STATUS.ASQUIRED, version)
@@ -99,24 +103,24 @@ class RepeatableReadsTagsLock(TagsLock):
         than any tag has been invalidated by concurent process.
         Actual for SERIALIZABLE and REPEATABLE READ transaction levels.
         """
-        tags = set(tags)
-        tag_keys = {tag: make_tag_key(tag) for tag in tags}
-        locked_tag_keys = {tag: self._make_locked_tag_key(tag) for tag in tags}
-        all_keys = set(tag_keys.values()) | set(locked_tag_keys.values())
-        all_caches = self._cache().get_many(list(all_keys), version) or {}
-        tag_caches = {tag: all_caches[tag_key]
-                      for tag, tag_key in tag_keys.items()
-                      if tag_key in all_caches}
-        locked_tag_caches = {tag: all_caches[tag_key]
-                             for tag, tag_key in locked_tag_keys.items()
-                             if tag_key in all_caches}
+        deferred = Deferred(self._cache().get_many, version)
+        self._get_tag_versions(tags, deferred)
+        self._get_locked_tags(tags, transaction_start_time, deferred)
+        locked_tags = deferred.pop()
+        if locked_tags:
+            raise TagLocked(locked_tags)
+        return deferred.pop()
 
-        if locked_tag_caches:
-            locked_tags = set(tag for tag, tag_bean in locked_tag_caches.items()
-                              if self._tag_is_locked(tag_bean, transaction_start_time))
-            if locked_tags:
-                raise TagLocked(locked_tags)
-        return tag_caches
+    def _get_locked_tags(self, tags, transaction_start_time, deferred):
+        tag_keys = {tag: self._make_locked_tag_key(tag) for tag in tags}
+
+        def callback(_, caches):
+            locked_tag_caches = {tag: caches[tag_key] for tag, tag_key in tag_keys.items() if tag_key in caches}
+            return set(tag for tag, tag_bean in locked_tag_caches.items()
+                       if self._tag_is_locked(tag_bean, transaction_start_time))
+
+        deferred.append(tag_keys.values(), callback)
+        return deferred
 
     def _tag_is_locked(self, tag_bean, transaction_start_time):
         if tag_bean.thread_id == get_thread_id():
@@ -132,3 +136,27 @@ class RepeatableReadsTagsLock(TagsLock):
 
 class SerializableTagsLock(RepeatableReadsTagsLock):
     pass
+
+
+class Deferred(object):
+
+    def __init__(self, executor, *args, **kwargs):
+        self._execute = executor
+        self._args = args
+        self._kwargs = kwargs
+        self._queue = []
+        self._iterator = None
+
+    def append(self, keys, callback):
+        self._queue.append([keys, callback])
+
+    def pop(self):
+        if self._iterator is None:
+            self._iterator = iter(self)
+        return next(self._iterator)
+
+    def __iter__(self):
+        keys = reduce(operator.or_, map(set, map(operator.itemgetter(0), self._queue)))
+        result = self._execute(list(keys), *self._args, **self._kwargs) or {}
+        for i in reversed(self._queue):
+            yield i[1](self, {key: result[key] for key in i[0] if key in result})

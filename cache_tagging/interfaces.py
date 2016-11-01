@@ -44,6 +44,11 @@ class ITagsLock(object):
         raise NotImplementedError
 
     def get_tag_versions(self, tags, transaction_start_time, version=None):
+        """it's okay to ask tag versions from Lock,
+
+        because Lock can implement Pessimistic Offline Lock or Mutual Exclusion
+        instead of raising TagLocked exception.
+        """
         raise NotImplementedError
 
     @staticmethod
