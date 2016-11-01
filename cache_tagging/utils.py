@@ -41,3 +41,16 @@ def make_tag_key(name):
     version = str(__version__).replace('.', '')
     name = hashlib.md5(str(name).encode('utf-8')).hexdigest()
     return 'tag_{0}_{1}'.format(version, name)
+
+
+def to_hashable(obj):
+    """
+    Makes a hashable object from a dictionary, list, tuple, set etc.
+    """
+    if isinstance(obj, (list, tuple)):
+        return tuple(to_hashable(i) for i in obj)
+    elif isinstance(obj, (set, frozenset)):
+        return frozenset(to_hashable(i) for i in obj)
+    elif isinstance(obj, dict):
+        return frozenset((k, to_hashable(v)) for k, v in obj.items())
+    return obj

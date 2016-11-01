@@ -5,7 +5,7 @@ import collections
 from functools import reduce
 from cache_tagging.exceptions import TagLocked
 from cache_tagging.interfaces import ITagsLock
-from cache_tagging.utils import get_thread_id, make_tag_key
+from cache_tagging.utils import get_thread_id, make_tag_key, to_hashable
 
 
 TagBean = collections.namedtuple('TagBean', ('time', 'status', 'thread_id'))
@@ -18,12 +18,11 @@ class TagsLock(ITagsLock):
         self._delay = delay  # For master/slave
 
     def get_tag_versions(self, tags, transaction_start_time, version=None):
-        deferred = Deferred(self._cache().get_many, version)
-        self._get_tag_versions(tags, deferred)
-        return deferred.pop()
+        return self._get_tag_versions(tags, version).pop()
 
-    def _get_tag_versions(self, tags, deferred):
+    def _get_tag_versions(self, tags, version=None):
         tag_keys = {tag: make_tag_key(tag) for tag in tags}
+        deferred = Deferred(self._cache().get_many, version)
         deferred.append(
             tag_keys.values(),
             lambda _, caches: {tag: caches[tag_key] for tag, tag_key in tag_keys.items() if tag_key in caches}
@@ -103,15 +102,14 @@ class RepeatableReadsTagsLock(TagsLock):
         than any tag has been invalidated by concurent process.
         Actual for SERIALIZABLE and REPEATABLE READ transaction levels.
         """
-        deferred = Deferred(self._cache().get_many, version)
-        self._get_tag_versions(tags, deferred)
-        self._get_locked_tags(tags, transaction_start_time, deferred)
+        deferred = self._get_tag_versions(tags, version)
+        deferred += self._get_locked_tags(tags, transaction_start_time, version)
         locked_tags = deferred.pop()
         if locked_tags:
             raise TagLocked(locked_tags)
         return deferred.pop()
 
-    def _get_locked_tags(self, tags, transaction_start_time, deferred):
+    def _get_locked_tags(self, tags, transaction_start_time, version=None):
         tag_keys = {tag: self._make_locked_tag_key(tag) for tag in tags}
 
         def callback(_, caches):
@@ -119,6 +117,7 @@ class RepeatableReadsTagsLock(TagsLock):
             return set(tag for tag, tag_bean in locked_tag_caches.items()
                        if self._tag_is_locked(tag_bean, transaction_start_time))
 
+        deferred = Deferred(self._cache().get_many, version)
         deferred.append(tag_keys.values(), callback)
         return deferred
 
@@ -141,14 +140,17 @@ class SerializableTagsLock(RepeatableReadsTagsLock):
 class Deferred(object):
 
     def __init__(self, executor, *args, **kwargs):
-        self._execute = executor
-        self._args = args
-        self._kwargs = kwargs
-        self._queue = []
+        self.execute = executor
+        self.args = args
+        self.kwargs = kwargs
+        self.key = to_hashable((self.execute, self.args, self.kwargs))
+        self.queue = []
         self._iterator = None
+        self.parent = None
 
     def append(self, keys, callback):
-        self._queue.append([keys, callback])
+        self.queue.append([keys, callback])
+        return self
 
     def pop(self):
         if self._iterator is None:
@@ -156,7 +158,48 @@ class Deferred(object):
         return next(self._iterator)
 
     def __iter__(self):
-        keys = reduce(operator.or_, map(set, map(operator.itemgetter(0), self._queue)))
-        result = self._execute(list(keys), *self._args, **self._kwargs) or {}
-        for i in reversed(self._queue):
-            yield i[1](self, {key: result[key] for key in i[0] if key in result})
+        visited_node_keys = {}
+        node = self
+        while node:
+            if node.key not in visited_node_keys:
+                visited_node_keys[node.key] = self.execute(list(self.get_keys(node.key)), *self.args, **self.kwargs) or {}
+            result = visited_node_keys[node.key]
+            for i in self._iter_node(node, result):
+                yield i
+            node = node.parent
+
+    @staticmethod
+    def _iter_node(node, result):
+        for i in reversed(node.queue):
+            yield i[1](node, {key: result[key] for key in i[0] if key in result})
+
+    def get_keys(self, node_key):
+        keys = set()
+        node = self
+        while node:
+            if node.key == node_key:
+                keys |= self.get_node_keys(node)
+            node = node.parent
+        return keys
+
+    @staticmethod
+    def get_node_keys(node):
+        return reduce(operator.or_, map(set, map(operator.itemgetter(0), node.queue)))
+
+    def __add__(self, other):
+        result = self.__class__(self.execute, *self.args, **self.kwargs)
+        result += self
+        result += other
+        return result
+
+    def __iadd__(self, other):
+        """
+        :type other: Deferred
+        :rtype: Deferred
+        """
+        if self.key == other.key:
+            self.queue.extend(other.queue)
+            return self
+        else:
+            other.parent = self
+            return other
