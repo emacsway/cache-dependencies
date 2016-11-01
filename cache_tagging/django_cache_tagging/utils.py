@@ -51,9 +51,9 @@ def patch_response_headers(response, cache_timeout=None):
 
 def learn_cache_key(request, response, tags=(), cache_timeout=None, key_prefix=None, cache=None):  # patched
     """
-    Learns what headers to take into account for some request path from the
-    response object. It stores those headers in a global path registry so that
-    later access to that path will know what headers to take into account
+    Learns what headers to take into account for some request URL from the
+    response object. It stores those headers in a global URL registry so that
+    later access to that URL will know what headers to take into account
     without building the response object itself. The headers are named in the
     Vary header of the response, but we want to prevent response generation.
 
