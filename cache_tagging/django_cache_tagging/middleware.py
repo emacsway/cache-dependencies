@@ -5,7 +5,7 @@ URL. The canonical way to enable cache middleware is to set
 ``UpdateCacheMiddleware`` as your first piece of middleware, and
 ``FetchFromCacheMiddleware`` as the last::
 
-    MIDDLEWARE_CLASSES = [
+    MIDDLEWARE = [
         'django.middleware.cache.UpdateCacheMiddleware',
         ...
         'django.middleware.cache.FetchFromCacheMiddleware'
@@ -56,13 +56,30 @@ from . import caches, DEFAULT_CACHE_ALIAS
 from .utils import patch_response_headers, learn_cache_key
 
 
-class TransactionMiddleware(object):
+class MiddlewareMixin(object):
+    def __init__(self, get_response=None):
+        self.get_response = get_response
+        super(MiddlewareMixin, self).__init__()
+
+    def __call__(self, request):
+        response = None
+        if hasattr(self, 'process_request'):
+            response = self.process_request(request)
+        if not response:
+            response = self.get_response(request)
+        if hasattr(self, 'process_response'):
+            response = self.process_response(request, response)
+        return response
+
+
+class TransactionMiddleware(MiddlewareMixin):
     """
     Transaction middleware.
     Used before django.middleware.transaction.TransactionMiddleware
     in settings.MIDDLEWARE_CLASSES.
     """
-    def __init__(self, **kwargs):
+    def __init__(self, get_response=None, **kwargs):
+        self.get_response = get_response
         try:
             self.cache_alias = kwargs['cache_alias']
             if self.cache_alias is None:
@@ -85,20 +102,21 @@ class TransactionMiddleware(object):
         return response
 
 
-class UpdateCacheMiddleware(object):
+class UpdateCacheMiddleware(MiddlewareMixin):
     """
     Response-phase cache middleware that updates the cache if the response is
     cacheable.
 
     Must be used as part of the two-part update/fetch cache middleware.
-    UpdateCacheMiddleware must be the first piece of middleware in
-    MIDDLEWARE_CLASSES so that it'll get called last during the response phase.
+    UpdateCacheMiddleware must be the first piece of middleware in MIDDLEWARE
+    so that it'll get called last during the response phase.
     """
-    def __init__(self):
+    def __init__(self, get_response=None):
         self.cache_timeout = settings.CACHE_MIDDLEWARE_SECONDS
         self.key_prefix = settings.CACHE_MIDDLEWARE_KEY_PREFIX
         self.cache_anonymous_only = getattr(settings, 'CACHE_MIDDLEWARE_ANONYMOUS_ONLY', False)
         self.cache_alias = settings.CACHE_MIDDLEWARE_ALIAS
+        self.get_response = get_response
 
     # patch start
     @property
@@ -165,19 +183,20 @@ class UpdateCacheMiddleware(object):
         return response
 
 
-class FetchFromCacheMiddleware(object):
+class FetchFromCacheMiddleware(MiddlewareMixin):
     """
     Request-phase cache middleware that fetches a page from the cache.
 
     Must be used as part of the two-part update/fetch cache middleware.
-    FetchFromCacheMiddleware must be the last piece of middleware in
-    MIDDLEWARE_CLASSES so that it'll get called last during the request phase.
+    FetchFromCacheMiddleware must be the last piece of middleware in MIDDLEWARE
+    so that it'll get called last during the request phase.
     """
-    def __init__(self):
+    def __init__(self, get_response=None):
         self.cache_timeout = settings.CACHE_MIDDLEWARE_SECONDS
         self.key_prefix = settings.CACHE_MIDDLEWARE_KEY_PREFIX
         self.cache_anonymous_only = getattr(settings, 'CACHE_MIDDLEWARE_ANONYMOUS_ONLY', False)
         self.cache_alias = settings.CACHE_MIDDLEWARE_ALIAS
+        self.get_response = get_response
 
     # patch start
     @property
@@ -221,7 +240,8 @@ class CacheMiddleware(UpdateCacheMiddleware, FetchFromCacheMiddleware):
     Also used as the hook point for the cache decorator, which is generated
     using the decorator-from-middleware utility.
     """
-    def __init__(self, cache_timeout=None, cache_anonymous_only=None, **kwargs):
+    def __init__(self, get_response=None, cache_timeout=None, cache_anonymous_only=None, **kwargs):
+        self.get_response = get_response
         # We need to differentiate between "provided, but using default value",
         # and "not provided". If the value is provided using a default, then
         # we fall back to system defaults. If it is not provided at all,
@@ -231,7 +251,7 @@ class CacheMiddleware(UpdateCacheMiddleware, FetchFromCacheMiddleware):
         try:
             self.tags = kwargs['tags']
         except KeyError:
-            self.tags = set()
+            self.tags = lambda request: ()
         # patch end
 
         try:

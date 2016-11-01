@@ -34,6 +34,13 @@ def main():
             'django.contrib.messages.middleware.MessageMiddleware',
             'cache_tagging.django_cache_tagging.middleware.TransactionMiddleware',
         ],
+        MIDDLEWARE = [
+            'django.middleware.common.CommonMiddleware',
+            'django.contrib.sessions.middleware.SessionMiddleware',
+            'django.middleware.csrf.CsrfViewMiddleware',
+            'django.contrib.messages.middleware.MessageMiddleware',
+            'cache_tagging.django_cache_tagging.middleware.TransactionMiddleware',
+        ],
         TEST_RUNNER = 'django.test.runner.DiscoverRunner',
         TEMPLATE_DIRS = [],
         TEMPLATES = [
