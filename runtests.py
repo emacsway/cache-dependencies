@@ -36,6 +36,16 @@ def main():
         ],
         TEST_RUNNER = 'django.test.runner.DiscoverRunner',
         TEMPLATE_DIRS = [],
+        TEMPLATES = [
+            {
+                'BACKEND': 'django.template.backends.django.DjangoTemplates',
+                'DIRS': [],
+                'APP_DIRS': True,
+                'OPTIONS': {
+                    'context_processors': [],
+                },
+            },
+        ],
         DEBUG = True,
         TEMPLATE_DEBUG = True,
         ROOT_URLCONF = 'runtests',

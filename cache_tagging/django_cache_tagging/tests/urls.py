@@ -1,13 +1,12 @@
 from __future__ import absolute_import, unicode_literals
-from django.conf.urls import patterns, url
+from django.conf.urls import url
 from cache_tagging.django_cache_tagging.decorators import cache_page
 from cache_tagging.django_cache_tagging.tests import views
 
 
-urlpatterns = patterns(
-    "cache_tagging.django_cache_tagging.tests.views",
+urlpatterns = [
     url(r"^cache_tagging_test_decorator/$",
-        'test_decorator',
+        views.test_decorator,
         name="cache_tagging_test_decorator"),
     url(r"^cache_tagging_test_decorator_cbv1/$",
         views.TestDecoratorView1.as_view(),
@@ -21,4 +20,4 @@ urlpatterns = patterns(
     url(r"^cache_tagging_test_decorator_cbv4/$",
         views.TestDecoratorView4.as_view(),
         name="cache_tagging_test_decorator_cbv4"),
-)
+]

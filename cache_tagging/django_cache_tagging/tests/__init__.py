@@ -38,6 +38,7 @@ class CacheTaggingIntegrationTest(TestCase):
     @classmethod
     def setUpClass(cls):
         cls.original_caches = caches._caches.copy()
+        cls.ORIGINAL_ROOT_URLCONF, settings.ROOT_URLCONF = settings.ROOT_URLCONF, cls.urls
         caches._caches.clear()
         if hasattr(settings, 'CACHE_TAGGING'):
             cls.ORIGINAL_CACHE_TAGGING = settings.CACHE_TAGGING
@@ -52,6 +53,7 @@ class CacheTaggingIntegrationTest(TestCase):
     def tearDownClass(cls):
         caches._caches.clear()
         caches._caches.update(cls.original_caches)
+        settings.ROOT_URLCONF = cls.ORIGINAL_ROOT_URLCONF
         if hasattr(cls, 'ORIGINAL_CACHE_TAGGING'):
             settings.CACHE_TAGGING = cls.ORIGINAL_CACHE_TAGGING
         else:
