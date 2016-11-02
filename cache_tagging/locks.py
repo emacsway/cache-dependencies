@@ -22,10 +22,10 @@ class TagsLock(ITagsLock):
 
     def _get_tag_versions(self, tags, version=None):
         tag_keys = {tag: make_tag_key(tag) for tag in tags}
-        deferred = Deferred(self._cache().get_many, version)
+        deferred = Deferred(self._cache().get_many, GetManyDeferredIterator, version)
         deferred.append(
-            tag_keys.values(),
-            lambda _, caches: {tag: caches[tag_key] for tag, tag_key in tag_keys.items() if tag_key in caches}
+            lambda _, caches: {tag: caches[tag_key] for tag, tag_key in tag_keys.items() if tag_key in caches},
+            tag_keys.values()
         )
         return deferred
 
@@ -117,8 +117,8 @@ class RepeatableReadsTagsLock(TagsLock):
             return set(tag for tag, tag_bean in locked_tag_caches.items()
                        if self._tag_is_locked(tag_bean, transaction_start_time))
 
-        deferred = Deferred(self._cache().get_many, version)
-        deferred.append(tag_keys.values(), callback)
+        deferred = Deferred(self._cache().get_many, GetManyDeferredIterator, version)
+        deferred.append(callback, tag_keys.values())
         return deferred
 
     def _tag_is_locked(self, tag_bean, transaction_start_time):
@@ -139,52 +139,24 @@ class SerializableTagsLock(RepeatableReadsTagsLock):
 
 class Deferred(object):
 
-    def __init__(self, executor, *args, **kwargs):
+    def __init__(self, executor, iterator_factory, *args, **kwargs):
         self.execute = executor
         self.args = args
         self.kwargs = kwargs
         self.key = to_hashable((self.execute, self.args, self.kwargs))
         self.queue = []
-        self._iterator = None
         self.parent = None
+        self._iterator_cached = None
+        self._iterator_factory = iterator_factory
 
-    def append(self, keys, callback):
-        self.queue.append([keys, callback])
+    def append(self, callback, *args, **kwargs):
+        self.queue.append([callback, args, kwargs])
         return self
 
     def pop(self):
-        if self._iterator is None:
-            self._iterator = iter(self)
-        return next(self._iterator)
-
-    def __iter__(self):
-        visited_node_keys = {}
-        node = self
-        while node:
-            if node.key not in visited_node_keys:
-                visited_node_keys[node.key] = self.execute(list(self.get_keys(node.key)), *self.args, **self.kwargs) or {}
-            result = visited_node_keys[node.key]
-            for i in self._iter_node(node, result):
-                yield i
-            node = node.parent
-
-    @staticmethod
-    def _iter_node(node, result):
-        for i in reversed(node.queue):
-            yield i[1](node, {key: result[key] for key in i[0] if key in result})
-
-    def get_keys(self, node_key):
-        keys = set()
-        node = self
-        while node:
-            if node.key == node_key:
-                keys |= self.get_node_keys(node)
-            node = node.parent
-        return keys
-
-    @staticmethod
-    def get_node_keys(node):
-        return reduce(operator.or_, map(set, map(operator.itemgetter(0), node.queue)))
+        if self._iterator_cached is None:
+            self._iterator_cached = iter(self)
+        return next(self._iterator_cached)
 
     def __add__(self, other):
         result = self.__class__(self.execute, *self.args, **self.kwargs)
@@ -194,8 +166,8 @@ class Deferred(object):
 
     def __iadd__(self, other):
         """
-        :type other: Deferred
-        :rtype: Deferred
+        :type other: cache_tagging.locks.Deferred
+        :rtype: cache_tagging.locks.Deferred
         """
         if self.key == other.key:
             self.queue.extend(other.queue)
@@ -203,3 +175,43 @@ class Deferred(object):
         else:
             other.parent = self
             return other
+
+    def __iter__(self):
+        return iter(self._iterator_factory(self))
+
+
+class GetManyDeferredIterator(object):
+    def __init__(self, deferred):
+        """
+        :type deferred: cache_tagging.locks.Deferred
+        """
+        self._deferred = deferred
+
+    def __iter__(self):
+        visited_node_keys = {}
+        node = self._deferred
+        while node:
+            if node.key not in visited_node_keys:
+                visited_node_keys[node.key] = node.execute(list(self.get_keys(node.key)), *node.args, **node.kwargs) or {}
+            result = visited_node_keys[node.key]
+            for i in self._iter_node(node, result):
+                yield i
+            node = node.parent
+
+    @staticmethod
+    def _iter_node(node, result):
+        for i in reversed(node.queue):
+            yield i[0](node, {key: result[key] for key in i[1][0] if key in result})
+
+    def get_keys(self, node_key):
+        keys = set()
+        node = self._deferred
+        while node:
+            if node.key == node_key:
+                keys |= self.get_node_keys(node)
+            node = node.parent
+        return keys
+
+    @staticmethod
+    def get_node_keys(node):
+        return reduce(operator.or_, map(set, map(operator.itemgetter(0), map(operator.itemgetter(1), node.queue))))
