@@ -143,11 +143,11 @@ class Deferred(object):
         self.execute = executor
         self.args = args
         self.kwargs = kwargs
-        self.key = to_hashable((self.execute, self.args, self.kwargs))
         self.queue = []
         self.parent = None
         self._iterator_cached = None
         self._iterator_factory = iterator_factory
+        self.key = to_hashable((self.execute, self._iterator_factory, self.args, self.kwargs))
 
     def append(self, callback, *args, **kwargs):
         self.queue.append([callback, args, kwargs])
@@ -159,7 +159,7 @@ class Deferred(object):
         return next(self._iterator_cached)
 
     def __add__(self, other):
-        result = self.__class__(self.execute, *self.args, **self.kwargs)
+        result = self.__class__(self.execute, self._iterator_factory, *self.args, **self.kwargs)
         result += self
         result += other
         return result
