@@ -22,7 +22,7 @@ class TagsLock(ITagsLock):
 
     def _get_tag_versions(self, tags, version=None):
         tag_keys = {tag: make_tag_key(tag) for tag in tags}
-        deferred = Deferred(self._cache().get_many, GetManyDeferredIterator, version)
+        deferred = GetManyDeferred(self._cache().get_many, version)
         deferred.append(
             lambda _, caches: {tag: caches[tag_key] for tag, tag_key in tag_keys.items() if tag_key in caches},
             tag_keys.values()
@@ -117,7 +117,7 @@ class RepeatableReadsTagsLock(TagsLock):
             return set(tag for tag, tag_bean in locked_tag_caches.items()
                        if self._tag_is_locked(tag_bean, transaction_start_time))
 
-        deferred = Deferred(self._cache().get_many, GetManyDeferredIterator, version)
+        deferred = GetManyDeferred(self._cache().get_many, version)
         deferred.append(callback, tag_keys.values())
         return deferred
 
@@ -137,29 +137,28 @@ class SerializableTagsLock(RepeatableReadsTagsLock):
     pass
 
 
-class Deferred(object):
+class AbstractDeferred(object):
 
-    def __init__(self, executor, iterator_factory, *args, **kwargs):
+    def __init__(self, executor, *args, **kwargs):
         self.execute = executor
         self.args = args
         self.kwargs = kwargs
         self.queue = []
         self.parent = None
-        self._iterator_cached = None
-        self._iterator_factory = iterator_factory
-        self.key = to_hashable((self.execute, self._iterator_factory, self.args, self.kwargs))
+        self._iterator = None
+        self.key = to_hashable((self.execute, self.args, self.kwargs))
 
     def append(self, callback, *args, **kwargs):
         self.queue.append([callback, args, kwargs])
         return self
 
     def pop(self):
-        if self._iterator_cached is None:
-            self._iterator_cached = iter(self)
-        return next(self._iterator_cached)
+        if self._iterator is None:
+            self._iterator = iter(self)
+        return next(self._iterator)
 
     def __add__(self, other):
-        result = self.__class__(self.execute, self._iterator_factory, *self.args, **self.kwargs)
+        result = self.__class__(self.execute, *self.args, **self.kwargs)
         result += self
         result += other
         return result
@@ -177,7 +176,12 @@ class Deferred(object):
             return other
 
     def __iter__(self):
-        return iter(self._iterator_factory(self))
+        raise NotImplementedError
+
+
+class GetManyDeferred(AbstractDeferred):
+    def __iter__(self):
+        return iter(GetManyDeferredIterator(self))
 
 
 class GetManyDeferredIterator(object):
