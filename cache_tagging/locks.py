@@ -1,8 +1,6 @@
 import time
-import operator
 import threading
 import collections
-from functools import reduce
 from cache_tagging.exceptions import TagLocked
 from cache_tagging.interfaces import ITagsLock
 from cache_tagging.utils import get_thread_id, make_tag_key, to_hashable
@@ -22,7 +20,7 @@ class TagsLock(ITagsLock):
 
     def _get_tag_versions(self, tags, version=None):
         tag_keys = {tag: make_tag_key(tag) for tag in tags}
-        deferred = GetManyDeferred(self._cache().get_many, version)
+        deferred = Deferred(self._cache().get_many, GetManyDeferredIterator, version)
         deferred.append(
             lambda _, caches: {tag: caches[tag_key] for tag, tag_key in tag_keys.items() if tag_key in caches},
             tag_keys.values()
@@ -117,7 +115,7 @@ class RepeatableReadsTagsLock(TagsLock):
             return set(tag for tag, tag_bean in locked_tag_caches.items()
                        if self._tag_is_locked(tag_bean, transaction_start_time))
 
-        deferred = GetManyDeferred(self._cache().get_many, version)
+        deferred = Deferred(self._cache().get_many, GetManyDeferredIterator, version)
         deferred.append(callback, tag_keys.values())
         return deferred
 
@@ -137,16 +135,17 @@ class SerializableTagsLock(RepeatableReadsTagsLock):
     pass
 
 
-class AbstractDeferred(object):
+class Deferred(object):
 
-    def __init__(self, executor, *args, **kwargs):
+    def __init__(self, executor, iterator_factory, *args, **kwargs):
         self.execute = executor
         self.args = args
         self.kwargs = kwargs
         self.queue = []
         self.parent = None
         self._iterator = None
-        self.key = to_hashable((self.execute, self.args, self.kwargs))
+        self.iterator_factory = iterator_factory
+        self.key = to_hashable((self.execute, self.iterator_factory, self.args, self.kwargs))
 
     def append(self, callback, *args, **kwargs):
         self.queue.append([callback, args, kwargs])
@@ -176,15 +175,10 @@ class AbstractDeferred(object):
             return other
 
     def __iter__(self):
-        raise NotImplementedError
+        return iter(self.iterator_factory(self))
 
 
-class GetManyDeferred(AbstractDeferred):
-    def __iter__(self):
-        return iter(GetManyDeferredIterator(self))
-
-
-class GetManyDeferredIterator(object):
+class GetManyDeferredIterator(collections.Iterable):
     def __init__(self, deferred):
         """
         :type deferred: cache_tagging.locks.Deferred
@@ -195,17 +189,31 @@ class GetManyDeferredIterator(object):
         visited_node_keys = {}
         node = self._deferred
         while node:
-            if node.key not in visited_node_keys:
-                visited_node_keys[node.key] = node.execute(list(self.get_keys(node.key)), *node.args, **node.kwargs) or {}
-            result = visited_node_keys[node.key]
-            for i in self._iter_node(node, result):
-                yield i
+            if self._is_known_node(node):
+                if node.key not in visited_node_keys:
+                    visited_node_keys[node.key] = node.execute(list(self.get_keys(node.key)), *node.args, **node.kwargs) or {}
+                bulk_result = visited_node_keys[node.key]
+                for result in self._iter_node(node, bulk_result):
+                    yield result
+            else:
+                for result in node:
+                    yield result
             node = node.parent
 
+    def _is_known_node(self, node):
+        """
+        :type node: cache_tagging.locks.Deferred
+        """
+        return issubclass(node.iterator_factory, self.__class__)
+
     @staticmethod
-    def _iter_node(node, result):
-        for i in reversed(node.queue):
-            yield i[0](node, {key: result[key] for key in i[1][0] if key in result})
+    def _iter_node(node, bulk_result):
+        """
+        :type node: cache_tagging.locks.Deferred
+        :type result: dict
+        """
+        for callback, args, kwargs in reversed(node.queue):
+            yield callback(node, {key: bulk_result[key] for key in args[0] if key in bulk_result})
 
     def get_keys(self, node_key):
         keys = set()
@@ -218,4 +226,10 @@ class GetManyDeferredIterator(object):
 
     @staticmethod
     def get_node_keys(node):
-        return reduce(operator.or_, map(set, map(operator.itemgetter(0), map(operator.itemgetter(1), node.queue))))
+        """
+        :type node: cache_tagging.locks.Deferred
+        """
+        keys = set()
+        for callback, args, kwargs in node.queue:
+            keys |= set(args[0])
+        return keys
