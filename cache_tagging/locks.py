@@ -136,9 +136,9 @@ class SerializableTagsLock(RepeatableReadsTagsLock):
 
 
 class Deferred(object):
-    """Has signs of Deferred, Queue and Aggregation.
+    """Defers query execution with aggregation purpose.
 
-    The main purpose is aggregate queries to cache, mainly, using cache.get_many().
+    Used mainly to reduce count of cache.get_many().
     """
     def __init__(self, executor, iterator_factory, *args, **kwargs):
         self.execute = executor
@@ -147,6 +147,7 @@ class Deferred(object):
         self.queue = []
         self.parent = None
         self.iterator = iterator_factory(self)
+        self.iterator.state = State()
         self.aggregation_criterion = to_hashable((executor, iterator_factory, args, kwargs))
 
     def add_callback(self, callback, *args, **kwargs):  # put? apply?
@@ -175,19 +176,35 @@ class Deferred(object):
             return self
         else:
             other.parent = self
+            other.iterator.state = self.iterator.state
             return other
 
     def __iter__(self):
         return self.iterator
 
 
+class State(object):
+
+    def __init__(self):
+        self._contexts = dict()
+
+    def switch_context(self, context_key):
+        self.__dict__ = self._contexts.setdefault(context_key, {
+            '_contexts': self._contexts,
+        })
+
+
 class GetManyDeferredIterator(collections.Iterator):
+    """
+    :type state: cache_tagging.locks.State
+    """
+    state = None
+
     def __init__(self, deferred):
         """
         :type deferred: cache_tagging.locks.Deferred
         """
         self._deferred = deferred
-        self._bulk_caches_map = {}
         self._iterator = self._make_iterator()
 
     def __iter__(self):
@@ -198,28 +215,14 @@ class GetManyDeferredIterator(collections.Iterator):
 
     next = __next__
 
-    def __eq__(self, other):
-        return self.__class__ is other.__class__ and hash(self) == hash(other)
-
-    def __hash__(self):
-        return id(self.__class__)
-
     def _make_iterator(self):
         node = self._deferred
-        while node:
-            if self._is_acceptable_node(node):
-                for result in self._iter_node(node):
-                    yield result
-            else:
-                for result in node:
-                    yield result
-            node = node.parent
-
-    def _is_acceptable_node(self, node):
-        """
-        :type node: cache_tagging.locks.Deferred
-        """
-        return node.iterator == self
+        self.state.switch_context(node.aggregation_criterion)
+        for result in self._iter_node(node):
+            yield result
+        if node.parent:
+            for result in node.parent:
+                yield result
 
     def _get_bulk_caches(self, node):
         if node.aggregation_criterion not in self._bulk_caches_map:
@@ -227,6 +230,12 @@ class GetManyDeferredIterator(collections.Iterator):
                 self._get_all_cache_keys(node.aggregation_criterion), *node.args, **node.kwargs
             ) or {}
         return self._bulk_caches_map[node.aggregation_criterion]
+
+    @property
+    def _bulk_caches_map(self):
+        if not hasattr(self.state, 'bulk_caches_map'):
+            self.state.bulk_caches_map = {}
+        return self.state.bulk_caches_map
 
     def _get_all_cache_keys(self, acceptable_aggregation_criterion):
         keys = set()
