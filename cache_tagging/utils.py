@@ -4,6 +4,7 @@ import random
 import socket
 import hashlib
 import warnings
+from threading import local
 from cache_tagging import __version__
 
 try:
@@ -19,6 +20,8 @@ else:
 
 MAX_TAG_KEY = 18446744073709551616     # 2 << 63
 
+_thread_local = local()
+
 
 class UndefType(object):
 
@@ -31,11 +34,15 @@ class UndefType(object):
 Undef = UndefType()
 
 
-def get_thread_id():  # TODO: Cache result in thread-safe variable
-    """Returs id for current thread."""
-    return '{0}.{1}.{2}'.format(
-        socket.gethostname(), os.getpid(), _thread.get_ident()
-    )
+def get_thread_id():
+    """Returns id for current thread."""
+    try:
+        return _thread_local.thread_id
+    except AttributeError:
+        _thread_local.thread_id = '{0}.{1}.{2}'.format(
+            socket.gethostname(), os.getpid(), _thread.get_ident()
+        )
+        return get_thread_id()
 
 
 def warn(old, new, stacklevel=3):
