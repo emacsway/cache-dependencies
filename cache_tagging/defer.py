@@ -13,7 +13,7 @@ class Deferred(object):  # Queue?
         self.args = args
         self.kwargs = kwargs
         self.queue = []
-        self.parent = None
+        self._parent = None
         self.iterator = iterator_factory(self)
         self.iterator.state = State()
         self.aggregation_criterion = to_hashable((executor, iterator_factory, args, kwargs))
@@ -28,6 +28,18 @@ class Deferred(object):  # Queue?
         except StopIteration:
             return self.parent.get()
 
+    @property
+    def parent(self):
+        return self._parent
+
+    @parent.setter
+    def parent(self, parent):
+        """
+        :type parent: cache_tagging.defer.Deferred
+        """
+        self._parent = parent
+        self.iterator.state = parent.iterator.state
+
     def __add__(self, other):
         result = self.__class__(self.execute, *self.args, **self.kwargs)
         result += self
@@ -37,14 +49,13 @@ class Deferred(object):  # Queue?
     def __iadd__(self, other):
         """
         :type other: cache_tagging.defer.Deferred
-        :rtype: cache_tagging.locks.Deferred
+        :rtype: cache_tagging.defer.Deferred
         """
         if self.aggregation_criterion == other.aggregation_criterion:
             self.queue.extend(other.queue)
             return self
         else:
             other.parent = self
-            other.iterator.state = self.iterator.state
             return other
 
     def __iter__(self):
