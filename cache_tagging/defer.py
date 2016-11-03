@@ -1,5 +1,5 @@
 import collections
-
+from functools import wraps
 from cache_tagging.utils import to_hashable
 
 
@@ -65,14 +65,39 @@ class Deferred(object):  # Queue?
 
 
 class State(object):
+    _contexts = None
+    _current_context = None
+
+    def _attr_exc(f):
+        @wraps(f)
+        def _deco(*a, **kw):
+            try:
+                return f(*a, **kw)
+            except KeyError:
+                raise AttributeError
+        return _deco
 
     def __init__(self):
         self._contexts = dict()
+        self._current_context = None
 
     def switch_context(self, context_key):
-        self.__dict__ = self._contexts.setdefault(context_key, {
-            '_contexts': self._contexts,
-        })
+        self._current_context = self._contexts.setdefault(context_key, {})
+
+    @_attr_exc
+    def __getattr__(self, key):
+        return self._current_context[key]
+
+    def __setattr__(self, key, value):
+        if hasattr(self.__class__, key):
+            return object.__setattr__(self, key, value)
+        self._current_context[key] = value
+
+    @_attr_exc
+    def __delattr__(self, key):
+        del self._current_context[key]
+
+    _attr_exc = staticmethod(_attr_exc)
 
 
 class GetManyDeferredIterator(collections.Iterator):
