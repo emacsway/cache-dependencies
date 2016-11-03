@@ -15,6 +15,8 @@ class Deferred(object):  # Queue?
         self.queue = []
         self._parent = None
         self.iterator = iterator_factory(self)
+        # Should state be delegated to Deferred() instance (self),
+        # to have ability use generators instead of iterators?
         self.iterator.state = State()
         self.aggregation_criterion = to_hashable((executor, iterator_factory, args, kwargs))
 
@@ -84,12 +86,14 @@ class GetManyDeferredIterator(collections.Iterator):
         :type deferred: cache_tagging.defer.Deferred
         """
         self._deferred = deferred
-        self._iterator = self._make_iterator()
+        self._iterator = None
 
     def __iter__(self):
         return self
 
     def __next__(self):
+        if self._iterator is None:
+            self._iterator = self._make_iterator()
         return next(self._iterator)
 
     next = __next__
