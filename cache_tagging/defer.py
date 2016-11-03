@@ -15,7 +15,7 @@ class Deferred(object):  # Queue?
         self.queue = []
         self._parent = None
         self.iterator = iterator_factory(self)
-        # Should state be delegated to Deferred() instance (self),
+        # Should state to be delegated to Deferred() instance (self),
         # to have ability use generators instead of iterators?
         self.iterator.state = State()
         self.aggregation_criterion = to_hashable((executor, iterator_factory, args, kwargs))
