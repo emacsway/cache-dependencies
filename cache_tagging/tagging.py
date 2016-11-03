@@ -1,13 +1,10 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, unicode_literals
-import time
-import random
-import hashlib
-import operator
-import itertools
 
+import itertools
+import operator
 from cache_tagging.exceptions import TagLocked, InvalidTag
-from cache_tagging.utils import get_thread_id, warn, make_tag_key
+from cache_tagging.utils import warn, make_tag_key, generate_tag_version
 
 try:
     str = unicode  # Python 2.* compatible
@@ -17,14 +14,7 @@ except NameError:
     string_types = (str,)
     integer_types = (int,)
 
-# Use the system (hardware-based) random number generator if it exists.
-if hasattr(random, 'SystemRandom'):
-    randrange = random.SystemRandom().randrange
-else:
-    randrange = random.randrange
-
 TAG_TIMEOUT = 24 * 3600
-MAX_TAG_KEY = 18446744073709551616     # 2 << 63
 
 
 class CacheTagging(object):
@@ -212,11 +202,3 @@ class CacheTagging(object):
     def __getattr__(self, name):
         """Proxy for all native methods."""
         return getattr(self.cache, name)
-
-
-def generate_tag_version():
-    """ Generates a new unique identifier for tag version."""
-    hash = hashlib.md5("{0}{1}{2}".format(
-        randrange(0, MAX_TAG_KEY), get_thread_id(), time.time()
-    ).encode('utf8')).hexdigest()
-    return hash

@@ -1,4 +1,6 @@
 import os
+import time
+import random
 import socket
 import hashlib
 import warnings
@@ -8,6 +10,14 @@ try:
     import _thread
 except ImportError:
     import thread as _thread  # Python < 3.*
+
+# Use the system (hardware-based) random number generator if it exists.
+if hasattr(random, 'SystemRandom'):
+    randrange = random.SystemRandom().randrange
+else:
+    randrange = random.randrange
+
+MAX_TAG_KEY = 18446744073709551616     # 2 << 63
 
 
 class UndefType(object):
@@ -41,6 +51,14 @@ def make_tag_key(name):
     version = str(__version__).replace('.', '')
     name = hashlib.md5(str(name).encode('utf-8')).hexdigest()
     return 'tag_{0}_{1}'.format(version, name)
+
+
+def generate_tag_version():
+    """ Generates a new unique identifier for tag version."""
+    hash_value = hashlib.md5("{0}{1}{2}".format(
+        randrange(0, MAX_TAG_KEY), get_thread_id(), time.time()
+    ).encode('utf8')).hexdigest()
+    return hash_value
 
 
 def to_hashable(obj):

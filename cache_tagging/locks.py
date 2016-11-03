@@ -49,15 +49,18 @@ class ReadUncommittedTagsLock(TagsLock):
 
     def release_tags(self, tags, version=None):
         if self._delay:
-            threading.Timer(self._delay, self._release_tags_delayed, [tags, version]).start()
+            return self._release_tags_delayed(tags, version)
 
     def _release_tags_delayed(self, tags, version=None):
+        return threading.Timer(self._delay, self._release_tags_target, [tags, version]).start()
+
+    def _release_tags_target(self, tags, version=None):
         self._cache().delete_many(list(map(make_tag_key, tags)), version=version)
 
 
 class ReadCommittedTagsLock(ReadUncommittedTagsLock):
     def release_tags(self, tags, version=None):
-        self._release_tags_delayed(tags, version)
+        self._release_tags_target(tags, version)
         super(ReadCommittedTagsLock, self).release_tags(tags, version)
 
 
@@ -76,7 +79,7 @@ class RepeatableReadsTagsLock(TagsLock):
         return self._set_tags_status(tags, self.STATUS.ASQUIRED, version)
 
     def release_tags(self, tags, version=None):
-        return self._set_tags_status(tags, self.STATUS.RELEASED, version)
+        self._set_tags_status(tags, self.STATUS.RELEASED, version)
 
     def _set_tags_status(self, tags, status, version=None):
         """Locks tags for concurrent transactions."""
