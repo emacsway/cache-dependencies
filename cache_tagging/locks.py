@@ -136,8 +136,10 @@ class SerializableTagsLock(RepeatableReadsTagsLock):
 
 
 class Deferred(object):
-    """Has signs of Deferred, Queue and Aggregation."""
+    """Has signs of Deferred, Queue and Aggregation.
 
+    The main purpose is aggregate queries to cache, mainly, using cache.get_many().
+    """
     def __init__(self, executor, iterator_factory, *args, **kwargs):
         self.execute = executor
         self.args = args
@@ -248,7 +250,6 @@ class GetManyDeferredIterator(collections.Iterator):
     def _iter_node(self, node):
         """
         :type node: cache_tagging.locks.Deferred
-        :type result: dict
         """
         bulk_caches = self._get_bulk_caches(node)
         for callback, args, kwargs in reversed(node.queue):
