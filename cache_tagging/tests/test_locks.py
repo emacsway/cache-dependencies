@@ -43,7 +43,7 @@ class ReadUncommittedTagsLockTestCase(AbstractTagsLockTestCase):
         tag_versions_from_other_cache_version = self.lock.get_tag_versions(
             tags, self.start_time, self.cache.version + 1
         )
-        self.assertEquals(len(tag_versions_from_other_cache_version), 0)
+        self.assertEqual(len(tag_versions_from_other_cache_version), 0)
 
     def test_release_tags(self):
         tags = set(self.tag_versions.keys())
@@ -55,7 +55,7 @@ class ReadUncommittedTagsLockTestCase(AbstractTagsLockTestCase):
         tag_versions_from_other_cache_version = self.lock.get_tag_versions(
             tags, self.start_time, self.cache.version + 1
         )
-        self.assertEquals(len(tag_versions_from_other_cache_version), 0)
+        self.assertEqual(len(tag_versions_from_other_cache_version), 0)
 
 
 class ReadUncommittedTagsLockDelayedTestCase(AbstractTagsLockTestCase):
@@ -71,7 +71,7 @@ class ReadUncommittedTagsLockDelayedTestCase(AbstractTagsLockTestCase):
         tag_versions_from_other_cache_version = self.lock.get_tag_versions(
             tags, self.start_time, self.cache.version + 1
         )
-        self.assertEquals(len(tag_versions_from_other_cache_version), 0)
+        self.assertEqual(len(tag_versions_from_other_cache_version), 0)
 
     def test_release_tags(self):
         tags = set(self.tag_versions.keys())
@@ -84,17 +84,17 @@ class ReadUncommittedTagsLockDelayedTestCase(AbstractTagsLockTestCase):
         tag_versions_from_other_cache_version = self.lock.get_tag_versions(
             tags, self.start_time, self.cache.version + 1
         )
-        self.assertEquals(len(tag_versions_from_other_cache_version), 0)
+        self.assertEqual(len(tag_versions_from_other_cache_version), 0)
 
         time.sleep(1)
 
         tag_versions = self.lock.get_tag_versions(tags, self.start_time)
-        self.assertEquals(len(tag_versions), 0)
+        self.assertEqual(len(tag_versions), 0)
 
         tag_versions_from_other_cache_version = self.lock.get_tag_versions(
             tags, self.start_time, self.cache.version + 1
         )
-        self.assertEquals(len(tag_versions_from_other_cache_version), 0)
+        self.assertEqual(len(tag_versions_from_other_cache_version), 0)
 
 
 class ReadCommittedTagsLockTestCase(AbstractTagsLockTestCase):
@@ -109,19 +109,19 @@ class ReadCommittedTagsLockTestCase(AbstractTagsLockTestCase):
         tag_versions_from_other_cache_version = self.lock.get_tag_versions(
             tags, self.start_time, self.cache.version + 1
         )
-        self.assertEquals(len(tag_versions_from_other_cache_version), 0)
+        self.assertEqual(len(tag_versions_from_other_cache_version), 0)
 
     def test_release_tags(self):
         tags = set(self.tag_versions.keys())
         self.lock.acquire_tags(tags)
         self.lock.release_tags(tags)
         tag_versions = self.lock.get_tag_versions(tags, self.start_time)
-        self.assertEquals(len(tag_versions), 0)
+        self.assertEqual(len(tag_versions), 0)
 
         tag_versions_from_other_cache_version = self.lock.get_tag_versions(
             tags, self.start_time, self.cache.version + 1
         )
-        self.assertEquals(len(tag_versions_from_other_cache_version), 0)
+        self.assertEqual(len(tag_versions_from_other_cache_version), 0)
 
 
 class ReadCommittedTagsLockDelayedTestCase(AbstractTagsLockTestCase):
@@ -137,7 +137,7 @@ class ReadCommittedTagsLockDelayedTestCase(AbstractTagsLockTestCase):
         tag_versions_from_other_cache_version = self.lock.get_tag_versions(
             tags, self.start_time, self.cache.version + 1
         )
-        self.assertEquals(len(tag_versions_from_other_cache_version), 0)
+        self.assertEqual(len(tag_versions_from_other_cache_version), 0)
 
     def test_release_tags(self):
         tags = set(self.tag_versions.keys())
@@ -145,21 +145,21 @@ class ReadCommittedTagsLockDelayedTestCase(AbstractTagsLockTestCase):
         self.lock.release_tags(tags)
 
         tag_versions = self.lock.get_tag_versions(tags, self.start_time)
-        self.assertEquals(len(tag_versions), 0)
+        self.assertEqual(len(tag_versions), 0)
 
         tag_versions_from_other_cache_version = self.lock.get_tag_versions(
             tags, self.start_time, self.cache.version + 1
         )
-        self.assertEquals(len(tag_versions_from_other_cache_version), 0)
+        self.assertEqual(len(tag_versions_from_other_cache_version), 0)
 
         self._set_tag_versions()
 
         time.sleep(1)
 
         tag_versions = self.lock.get_tag_versions(tags, self.start_time)
-        self.assertEquals(len(tag_versions), 0)
+        self.assertEqual(len(tag_versions), 0)
 
         tag_versions_from_other_cache_version = self.lock.get_tag_versions(
             tags, self.start_time, self.cache.version + 1
         )
-        self.assertEquals(len(tag_versions_from_other_cache_version), 0)
+        self.assertEqual(len(tag_versions_from_other_cache_version), 0)
