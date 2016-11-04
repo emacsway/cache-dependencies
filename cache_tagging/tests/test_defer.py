@@ -52,7 +52,12 @@ class GetManyDeferredIteratorTestCase(unittest.TestCase):
             'result3_locked_tag_1': 'locked_tag_1_value',
             'result3_locked_tag_2': 'locked_tag_2_value',
         })
+
         result2 = deferred.get()
+        self.assertDictEqual(result2, {
+            'result2_tag_3': 'tag_3_value',
+            'result2_tag_4': 'tag_4_value',
+        })
 
         result1 = deferred.get()
         self.assertDictEqual(result1, {
