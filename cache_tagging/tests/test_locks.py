@@ -242,3 +242,84 @@ class RepeatableReadsTagsLockTestCase(AbstractTagsLockTestCase):
             tags, release_time + 1
         )
         self.assertDictEqual(tag_versions_in_later_concurrent_transaction, self.tag_versions)
+
+
+class RepeatableReadsTagsLockDelayedTestCase(AbstractTagsLockTestCase):
+    lock_factory = RepeatableReadsTagsLock
+    delay = 2
+
+    def setUp(self):
+        super(RepeatableReadsTagsLockDelayedTestCase, self).setUp()
+        self.concurrent_lock = self.lock_factory(lambda: self.cache, self.delay)
+        self.concurrent_lock.thread_id += '1'
+
+    def test_acquire_tags(self):
+
+        tags = set(self.tag_versions.keys())
+        acquire_time = time.time()
+        self.lock.acquire_tags(tags)
+        tag_versions = self.lock.get_tag_versions(tags, self.transaction_start_time)
+        self.assertDictEqual(tag_versions, self.tag_versions)
+
+        tag_versions_in_other_cache_version = self.lock.get_tag_versions(
+            tags, self.transaction_start_time, self.cache.version + 1
+        )
+        self.assertEqual(len(tag_versions_in_other_cache_version), 0)
+
+        # Earlier concurrent transaction.
+        try:
+            self.concurrent_lock.get_tag_versions(
+                tags, acquire_time - 1
+            )
+        except TagLocked as e:
+            self.assertSetEqual(tags, e.args[0])
+        else:
+            self.fail("Exception is not raised!")
+
+        # Later concurrent transaction
+        try:
+            self.concurrent_lock.get_tag_versions(
+                tags, acquire_time + 1
+            )
+        except TagLocked as e:
+            self.assertSetEqual(tags, e.args[0])
+        else:
+            self.fail("Exception is not raised!")
+
+    def test_release_tags(self):
+        tags = set(self.tag_versions.keys())
+        self.lock.acquire_tags(tags)
+        release_time = time.time()
+        self.lock.release_tags(tags)
+        tag_versions = self.lock.get_tag_versions(tags, self.transaction_start_time)
+        self.assertDictEqual(tag_versions, self.tag_versions)
+
+        tag_versions_in_other_cache_version = self.lock.get_tag_versions(
+            tags, self.transaction_start_time, self.cache.version + 1
+        )
+        self.assertEqual(len(tag_versions_in_other_cache_version), 0)
+
+        # Earlier concurrent transaction.
+        try:
+            self.concurrent_lock.get_tag_versions(
+                tags, release_time - 1
+            )
+        except TagLocked as e:
+            self.assertSetEqual(tags, e.args[0])
+        else:
+            self.fail("Exception is not raised!")
+
+        # Later concurrent transaction
+        try:
+            self.concurrent_lock.get_tag_versions(
+                tags, release_time + 1
+            )
+        except TagLocked as e:
+            self.assertSetEqual(tags, e.args[0])
+        else:
+            self.fail("Exception is not raised!")
+
+        tag_versions_in_later_concurrent_transaction = self.concurrent_lock.get_tag_versions(
+            tags, release_time + 3
+        )
+        self.assertDictEqual(tag_versions_in_later_concurrent_transaction, self.tag_versions)
