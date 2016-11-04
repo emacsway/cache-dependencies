@@ -7,7 +7,7 @@ MEMCACHE_MAX_KEY_LENGTH = 250
 
 class IDependency(object):
 
-    def evaluate(self, cache, transaction_start_time, version=None):
+    def evaluate(self, cache, transaction_start_time, version):
         """
         :type cache: cache_tagging.interfaces.ICache
         :type transaction_start_time: float
@@ -15,22 +15,21 @@ class IDependency(object):
         """
         raise NotImplementedError
 
-    def validate(self, cache, data, version=None):
-        """
-        :type cache: cache_tagging.interfaces.ICache
-        :type data: dict
-        :type version: int or None
-        """
-        raise NotImplementedError
-
-    def invalidate(self, cache, version=None):
+    def validate(self, cache, version):
         """
         :type cache: cache_tagging.interfaces.ICache
         :type version: int or None
         """
         raise NotImplementedError
 
-    def acquire(self, cache, delay=0, version=None):
+    def invalidate(self, cache, version):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type version: int or None
+        """
+        raise NotImplementedError
+
+    def acquire(self, cache, delay, version):
         """
         :type cache: cache_tagging.interfaces.ICache
         :type delay: int
@@ -38,7 +37,7 @@ class IDependency(object):
         """
         raise NotImplementedError
 
-    def release(self, cache, delay=0, version=None):
+    def release(self, cache, delay, version):
         """
         :type cache: cache_tagging.interfaces.ICache
         :type delay: int

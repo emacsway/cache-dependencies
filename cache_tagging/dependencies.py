@@ -2,15 +2,16 @@ import time
 import collections
 from cache_tagging import interfaces, defer, exceptions, utils
 
-TagBean = collections.namedtuple('TagBean', ('time', 'status', 'thread_id'))
+TagStateBean = collections.namedtuple('TagBean', ('time', 'status', 'thread_id'))
 
 
 class TagsDependency(interfaces.IDependency):
+    TAG_TIMEOUT = 24 * 3600
     LOCK_PREFIX = "lock"
     LOCK_TIMEOUT = 5
 
     class STATUS(object):
-        ASQUIRED = 0
+        ACQUIRED = 0
         RELEASED = 1
 
     def __init__(self, *tags):
@@ -20,9 +21,9 @@ class TagsDependency(interfaces.IDependency):
         if len(tags) == 1 and isinstance(tags[0], (list, tuple, set, frozenset)):
             tags = tags[0]
         self.tags = set(tags)
-        self.versions = {}
+        self.tag_versions = {}
 
-    def evaluate(self, cache, transaction_start_time, version=None):
+    def evaluate(self, cache, transaction_start_time, version):
         """
         :type cache: cache_tagging.interfaces.ICache
         :type transaction_start_time: float
@@ -33,16 +34,27 @@ class TagsDependency(interfaces.IDependency):
         locked_tags = deferred.get()
         if locked_tags:
             raise exceptions.TagsInvalid(locked_tags)
-        self.versions = deferred.get()
+        tag_versions = deferred.get()
+        nonexistent_tags = self.tags - set(tag_versions.keys())
+        new_tag_versions = self._make_tag_versions(cache, nonexistent_tags, version)
+        tag_versions.update(new_tag_versions)
+        self.tag_versions = tag_versions
 
-    def validate(self, cache, data, version=None):
+    def validate(self, cache, version):
         """
         :type cache: cache_tagging.interfaces.ICache
-        :type data: dict
         :type version: int or None
         """
+        deferred = self._get_tag_versions(cache, version)
+        actual_tag_versions = deferred.get()
+        invalid_tag_versions = set(
+            tag for tag, tag_version in self.tag_versions
+            if actual_tag_versions.get(tag) != tag_version
+        )
+        if invalid_tag_versions:
+            raise exceptions.TagsInvalid(invalid_tag_versions)
 
-    def invalidate(self, cache, version=None):
+    def invalidate(self, cache, version):
         """
         :type cache: cache_tagging.interfaces.ICache
         :type version: int or None
@@ -50,15 +62,15 @@ class TagsDependency(interfaces.IDependency):
         tag_keys = list(map(utils.make_tag_key, self.tags))
         cache.delete_many(tag_keys, version=version)
 
-    def acquire(self, cache, delay=0, version=None):
+    def acquire(self, cache, delay, version):
         """
         :type cache: cache_tagging.interfaces.ICache
         :type delay: int
         :type version: int or None
         """
-        return self._set_tags_status(cache, self.STATUS.ASQUIRED, delay, version)
+        return self._set_tags_status(cache, self.STATUS.ACQUIRED, delay, version)
 
-    def release(self, cache, delay=0, version=None):
+    def release(self, cache, delay, version):
         """
         :type cache: cache_tagging.interfaces.ICache
         :type delay: int
@@ -87,9 +99,17 @@ class TagsDependency(interfaces.IDependency):
         deferred.add_callback(callback, tag_keys.values())
         return deferred
 
+    def _make_tag_versions(self, cache, tags, version):
+        if not tags:
+            return dict()
+        new_tag_versions = {tag: utils.generate_tag_version() for tag in tags}
+        new_tag_key_versions = {utils.make_tag_key(tag): tag_version for tag, tag_version in new_tag_versions.items()}
+        cache.set_many(new_tag_key_versions, self.TAG_TIMEOUT, version)
+        return new_tag_versions
+
     def _set_tags_status(self, cache, status, delay, version):
         """Locks tags for concurrent transactions."""
-        data = TagBean(time.time() + delay, status, self._get_thread_id())
+        data = TagStateBean(time.time() + delay, status, self._get_thread_id())
         cache.set_many(
             {self._make_locked_tag_key(tag): data for tag in self.tags}, self._get_timeout(delay), version
         )
@@ -110,7 +130,7 @@ class TagsDependency(interfaces.IDependency):
         if tag_bean.thread_id == self._get_thread_id():
             # Acquired by current thread, ignore it
             return False
-        if tag_bean.status == self.STATUS.ASQUIRED:
+        if tag_bean.status == self.STATUS.ACQUIRED:
             # Tag still is asquired
             return True
         if transaction_start_time <= tag_bean.time:

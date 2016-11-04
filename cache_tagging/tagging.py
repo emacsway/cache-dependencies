@@ -139,24 +139,15 @@ class CacheTagging(object):
         tags.update(self.relation_manager.get(key).get_tags(version))
 
         try:
-            tag_versions = self._make_tag_versions(tags, version)
+            dependency = TagsDependency(tags)
+            dependency.evaluate(self.cache, self.transaction.current().start_time, version)  # TODO: delegate to transaction
+            tag_versions = dependency.tag_versions
         except TagsLocked:
             self.finish(key, tags, version=version)
             return
 
         self.finish(key, tags, version=version)
         return self.cache.set(key, self._pack_data(value, tag_versions), timeout, version)
-
-    def _make_tag_versions(self, tags, version=None):
-        tag_versions = {}
-        if tags:
-            tag_versions = self.transaction.current().get_tag_versions(tags, version)
-            new_tag_versions = {tag: generate_tag_version() for tag in tags if tag_versions.get(tag) is None}
-            if new_tag_versions:
-                tag_versions.update(new_tag_versions)
-                new_tag_key_versions = {make_tag_key(tag): tag_version for tag, tag_version in new_tag_versions.items()}
-                self.cache.set_many(new_tag_key_versions, TAG_TIMEOUT, version)
-        return tag_versions
 
     def invalidate_tags(self, *tags, **kwargs):
         """Invalidate specified tags"""
