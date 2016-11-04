@@ -20,6 +20,7 @@ class TagsDependency(interfaces.IDependency):
         if len(tags) == 1 and isinstance(tags[0], (list, tuple, set, frozenset)):
             tags = tags[0]
         self.tags = set(tags)
+        self.versions = {}
 
     def evaluate(self, cache, transaction_start_time, version=None):
         """
@@ -32,7 +33,7 @@ class TagsDependency(interfaces.IDependency):
         locked_tags = deferred.get()
         if locked_tags:
             raise exceptions.TagsInvalid(locked_tags)
-        return deferred.get()
+        self.versions = deferred.get()
 
     def validate(self, cache, data, version=None):
         """
@@ -88,7 +89,7 @@ class TagsDependency(interfaces.IDependency):
 
     def _set_tags_status(self, cache, status, delay, version):
         """Locks tags for concurrent transactions."""
-        data = TagBean(time.time(), status, self._get_thread_id())
+        data = TagBean(time.time() + delay, status, self._get_thread_id())
         cache.set_many(
             {self._make_locked_tag_key(tag): data for tag in self.tags}, self._get_timeout(delay), version
         )
@@ -105,13 +106,14 @@ class TagsDependency(interfaces.IDependency):
         timeout += delay
         return timeout
 
-    def _tag_is_locked(self, tag_bean, transaction_start_time, delay):
+    def _tag_is_locked(self, tag_bean, transaction_start_time):
         if tag_bean.thread_id == self._get_thread_id():
             # Acquired by current thread, ignore it
             return False
         if tag_bean.status == self.STATUS.ASQUIRED:
             # Tag still is asquired
             return True
-        if transaction_start_time <= (tag_bean.time + delay):
-            # We don't create cache in all transactions started earlier than finished the transaction which has invalidated tag.
+        if transaction_start_time <= tag_bean.time:
+            # We don't create cache in all transactions started earlier
+            # than finished the transaction which has invalidated tag.
             return True
