@@ -40,6 +40,10 @@ class CacheStub(BaseCache):
         self._cache.pop(key, None)
         self._expire_info.pop(key, None)
 
+    def clear(self):
+        self._cache.clear()
+        self._expire_info.clear()
+
     def get_expiration(self, timeout=None):
         if timeout is None:
             timeout = self.default_timeout
