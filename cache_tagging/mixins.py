@@ -7,9 +7,6 @@ except ImportError:
 class ThreadSafeDecoratorMixIn(object):
 
     def __init__(self, delegate):
-        """
-        :type delegate: cache_tagging.interfaces.ITransactionManager
-        """
         self._delegate = delegate
         self._thread_id = self._get_thread_id()
 
