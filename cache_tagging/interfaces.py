@@ -5,6 +5,48 @@ from cache_tagging.utils import Undef
 MEMCACHE_MAX_KEY_LENGTH = 250
 
 
+class IDependency(object):
+
+    def evaluate(self, cache, transaction_start_time, version=None):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type transaction_start_time: float
+        :type version: int or None
+        """
+        raise NotImplementedError
+
+    def validate(self, cache, data, version=None):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type data: dict
+        :type version: int or None
+        """
+        raise NotImplementedError
+
+    def invalidate(self, cache, version=None):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type version: int or None
+        """
+        raise NotImplementedError
+
+    def acquire(self, cache, delay=0, version=None):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type delay: int
+        :type version: int or None
+        """
+        raise NotImplementedError
+
+    def release(self, cache, delay=0, version=None):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type delay: int
+        :type version: int or None
+        """
+        raise NotImplementedError
+
+
 class ICacheNode(object):
 
     def parent(self):
@@ -47,7 +89,7 @@ class ITagsLock(object):
         """it's okay to ask tag versions from Lock,
 
         because Lock can implement Pessimistic Offline Lock or Mutual Exclusion
-        instead of raising TagLocked exception.
+        instead of raising TagsLocked exception.
         """
         raise NotImplementedError
 

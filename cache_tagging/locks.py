@@ -3,7 +3,7 @@ import threading
 import time
 
 from cache_tagging.defer import Deferred, GetManyDeferredIterator
-from cache_tagging.exceptions import TagLocked
+from cache_tagging.exceptions import TagsLocked
 from cache_tagging.interfaces import ITagsLock
 from cache_tagging.utils import get_thread_id, make_tag_key
 
@@ -103,7 +103,7 @@ class RepeatableReadsTagsLock(TagsLock):
     def get_tag_versions(self, tags, transaction_start_time, version=None):
         """Returns tags dict if all tags is not locked.
 
-        Raises TagLocked, if current transaction has been started earlier
+        Raises TagsLocked, if current transaction has been started earlier
         than any tag has been invalidated by concurent process.
         Actual for SERIALIZABLE and REPEATABLE READ transaction levels.
         """
@@ -111,7 +111,7 @@ class RepeatableReadsTagsLock(TagsLock):
         deferred += self._get_locked_tags(tags, transaction_start_time, version)
         locked_tags = deferred.get()
         if locked_tags:
-            raise TagLocked(locked_tags)
+            raise TagsLocked(locked_tags)
         return deferred.get()
 
     def _get_locked_tags(self, tags, transaction_start_time, version=None):

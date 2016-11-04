@@ -1,7 +1,7 @@
 import time
 import unittest
 from cache_tagging import locks, utils
-from cache_tagging.exceptions import TagLocked
+from cache_tagging.exceptions import TagsLocked
 from cache_tagging.tests import helpers
 
 
@@ -199,7 +199,7 @@ class RepeatableReadsTagsLockTestCase(AbstractTagsLockTestCase):
             self.concurrent_lock.get_tag_versions(
                 tags, acquire_time - 1
             )
-        except TagLocked as e:
+        except TagsLocked as e:
             self.assertSetEqual(tags, e.args[0])
         else:
             self.fail("Exception is not raised!")
@@ -209,7 +209,7 @@ class RepeatableReadsTagsLockTestCase(AbstractTagsLockTestCase):
             self.concurrent_lock.get_tag_versions(
                 tags, acquire_time + 1
             )
-        except TagLocked as e:
+        except TagsLocked as e:
             self.assertSetEqual(tags, e.args[0])
         else:
             self.fail("Exception is not raised!")
@@ -232,7 +232,7 @@ class RepeatableReadsTagsLockTestCase(AbstractTagsLockTestCase):
             self.concurrent_lock.get_tag_versions(
                 tags, release_time - 1
             )
-        except TagLocked as e:
+        except TagsLocked as e:
             self.assertSetEqual(tags, e.args[0])
         else:
             self.fail("Exception is not raised!")
@@ -271,7 +271,7 @@ class RepeatableReadsTagsLockDelayedTestCase(AbstractTagsLockTestCase):
             self.concurrent_lock.get_tag_versions(
                 tags, acquire_time - 1
             )
-        except TagLocked as e:
+        except TagsLocked as e:
             self.assertSetEqual(tags, e.args[0])
         else:
             self.fail("Exception is not raised!")
@@ -281,7 +281,7 @@ class RepeatableReadsTagsLockDelayedTestCase(AbstractTagsLockTestCase):
             self.concurrent_lock.get_tag_versions(
                 tags, acquire_time + 1
             )
-        except TagLocked as e:
+        except TagsLocked as e:
             self.assertSetEqual(tags, e.args[0])
         else:
             self.fail("Exception is not raised!")
@@ -304,7 +304,7 @@ class RepeatableReadsTagsLockDelayedTestCase(AbstractTagsLockTestCase):
             self.concurrent_lock.get_tag_versions(
                 tags, release_time - 1
             )
-        except TagLocked as e:
+        except TagsLocked as e:
             self.assertSetEqual(tags, e.args[0])
         else:
             self.fail("Exception is not raised!")
@@ -314,7 +314,7 @@ class RepeatableReadsTagsLockDelayedTestCase(AbstractTagsLockTestCase):
             self.concurrent_lock.get_tag_versions(
                 tags, release_time + 1
             )
-        except TagLocked as e:
+        except TagsLocked as e:
             self.assertSetEqual(tags, e.args[0])
         else:
             self.fail("Exception is not raised!")

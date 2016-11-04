@@ -3,7 +3,9 @@ from __future__ import absolute_import, unicode_literals
 
 import itertools
 import operator
-from cache_tagging.exceptions import TagLocked, InvalidTag
+from cache_tagging import interfaces
+from cache_tagging.dependencies import TagsDependency
+from cache_tagging.exceptions import TagsLocked, TagsInvalid
 from cache_tagging.utils import warn, make_tag_key, generate_tag_version
 
 try:
@@ -55,7 +57,7 @@ class CacheTagging(object):
         value, tag_versions = self._unpack_data(data)
         try:
             self._validate_tag_versions(tag_versions.items())
-        except InvalidTag:
+        except TagsInvalid:
             return default
 
         self.finish(key, tag_versions.keys(), version=version)
@@ -85,7 +87,7 @@ class CacheTagging(object):
             invalid_tag_versions = set((tag, tag_version) for tag, tag_version in tag_versions
                                        if actual_tag_versions.get(tag) != tag_version)
             if invalid_tag_versions:
-                raise InvalidTag(invalid_tag_versions)
+                raise TagsInvalid(invalid_tag_versions)
 
     def _get_tag_versions(self, tags, version=None):
         tag_keys = {tag: make_tag_key(tag) for tag in tags}
@@ -107,7 +109,7 @@ class CacheTagging(object):
 
         try:
             self._validate_tag_versions(set(itertools.chain(*[tuple(i.items()) for i in all_tag_versions.values() if i])))
-        except InvalidTag as e:
+        except TagsInvalid as e:
             for key, tag_versions in all_tag_versions:
                 if not self._is_valid_tag_versions(tag_versions, e.args[0]):
                     values.pop(key, None)
@@ -138,7 +140,7 @@ class CacheTagging(object):
 
         try:
             tag_versions = self._make_tag_versions(tags, version)
-        except TagLocked:
+        except TagsLocked:
             self.finish(key, tags, version=version)
             return
 
@@ -158,14 +160,18 @@ class CacheTagging(object):
 
     def invalidate_tags(self, *tags, **kwargs):
         """Invalidate specified tags"""
-        if len(tags) == 1 and isinstance(tags[0], (list, tuple, set, frozenset)):
-            tags = tags[0]
+        dependency = None
+        if len(tags) == 1 and isinstance(tags[0], interfaces.IDependency):
+            dependency = tags[0]
+        elif isinstance(tags[0], (list, tuple, set, frozenset)):
+            dependency = TagsDependency(tags[0])
+        elif tags:
+            dependency = TagsDependency(tags)
 
-        if tags:
+        if dependency:
             version = kwargs.get('version', None)
-            self.transaction.current().add_tags(tags, version=version)
-            tag_keys = list(map(make_tag_key, tags))
-            self.cache.delete_many(tag_keys, version=version)
+            self.transaction.current().add_tags(dependency.tags, version=version)
+            dependency.invalidate(self.cache, version)
 
     def begin(self, key):
         """Start cache creating."""
