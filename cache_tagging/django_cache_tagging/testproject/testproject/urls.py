@@ -1,4 +1,4 @@
-from django.conf.urls import patterns, include, url
+from django.conf.urls import include, url
 
 from cache_tagging.django_cache_tagging.tests import urls as test_urls
 
@@ -8,11 +8,11 @@ admin.autodiscover()
 from cache_tagging.django_cache_tagging import autodiscover
 autodiscover()
 
-urlpatterns = patterns('',
+urlpatterns = [
     # Examples:
     # url(r'^$', 'testproject.views.home', name='home'),
     # url(r'^blog/', include('blog.urls')),
 
     url(r'^admin/', include(admin.site.urls)),
     url(r'^test/', include(test_urls)),
-)
+]
