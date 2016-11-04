@@ -12,7 +12,7 @@ TagBean = collections.namedtuple('TagBean', ('time', 'status', 'thread_id'))
 
 class TagsLock(ITagsLock):
 
-    def __init__(self, thread_safe_cache_accessor, delay=None):
+    def __init__(self, thread_safe_cache_accessor, delay=0):
         self._cache = thread_safe_cache_accessor
         self._delay = delay  # For master/slave
 
@@ -83,18 +83,21 @@ class RepeatableReadsTagsLock(TagsLock):
 
     def _set_tags_status(self, tags, status, version=None):
         """Locks tags for concurrent transactions."""
-        data = TagBean(time.time(), status, get_thread_id())
+        data = TagBean(time.time(), status, self._get_thread_id())
         self._cache().set_many(
             {self._make_locked_tag_key(tag): data for tag in tags}, self._get_timeout(), version
         )
+
+    @staticmethod
+    def _get_thread_id():
+        return get_thread_id()
 
     def _make_locked_tag_key(self, tag):
         return '{0}_{1}'.format(self.LOCK_PREFIX, make_tag_key(tag))
 
     def _get_timeout(self):
         timeout = self.LOCK_TIMEOUT
-        if self._delay:
-            timeout += self._delay
+        timeout += self._delay
         return timeout
 
     def get_tag_versions(self, tags, transaction_start_time, version=None):
@@ -124,7 +127,7 @@ class RepeatableReadsTagsLock(TagsLock):
         return deferred
 
     def _tag_is_locked(self, tag_bean, transaction_start_time):
-        if tag_bean.thread_id == get_thread_id():
+        if tag_bean.thread_id == self._get_thread_id():
             # Acquired by current thread, ignore it
             return False
         if tag_bean.status == self.STATUS.ASQUIRED:
