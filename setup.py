@@ -22,6 +22,7 @@ setup(
     keywords = "django cache tagging",
     tests_require = [
         'Django>=1.3',
+        'mock',
     ],
     test_suite = 'runtests.main',
     classifiers = [
