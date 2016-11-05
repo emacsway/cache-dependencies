@@ -15,8 +15,6 @@ class Deferred(object):  # Queue?
         self.queue = []
         self._parent = None
         self.iterator = iterator_factory(self)
-        # Should state to be delegated to Deferred() instance (self),
-        # to have ability use generators instead of iterators? It'll harder to test.
         self.iterator.state = State()
         self.aggregation_criterion = to_hashable((executor, iterator_factory, args, kwargs))
 
@@ -25,10 +23,7 @@ class Deferred(object):  # Queue?
         return self
 
     def get(self):  # recv?
-        try:
-            return next(self.iterator)
-        except StopIteration:
-            return self.parent.get()
+        return next(self.iterator)
 
     @property
     def parent(self):
@@ -41,12 +36,6 @@ class Deferred(object):  # Queue?
         """
         self._parent = parent
         self.iterator.state = parent.iterator.state
-
-    def __add__(self, other):
-        result = self.__class__(self.execute, *self.args, **self.kwargs)
-        result += self
-        result += other
-        return result
 
     def __iadd__(self, other):
         """
@@ -102,6 +91,11 @@ class State(object):
 
 class GetManyDeferredIterator(collections.Iterator):
     """
+
+    Don't use yield statement, because of:
+    "Restriction:  A generator cannot be resumed while it is actively"
+    Source: https://www.python.org/dev/peps/pep-0255/
+
     :type state: cache_tagging.defer.State
     """
     state = None
@@ -111,26 +105,27 @@ class GetManyDeferredIterator(collections.Iterator):
         :type deferred: cache_tagging.defer.Deferred
         """
         self._deferred = deferred
-        self._iterator = None
+        self._index = 0
 
     def __iter__(self):
         return self
 
     def __next__(self):
-        if self._iterator is None:
-            self._iterator = self._make_iterator()
-        return next(self._iterator)
+        node = self._deferred
+        queue_len = len(node.queue)
+        self.state.switch_context(node.aggregation_criterion)
+        if self._index >= len(node.queue):
+            if node.parent:
+                return next(iter(node.parent))
+            else:
+                raise StopIteration
+        self._index += 1
+        bulk_caches = self._get_bulk_caches(node)
+        callback, args, kwargs = node.queue[queue_len - self._index]
+        result = {key: bulk_caches[key] for key in args[0] if key in bulk_caches}
+        return callback(node, result)
 
     next = __next__
-
-    def _make_iterator(self):
-        node = self._deferred
-        self.state.switch_context(node.aggregation_criterion)
-        for result in self._iter_node(node):
-            yield result
-        if node.parent:
-            for result in node.parent:
-                yield result
 
     def _get_bulk_caches(self, node):
         if node.aggregation_criterion not in self._bulk_caches_map:
@@ -164,11 +159,34 @@ class GetManyDeferredIterator(collections.Iterator):
             keys |= set(args[0])
         return keys
 
-    def _iter_node(self, node):
+
+class NoneDeferredIterator(collections.Iterator):
+    """
+    :type state: cache_tagging.defer.State
+    """
+    state = None
+
+    def __init__(self, deferred):
         """
-        :type node: cache_tagging.defer.Deferred
+        :type deferred: cache_tagging.defer.Deferred
         """
-        bulk_caches = self._get_bulk_caches(node)
-        for callback, args, kwargs in reversed(node.queue):
-            result = {key: bulk_caches[key] for key in args[0] if key in bulk_caches}
-            yield callback(node, result)
+        self._deferred = deferred
+        self._index = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        node = self._deferred
+        queue_len = len(node.queue)
+        self.state.switch_context(node.aggregation_criterion)
+        if self._index >= len(node.queue):
+            if node.parent:
+                return next(node.parent)
+            else:
+                raise StopIteration
+        self._index += 1
+        callback, args, kwargs = node.queue[queue_len - self._index]
+        return callback(node, None)
+
+    next = __next__

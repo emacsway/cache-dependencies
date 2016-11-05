@@ -1,8 +1,12 @@
 
 
-class TagLocked(Exception):
+class DependencyLocked(Exception):
     pass
 
 
-class InvalidTag(Exception):
+class TagsLocked(DependencyLocked):
+    pass
+
+
+class CompositeDependencyLocked(DependencyLocked):
     pass

@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, unicode_literals
-
-import itertools
-import operator
-from cache_tagging.exceptions import TagLocked, InvalidTag
-from cache_tagging.utils import warn, make_tag_key, generate_tag_version
+from cache_tagging import interfaces
+from cache_tagging.dependencies import CompositeDependency, DummyDependency, TagsDependency
+from cache_tagging.exceptions import TagsLocked
+from cache_tagging.utils import warn
 
 try:
     str = unicode  # Python 2.* compatible
@@ -52,45 +51,34 @@ class CacheTagging(object):
         if data is None:
             return default
 
-        value, tag_versions = self._unpack_data(data)
-        try:
-            self._validate_tag_versions(tag_versions.items())
-        except InvalidTag:
+        value, dependency = self._unpack_data(data)
+
+        deferred = dependency.validate(self.cache, version)
+        providing_dependency, invalid_tags = deferred.get()
+        if invalid_tags:
             return default
 
-        self.finish(key, tag_versions.keys(), version=version)
+        tag_versions = getattr(dependency, 'tags', set())
+        self.finish(key, tag_versions, version=version)
         return value
 
     @staticmethod
     def _pack_data(value, tag_versions):
         return {
             '__value': value,
-            '__tag_versions': tag_versions,
+            '__dependency': tag_versions,
         }
 
     @classmethod
     def _unpack_data(cls, data):
         if cls._is_packed_data(data):
-            return data['__value'], data['__tag_versions']
+            return data['__value'], data['__dependency']
         else:
-            return data, {}
+            return data, DummyDependency()
 
     @staticmethod
     def _is_packed_data(data):
-        return isinstance(data, dict) and '__tag_versions' in data and '__value' in data
-
-    def _validate_tag_versions(self, tag_versions, version=None):
-        if tag_versions:
-            actual_tag_versions = self._get_tag_versions(set(map(operator.itemgetter(0), tag_versions)), version)
-            invalid_tag_versions = set((tag, tag_version) for tag, tag_version in tag_versions
-                                       if actual_tag_versions.get(tag) != tag_version)
-            if invalid_tag_versions:
-                raise InvalidTag(invalid_tag_versions)
-
-    def _get_tag_versions(self, tags, version=None):
-        tag_keys = {tag: make_tag_key(tag) for tag in tags}
-        caches = self.cache.get_many(list(tag_keys.values()), version) or {}
-        return {tag: caches[tag_key] for tag, tag_key in tag_keys.items() if tag_key in caches}
+        return isinstance(data, dict) and '__dependency' in data and '__value' in data
 
     def get_many(self, keys, version=None, abort=False):
         if not abort and not self.ignore_descendants:
@@ -101,27 +89,21 @@ class CacheTagging(object):
 
         caches = self.cache.get_many(keys, version)
 
-        values, all_tag_versions = dict(), dict()
+        values, dependencies = dict(), dict()
         for key, data in caches.items():
-            values[key], all_tag_versions[key] = self._unpack_data(data)
+            values[key], dependencies[key] = self._unpack_data(data)
 
-        try:
-            self._validate_tag_versions(set(itertools.chain(*[tuple(i.items()) for i in all_tag_versions.values() if i])))
-        except InvalidTag as e:
-            for key, tag_versions in all_tag_versions:
-                if not self._is_valid_tag_versions(tag_versions, e.args[0]):
-                    values.pop(key, None)
+        dependencies_reversed = {v: k for k, v in dependencies.items()}
+        composite_dependency = CompositeDependency(*dependencies.values())
+        deferred = composite_dependency.validate(self.cache, version)
+        providing_dependency, invalid_dependencies = deferred.get()
+        for providing_dependency, invalid_tags in invalid_dependencies:
+            if invalid_tags:
+                values.pop(dependencies_reversed[providing_dependency], None)
 
         for key in values:  # Looping through filtered result
-            self.finish(key, all_tag_versions[key], version=version)
+            self.finish(key, getattr(dependencies[key], 'tags', set()), version=version)
         return values
-
-    @staticmethod
-    def _is_valid_tag_versions(tag_versions, invalid_tag_versions):
-        for invalid_tag, invalid_tag_version in invalid_tag_versions:
-            if tag_versions.get(invalid_tag) == invalid_tag_version:
-                return False
-        return True
 
     def set(self, key, value, tags=(), timeout=None, version=None):
         """Sets cache value and tags."""
@@ -136,36 +118,35 @@ class CacheTagging(object):
         # pull tags from descendants (cached fragments)
         tags.update(self.relation_manager.get(key).get_tags(version))
 
+        if tags:
+            dependency = TagsDependency(tags)
+        else:
+            dependency = DummyDependency()
+
         try:
-            tag_versions = self._make_tag_versions(tags, version)
-        except TagLocked:
+            self.transaction.current().evaluate(dependency, version)
+        except TagsLocked:
             self.finish(key, tags, version=version)
             return
 
         self.finish(key, tags, version=version)
-        return self.cache.set(key, self._pack_data(value, tag_versions), timeout, version)
-
-    def _make_tag_versions(self, tags, version=None):
-        tag_versions = {}
-        if tags:
-            tag_versions = self.transaction.current().get_tag_versions(tags, version)
-            new_tag_versions = {tag: generate_tag_version() for tag in tags if tag_versions.get(tag) is None}
-            if new_tag_versions:
-                tag_versions.update(new_tag_versions)
-                new_tag_key_versions = {make_tag_key(tag): tag_version for tag, tag_version in new_tag_versions.items()}
-                self.cache.set_many(new_tag_key_versions, TAG_TIMEOUT, version)
-        return tag_versions
+        return self.cache.set(key, self._pack_data(value, dependency), timeout, version)
 
     def invalidate_tags(self, *tags, **kwargs):
         """Invalidate specified tags"""
-        if len(tags) == 1 and isinstance(tags[0], (list, tuple, set, frozenset)):
-            tags = tags[0]
+        dependency = None
+        if len(tags) == 1 and isinstance(tags[0], interfaces.IDependency):
+            dependency = tags[0]
+        elif isinstance(tags[0], (list, tuple, set, frozenset)):
+            dependency = TagsDependency(tags[0])
+        elif tags:
+            dependency = TagsDependency(tags)
+        else:
+            dependency = DummyDependency()
 
-        if tags:
-            version = kwargs.get('version', None)
-            self.transaction.current().add_tags(tags, version=version)
-            tag_keys = list(map(make_tag_key, tags))
-            self.cache.delete_many(tag_keys, version=version)
+        version = kwargs.get('version', None)
+        self.transaction.current().add_tags(getattr(dependency, 'tags', set()), version=version)
+        dependency.invalidate(self.cache, version)
 
     def begin(self, key):
         """Start cache creating."""

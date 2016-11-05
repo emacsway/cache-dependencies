@@ -11,8 +11,8 @@ class BaseTransaction(ITransaction):
         self._lock = lock
         self.start_time = self._current_time()
 
-    def get_tag_versions(self, tags, version=None):
-        return self._lock.get_tag_versions(tags, self.start_time, version)
+    def evaluate(self, tags, version):
+        return self._lock.evaluate(tags, self.start_time, version)
 
     @staticmethod
     def _current_time():
@@ -27,15 +27,15 @@ class Transaction(BaseTransaction):
     def parent(self):
         return None
 
-    def add_tags(self, tags, version=None):
+    def add_tags(self, tags, version):
         if version not in self._tags:
             self._tags[version] = set()
         self._tags[version] |= set(tags)
-        self._lock.acquire_tags(tags, version)
+        self._lock.acquire(tags, version)
 
     def finish(self):
         for version, tags in self._tags.items():
-            self._lock.release_tags(tags, version)
+            self._lock.release(tags, version)
 
 
 class SavePoint(Transaction):
@@ -49,7 +49,7 @@ class SavePoint(Transaction):
     def parent(self):
         return self._parent
 
-    def add_tags(self, tags, version=None):
+    def add_tags(self, tags, version):
         super(SavePoint, self).add_tags(tags, version)
         self._parent.add_tags(tags, version)
 
@@ -61,7 +61,7 @@ class NoneTransaction(BaseTransaction):
     def parent(self):
         return None
 
-    def add_tags(self, tags, version=None):
+    def add_tags(self, tags, version):
         pass
 
     def finish(self):

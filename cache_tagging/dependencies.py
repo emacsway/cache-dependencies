@@ -1,0 +1,294 @@
+import time
+import operator
+import functools
+import collections
+from cache_tagging import interfaces, defer, exceptions, utils
+
+TagStateBean = collections.namedtuple('TagStateBean', ('time', 'status', 'thread_id'))
+
+
+class CompositeDependency(interfaces.IDependency):
+    def __init__(self, *delegates):
+        """
+        :type delegates: tuple[cache_tagging.interfaces.IDependency]
+        """
+        self.delegates = list(delegates)
+
+    def evaluate(self, cache, transaction_start_time, version):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type transaction_start_time: float
+        :type version: int or None
+        """
+        errors = []
+        for delegate in self.delegates:
+            try:
+                delegate.evaluate(cache, transaction_start_time, version)
+            except exceptions.DependencyLocked as e:
+                errors.append(e)
+        if errors:
+            raise exceptions.CompositeDependencyLocked(errors)
+
+    def validate(self, cache, version):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type version: int or None
+        :rtype: cache_tagging.defer.Deferred
+        """
+        deferred = functools.reduce(
+            operator.iadd,
+            [delegate.validate(cache, version) for delegate in self.delegates]
+        )
+
+        def callback(node, caches):
+            errors = []
+            for _ in range(0, len(self.delegates)):
+                providing_dependency, invalid_tags = node.get()
+                if invalid_tags:
+                    errors.append((providing_dependency, invalid_tags))
+            return (self, tuple(errors))
+
+        deferred.add_callback(callback, set())
+        return deferred
+
+    def invalidate(self, cache, version):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type version: int or None
+        """
+        for delegate in self.delegates:
+            delegate.invalidate(cache, version)
+
+    def acquire(self, cache, delay, version):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type delay: int
+        :type version: int or None
+        """
+        for delegate in self.delegates:
+            delegate.acquire(cache, delay, version)
+
+    def release(self, cache, delay, version):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type delay: int
+        :type version: int or None
+        """
+        for delegate in self.delegates:
+            delegate.release(cache, delay, version)
+
+    def union(self, other):
+        """
+        :type other: cache_tagging.interfaces.IDependency
+        :rtype: bool
+        """
+        if isinstance(other, CompositeDependency):
+            for other_delegate in other.delegates:
+                self.union(other_delegate)
+            return True
+        else:
+            for delegate in self.delegates:
+                if delegate.union(other):
+                    break
+            else:
+                self.delegates.append(other)
+        return True
+
+
+class TagsDependency(interfaces.IDependency):
+    TAG_TIMEOUT = 24 * 3600
+    LOCK_PREFIX = "lock"
+    LOCK_TIMEOUT = 5
+
+    class STATUS(object):
+        ACQUIRED = 0
+        RELEASED = 1
+
+    def __init__(self, *tags):
+        """
+        :type tags: tuple[str]
+        """
+        if len(tags) == 1 and isinstance(tags[0], (list, tuple, set, frozenset)):
+            tags = tags[0]
+        self.tags = set(tags)
+        self.tag_versions = {}
+
+    def evaluate(self, cache, transaction_start_time, version):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type transaction_start_time: float
+        :type version: int or None
+        """
+        deferred = self._get_tag_versions(cache, version)
+        deferred += self._get_locked_tags(cache, transaction_start_time, version)
+        locked_tags = deferred.get()
+        if locked_tags:
+            raise exceptions.TagsLocked(locked_tags)
+        tag_versions = deferred.get()
+        nonexistent_tags = self.tags - set(tag_versions.keys())
+        new_tag_versions = self._make_tag_versions(cache, nonexistent_tags, version)
+        tag_versions.update(new_tag_versions)
+        self.tag_versions = tag_versions
+
+    def validate(self, cache, version):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type version: int or None
+        :rtype: cache_tagging.defer.Deferred
+        """
+        deferred = self._get_tag_versions(cache, version)
+
+        def callback(node, caches):
+            actual_tag_versions = node.get()
+            invalid_tags = set(
+                tag for tag, tag_version in self.tag_versions.items()
+                if actual_tag_versions.get(tag) != tag_version
+            )
+            return (self, invalid_tags)
+
+        deferred.add_callback(callback, set())
+        return deferred
+
+    def invalidate(self, cache, version):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type version: int or None
+        """
+        tag_keys = list(map(utils.make_tag_key, self.tags))
+        cache.delete_many(tag_keys, version=version)
+
+    def acquire(self, cache, delay, version):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type delay: int
+        :type version: int or None
+        """
+        return self._set_tags_status(cache, self.STATUS.ACQUIRED, delay, version)
+
+    def release(self, cache, delay, version):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type delay: int
+        :type version: int or None
+        """
+        self._set_tags_status(cache, self.STATUS.RELEASED, delay, version)
+
+    def union(self, other):
+        """
+        :type other: cache_tagging.interfaces.IDependency
+        :rtype: bool
+        """
+        if isinstance(other, TagsDependency):
+            self.tags |= other.tags
+            self.tag_versions.update(other.tag_versions)
+            return True
+        return False
+
+    def _get_tag_versions(self, cache, version):
+        tag_keys = {tag: utils.make_tag_key(tag) for tag in self.tags}
+        deferred = defer.Deferred(cache.get_many, defer.GetManyDeferredIterator, version)
+        deferred.add_callback(
+            lambda _, caches: {tag: caches[tag_key] for tag, tag_key in tag_keys.items() if tag_key in caches},
+            tag_keys.values()
+        )
+        return deferred
+
+    def _get_locked_tags(self, cache, transaction_start_time, version):
+        tag_keys = {tag: self._make_locked_tag_key(tag) for tag in self.tags}
+
+        def callback(_, caches):
+            locked_tag_caches = {tag: caches[tag_key] for tag, tag_key in tag_keys.items() if tag_key in caches}
+            return set(tag for tag, tag_bean in locked_tag_caches.items()
+                       if self._tag_is_locked(tag_bean, transaction_start_time))
+
+        deferred = defer.Deferred(cache.get_many, defer.GetManyDeferredIterator, version)
+        deferred.add_callback(callback, tag_keys.values())
+        return deferred
+
+    def _make_tag_versions(self, cache, tags, version):
+        if not tags:
+            return dict()
+        new_tag_versions = {tag: utils.generate_tag_version() for tag in tags}
+        new_tag_key_versions = {utils.make_tag_key(tag): tag_version for tag, tag_version in new_tag_versions.items()}
+        cache.set_many(new_tag_key_versions, self.TAG_TIMEOUT, version)
+        return new_tag_versions
+
+    def _set_tags_status(self, cache, status, delay, version):
+        """Locks tags for concurrent transactions."""
+        data = TagStateBean(time.time() + delay, status, self._get_thread_id())
+        cache.set_many(
+            {self._make_locked_tag_key(tag): data for tag in self.tags}, self._get_timeout(delay), version
+        )
+
+    @staticmethod
+    def _get_thread_id():
+        return utils.get_thread_id()
+
+    def _make_locked_tag_key(self, tag):
+        return '{0}_{1}'.format(self.LOCK_PREFIX, utils.make_tag_key(tag))
+
+    def _get_timeout(self, delay):
+        timeout = self.LOCK_TIMEOUT
+        timeout += delay
+        return timeout
+
+    def _tag_is_locked(self, tag_bean, transaction_start_time):
+        if tag_bean.thread_id == self._get_thread_id():
+            # Acquired by current thread, ignore it
+            return False
+        if tag_bean.status == self.STATUS.ACQUIRED:
+            # Tag still is asquired
+            return True
+        if transaction_start_time <= tag_bean.time:
+            # We don't create cache in all transactions started earlier
+            # than finished the transaction which has invalidated tag.
+            return True
+
+
+class DummyDependency(interfaces.IDependency):
+
+    def evaluate(self, cache, transaction_start_time, version):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type transaction_start_time: float
+        :type version: int or None
+        """
+
+    def validate(self, cache, version):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type version: int or None
+        :rtype: cache_tagging.defer.Deferred
+        """
+        deferred = defer.Deferred(None, defer.NoneDeferredIterator)
+        deferred.add_callback(lambda *a, **kw: (self, set()))
+        return deferred
+
+    def invalidate(self, cache, version):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type version: int or None
+        """
+
+    def acquire(self, cache, delay, version):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type delay: int
+        :type version: int or None
+        """
+
+    def release(self, cache, delay, version):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type delay: int
+        :type version: int or None
+        """
+
+    def union(self, other):
+        """
+        :type other: cache_tagging.interfaces.IDependency
+        :rtype: bool
+        """
+        if isinstance(other, DummyDependency):
+            return True
+        return False
