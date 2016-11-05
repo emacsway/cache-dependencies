@@ -117,18 +117,18 @@ class CompositeDependency(interfaces.IDependency):
         for delegate in self.delegates:
             delegate.release(cache, delay, version)
 
-    def union(self, other):
+    def extend(self, other):
         """
         :type other: cache_tagging.interfaces.IDependency
         :rtype: bool
         """
         if isinstance(other, CompositeDependency):
             for other_delegate in other.delegates:
-                self.union(other_delegate)
+                self.extend(other_delegate)
             return True
         else:
             for delegate in self.delegates:
-                if delegate.union(other):
+                if delegate.extend(other):
                     break
             else:
                 self.delegates.append(other)
@@ -213,7 +213,7 @@ class TagsDependency(interfaces.IDependency):
         """
         self._set_tags_status(cache, self.STATUS.RELEASED, delay, version)
 
-    def union(self, other):
+    def extend(self, other):
         """
         :type other: cache_tagging.interfaces.IDependency
         :rtype: bool
@@ -324,7 +324,7 @@ class DummyDependency(interfaces.IDependency):
         :type version: int or None
         """
 
-    def union(self, other):
+    def extend(self, other):
         """
         :type other: cache_tagging.interfaces.IDependency
         :rtype: bool

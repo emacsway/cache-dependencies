@@ -1,5 +1,5 @@
 import threading
-from cache_tagging import dependencies, interfaces
+from cache_tagging import interfaces
 
 
 class TagsLock(interfaces.ITagsLock):
@@ -25,34 +25,53 @@ class TagsLock(interfaces.ITagsLock):
 
 class ReadUncommittedTagsLock(TagsLock):
     """Tag Lock for Read Uncommitted transaction isolation level."""
-    def acquire(self, tags, version):
-        pass
+    def acquire(self, dependency, version):
+        """
+        :type dependency: cache_tagging.interfaces.IDependency
+        :type version: int or None
+        """
 
-    def release(self, tags, version):
+    def release(self, dependency, version):
+        """
+        :type dependency: cache_tagging.interfaces.IDependency
+        :type version: int or None
+        """
         if self._delay:
-            return self._release_tags_delayed(tags, version)
+            return self._release_tags_delayed(dependency, version)
 
-    def _release_tags_delayed(self, tags, version):
-        return threading.Timer(self._delay, self._release_tags_target, [tags, version]).start()
+    def _release_tags_delayed(self, dependency, version):
+        return threading.Timer(self._delay, self._release_tags_target, [dependency, version]).start()
 
-    def _release_tags_target(self, tags, version):
-        dependencies.TagsDependency(tags).invalidate(self._cache(), version)
+    def _release_tags_target(self, dependency, version):
+        dependency.invalidate(self._cache(), version)
 
 
 class ReadCommittedTagsLock(ReadUncommittedTagsLock):
     """Tag Lock for Read Committed transaction isolation level."""
-    def release(self, tags, version):
-        self._release_tags_target(tags, version)
-        super(ReadCommittedTagsLock, self).release(tags, version)
+    def release(self, dependency, version):
+        """
+        :type dependency: cache_tagging.interfaces.IDependency
+        :type version: int or None
+        """
+        self._release_tags_target(dependency, version)
+        super(ReadCommittedTagsLock, self).release(dependency, version)
 
 
 class RepeatableReadsTagsLock(TagsLock):
     """Tag Lock for Repeatable Reads transaction isolation level."""
-    def acquire(self, tags, version):
-        dependencies.TagsDependency(tags).acquire(self._cache(), self._delay, version)
+    def acquire(self, dependency, version):
+        """
+        :type dependency: cache_tagging.interfaces.IDependency
+        :type version: int or None
+        """
+        dependency.acquire(self._cache(), self._delay, version)
 
-    def release(self, tags, version):
-        dependencies.TagsDependency(tags).release(self._cache(), self._delay, version)
+    def release(self, dependency, version):
+        """
+        :type dependency: cache_tagging.interfaces.IDependency
+        :type version: int or None
+        """
+        dependency.release(self._cache(), self._delay, version)
 
 
 class SerializableTagsLock(RepeatableReadsTagsLock):

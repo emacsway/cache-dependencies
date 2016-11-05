@@ -146,7 +146,7 @@ class CacheTagging(object):
             dependency = DummyDependency()
 
         version = kwargs.get('version', None)
-        self.transaction.current().add_tags(getattr(dependency, 'tags', set()), version=version)
+        self.transaction.current().add_dependency(dependency, version=version)
         dependency.invalidate(self.cache, version)
 
     def begin(self, key):

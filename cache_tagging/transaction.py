@@ -1,12 +1,11 @@
 import time
 from functools import wraps
 
-from cache_tagging.interfaces import ITransaction, ITransactionManager
-from cache_tagging.mixins import ThreadSafeDecoratorMixIn
+from cache_tagging import dependencies, interfaces, mixins
 from cache_tagging.utils import Undef
 
 
-class BaseTransaction(ITransaction):
+class BaseTransaction(interfaces.ITransaction):
     def __init__(self, lock):
         self._lock = lock
         self.start_time = self._current_time()
@@ -22,20 +21,20 @@ class BaseTransaction(ITransaction):
 class Transaction(BaseTransaction):
     def __init__(self, lock):
         super(Transaction, self).__init__(lock)
-        self._tags = dict()
+        self._dependencies = dict()
 
     def parent(self):
         return None
 
-    def add_tags(self, tags, version):
-        if version not in self._tags:
-            self._tags[version] = set()
-        self._tags[version] |= set(tags)
-        self._lock.acquire(tags, version)
+    def add_dependency(self, dependency, version):
+        if version not in self._dependencies:
+            self._dependencies[version] = dependencies.CompositeDependency()
+        self._dependencies[version].extend(dependency)
+        self._lock.acquire(dependency, version)
 
     def finish(self):
-        for version, tags in self._tags.items():
-            self._lock.release(tags, version)
+        for version, dependency in self._dependencies.items():
+            self._lock.release(dependency, version)
 
 
 class SavePoint(Transaction):
@@ -49,9 +48,9 @@ class SavePoint(Transaction):
     def parent(self):
         return self._parent
 
-    def add_tags(self, tags, version):
-        super(SavePoint, self).add_tags(tags, version)
-        self._parent.add_tags(tags, version)
+    def add_dependency(self, dependency, version):
+        super(SavePoint, self).add_dependency(dependency, version)
+        self._parent.add_dependency(dependency, version)
 
     def finish(self):
         pass
@@ -61,14 +60,14 @@ class DummyTransaction(BaseTransaction):
     def parent(self):
         return None
 
-    def add_tags(self, tags, version):
+    def add_dependency(self, dependency, version):
         pass
 
     def finish(self):
         pass
 
 
-class BaseTransactionManager(ITransactionManager):
+class BaseTransactionManager(interfaces.ITransactionManager):
 
     def __call__(self, func=None):
         if func is None:
@@ -120,7 +119,7 @@ class TransactionManager(BaseTransactionManager):
             self.finish()
 
 
-class ThreadSafeTransactionManagerDecorator(ThreadSafeDecoratorMixIn, BaseTransactionManager):
+class ThreadSafeTransactionManagerDecorator(mixins.ThreadSafeDecoratorMixIn, BaseTransactionManager):
 
     def current(self, node=Undef):
         self._validate_thread_sharing()
