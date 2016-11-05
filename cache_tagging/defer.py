@@ -1,4 +1,3 @@
-import itertools
 import collections
 from functools import wraps
 from cache_tagging.utils import to_hashable
@@ -16,8 +15,6 @@ class Deferred(object):  # Queue?
         self.queue = []
         self._parent = None
         self.iterator = iterator_factory(self)
-        # Should state to be delegated to Deferred() instance (self),
-        # to have ability use generators instead of iterators? It'll harder to test.
         self.iterator.state = State()
         self.aggregation_criterion = to_hashable((executor, iterator_factory, args, kwargs))
 
@@ -39,12 +36,6 @@ class Deferred(object):  # Queue?
         """
         self._parent = parent
         self.iterator.state = parent.iterator.state
-
-    def __add__(self, other):
-        result = self.__class__(self.execute, *self.args, **self.kwargs)
-        result += self
-        result += other
-        return result
 
     def __iadd__(self, other):
         """

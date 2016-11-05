@@ -36,14 +36,14 @@ class CompositeDependency(interfaces.IDependency):
         :rtype: cache_tagging.defer.Deferred
         """
         deferred = functools.reduce(
-            operator.add,
+            operator.iadd,
             [delegate.validate(cache, version) for delegate in self.delegates]
         )
 
         def callback(node, caches):
             errors = []
             for _ in range(0, len(self.delegates)):
-                providing_dependency, invalid_tags = deferred.get()
+                providing_dependency, invalid_tags = node.get()
                 if invalid_tags:
                     errors.append((providing_dependency, invalid_tags))
             return (self, tuple(errors))
@@ -139,7 +139,7 @@ class TagsDependency(interfaces.IDependency):
         deferred = self._get_tag_versions(cache, version)
 
         def callback(node, caches):
-            actual_tag_versions = deferred.get()
+            actual_tag_versions = node.get()
             invalid_tags = set(
                 tag for tag, tag_version in self.tag_versions.items()
                 if actual_tag_versions.get(tag) != tag_version

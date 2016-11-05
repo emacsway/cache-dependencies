@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, unicode_literals
-
-import itertools
 import operator
 from cache_tagging import interfaces
 from cache_tagging.dependencies import CompositeDependency, DummyDependency, TagsDependency
@@ -118,12 +116,13 @@ class CacheTagging(object):
             else:
                 dependencies[key] = DummyDependency()
 
-        try:
-            self._validate_tag_versions(set(itertools.chain(*[tuple(i.items()) for i in all_tag_versions.values() if i])))
-        except TagsInvalid as e:
-            for key, tag_versions in all_tag_versions:
-                if not self._is_valid_tag_versions(tag_versions, e.args[0]):
-                    values.pop(key, None)
+        dependencies_reversed = {v: k for k, v in dependencies.items()}
+        composite_dependency = CompositeDependency(*dependencies.values())
+        deferred = composite_dependency.validate(self.cache, version)
+        providing_dependency, invalid_dependencies = deferred.get()
+        for providing_dependency, invalid_tags in invalid_dependencies:
+            if invalid_tags:
+                values.pop(dependencies_reversed[providing_dependency], None)
 
         for key in values:  # Looping through filtered result
             self.finish(key, all_tag_versions[key], version=version)
