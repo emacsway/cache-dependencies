@@ -4,7 +4,7 @@ import functools
 import collections
 from cache_tagging import interfaces, defer, exceptions, utils
 
-TagStateBean = collections.namedtuple('TagBean', ('time', 'status', 'thread_id'))
+TagStateBean = collections.namedtuple('TagStateBean', ('time', 'status', 'thread_id'))
 
 
 class CompositeDependency(interfaces.IDependency):
