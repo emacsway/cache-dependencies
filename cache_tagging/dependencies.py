@@ -1,6 +1,7 @@
 import time
 import operator
 import functools
+import itertools
 import collections
 from cache_tagging import interfaces, defer, exceptions, utils
 
@@ -11,18 +12,37 @@ class ValidationStatus(object):
     def __init__(self, dependency, errors):
         """
         :type dependency: cache_tagging.interfaces.IDependency
-        :type errors: tuple
+        :type errors: tuple[str]
         """
         self.dependency = dependency
         self.errors = errors
 
     def __bool__(self):
-        return not any(map(bool, self.errors))
+        return not self.errors
+
+    __nonzero__ = __bool__
+
+
+class CompositeValidationStatus(object):
+    def __init__(self, dependency, children):
+        """
+        :type dependency: cache_tagging.interfaces.IDependency
+        :type children: tuple[bool]
+        """
+        self.dependency = dependency
+        self.children = children
+
+    @property
+    def errors(self):
+        return itertools.chain(*map(operator.attrgetter('errors'), self.children))
+
+    def __bool__(self):
+        return all(self.children)
 
     __nonzero__ = __bool__
 
     def __iter__(self):
-        return iter(self.errors)
+        return iter(self.children)
 
 
 class CompositeDependency(interfaces.IDependency):
@@ -66,7 +86,7 @@ class CompositeDependency(interfaces.IDependency):
             for _ in range(0, len(self.delegates)):
                 validation_status = node.get()
                 errors.append(validation_status)
-            return ValidationStatus(self, tuple(errors))
+            return CompositeValidationStatus(self, tuple(errors))
 
         deferred.add_callback(callback, set())
         return deferred
