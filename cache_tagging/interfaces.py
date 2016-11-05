@@ -19,6 +19,7 @@ class IDependency(object):
         """
         :type cache: cache_tagging.interfaces.ICache
         :type version: int or None
+        :rtype: cache_tagging.defer.Deferred
         """
         raise NotImplementedError
 

@@ -1,4 +1,6 @@
 import time
+import operator
+import functools
 import collections
 from cache_tagging import interfaces, defer, exceptions, utils
 
@@ -31,15 +33,23 @@ class CompositeDependency(interfaces.IDependency):
         """
         :type cache: cache_tagging.interfaces.ICache
         :type version: int or None
+        :rtype: cache_tagging.defer.Deferred
         """
-        errors = []
-        for delegate in self.delegates:
-            try:
-                delegate.validate(cache, version)
-            except exceptions.DependencyInvalid as e:
-                errors.append(e)
-        if errors:
-            raise exceptions.CompositeDependencyInvalid(errors)
+        deferred = functools.reduce(
+            operator.add,
+            [delegate.validate(cache, version) for delegate in self.delegates]
+        )
+
+        def callback(node, caches):
+            errors = []
+            for _ in range(0, len(self.delegates)):
+                providing_dependency, invalid_tags = deferred.get()
+                if invalid_tags:
+                    errors.append((providing_dependency, invalid_tags))
+            return (self, tuple(errors))
+
+        deferred.add_callback(callback, set())
+        return deferred
 
     def invalidate(self, cache, version):
         """
@@ -124,15 +134,20 @@ class TagsDependency(interfaces.IDependency):
         """
         :type cache: cache_tagging.interfaces.ICache
         :type version: int or None
+        :rtype: cache_tagging.defer.Deferred
         """
         deferred = self._get_tag_versions(cache, version)
-        actual_tag_versions = deferred.get()
-        invalid_tag_versions = set(
-            tag for tag, tag_version in self.tag_versions.items()
-            if actual_tag_versions.get(tag) != tag_version
-        )
-        if invalid_tag_versions:
-            raise exceptions.TagsInvalid(invalid_tag_versions)
+
+        def callback(node, caches):
+            actual_tag_versions = deferred.get()
+            invalid_tags = set(
+                tag for tag, tag_version in self.tag_versions.items()
+                if actual_tag_versions.get(tag) != tag_version
+            )
+            return (self, invalid_tags)
+
+        deferred.add_callback(callback, set())
+        return deferred
 
     def invalidate(self, cache, version):
         """
@@ -243,7 +258,11 @@ class DummyDependency(interfaces.IDependency):
         """
         :type cache: cache_tagging.interfaces.ICache
         :type version: int or None
+        :rtype: cache_tagging.defer.Deferred
         """
+        deferred = defer.Deferred(None, defer.NoneDeferredIterator)
+        deferred.add_callback(lambda *a, **kw: (self, set()))
+        return deferred
 
     def invalidate(self, cache, version):
         """

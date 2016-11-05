@@ -55,11 +55,15 @@ class CacheTagging(object):
             return default
 
         value, tag_versions = self._unpack_data(data)
-        dependency = TagsDependency(*tag_versions.keys())
-        dependency.tag_versions = tag_versions
-        try:
-            dependency.validate(self.cache, version)
-        except TagsInvalid:
+        if tag_versions:
+            dependency = TagsDependency(*tag_versions.keys())
+            dependency.tag_versions = tag_versions
+        else:
+            dependency = DummyDependency()
+
+        deferred = dependency.validate(self.cache, version)
+        providing_dependency, invalid_tags = deferred.get()
+        if invalid_tags:
             return default
 
         self.finish(key, tag_versions.keys(), version=version)
@@ -118,8 +122,6 @@ class CacheTagging(object):
             self._validate_tag_versions(set(itertools.chain(*[tuple(i.items()) for i in all_tag_versions.values() if i])))
         except TagsInvalid as e:
             for key, tag_versions in all_tag_versions:
-                # This is a problem for integration of abstract dependencies.
-                # How to union queries from each dependency that raises Exceptions?
                 if not self._is_valid_tag_versions(tag_versions, e.args[0]):
                     values.pop(key, None)
 
