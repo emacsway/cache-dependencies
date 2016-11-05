@@ -124,8 +124,7 @@ class CacheTagging(object):
             dependency = DummyDependency()
 
         try:
-            # TODO: delegate to transaction
-            dependency.evaluate(self.cache, self.transaction.current().start_time, version)
+            self.transaction.current().evaluate(dependency, version)
         except TagsLocked:
             self.finish(key, tags, version=version)
             return

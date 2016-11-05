@@ -86,17 +86,21 @@ class IRelationManager(object):
 
 class ITagsLock(object):
 
-    def acquire_tags(self, tags, version=None):
+    def acquire(self, tags, version):
         raise NotImplementedError
 
-    def release_tags(self, tags, version=None):
+    def release(self, tags, version):
         raise NotImplementedError
 
-    def get_tag_versions(self, tags, transaction_start_time, version=None):
-        """it's okay to ask tag versions from Lock,
+    def evaluate(self, dependency, transaction_start_time, version):
+        """it's okay delegate it to ITagsLock,
 
         because Lock can implement Pessimistic Offline Lock or Mutual Exclusion
         instead of raising TagsLocked exception.
+
+        :type dependency: cache_tagging.interfaces.IDependency
+        :type transaction_start_time: float
+        :type version: int or None
         """
         raise NotImplementedError
 
@@ -110,10 +114,14 @@ class ITransaction(object):
     def parent(self):
         raise NotImplementedError
 
-    def add_tags(self, tags, version=None):
+    def add_tags(self, tags, version):
         raise NotImplementedError
 
-    def get_tag_versions(self, tags, version=None):
+    def evaluate(self, dependency, version):
+        """
+        :type dependency: cache_tagging.interfaces.IDependency
+        :type version: int or None
+        """
         raise NotImplementedError
 
     def finish(self):
