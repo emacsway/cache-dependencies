@@ -118,6 +118,8 @@ class CacheTagging(object):
             self._validate_tag_versions(set(itertools.chain(*[tuple(i.items()) for i in all_tag_versions.values() if i])))
         except TagsInvalid as e:
             for key, tag_versions in all_tag_versions:
+                # This is a problem for integration of abstract dependencies.
+                # How to union queries from each dependency that raises Exceptions?
                 if not self._is_valid_tag_versions(tag_versions, e.args[0]):
                     values.pop(key, None)
 
