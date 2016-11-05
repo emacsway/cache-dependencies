@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, unicode_literals
-import operator
 from cache_tagging import interfaces
 from cache_tagging.dependencies import CompositeDependency, DummyDependency, TagsDependency
-from cache_tagging.exceptions import TagsLocked, TagsInvalid
-from cache_tagging.utils import warn, make_tag_key, generate_tag_version
+from cache_tagging.exceptions import TagsLocked
+from cache_tagging.utils import warn
 
 try:
     str = unicode  # Python 2.* compatible
@@ -119,10 +118,14 @@ class CacheTagging(object):
         # pull tags from descendants (cached fragments)
         tags.update(self.relation_manager.get(key).get_tags(version))
 
-        try:
+        if tags:
             dependency = TagsDependency(tags)
-            dependency.evaluate(self.cache, self.transaction.current().start_time, version)  # TODO: delegate to transaction
-            tag_versions = dependency.tag_versions
+        else:
+            dependency = DummyDependency()
+
+        try:
+            # TODO: delegate to transaction
+            dependency.evaluate(self.cache, self.transaction.current().start_time, version)
         except TagsLocked:
             self.finish(key, tags, version=version)
             return

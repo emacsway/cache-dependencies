@@ -123,7 +123,7 @@ class TagsDependency(interfaces.IDependency):
         deferred += self._get_locked_tags(cache, transaction_start_time, version)
         locked_tags = deferred.get()
         if locked_tags:
-            raise exceptions.TagsInvalid(locked_tags)
+            raise exceptions.TagsLocked(locked_tags)
         tag_versions = deferred.get()
         nonexistent_tags = self.tags - set(tag_versions.keys())
         new_tag_versions = self._make_tag_versions(cache, nonexistent_tags, version)
