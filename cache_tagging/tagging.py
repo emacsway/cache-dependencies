@@ -141,11 +141,12 @@ class CacheTagging(object):
             dependency = TagsDependency(tags[0])
         elif tags:
             dependency = TagsDependency(tags)
+        else:
+            dependency = DummyDependency()
 
-        if dependency:
-            version = kwargs.get('version', None)
-            self.transaction.current().add_tags(dependency.tags, version=version)
-            dependency.invalidate(self.cache, version)
+        version = kwargs.get('version', None)
+        self.transaction.current().add_tags(getattr(dependency, 'tags', set()), version=version)
+        dependency.invalidate(self.cache, version)
 
     def begin(self, key):
         """Start cache creating."""
