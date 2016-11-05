@@ -14,3 +14,11 @@ class TagsLocked(DependencyLocked):
 
 class TagsInvalid(DependencyInvalid):
     pass
+
+
+class CompositeDependencyLocked(DependencyLocked):
+    pass
+
+
+class CompositeDependencyInvalid(DependencyInvalid):
+    pass

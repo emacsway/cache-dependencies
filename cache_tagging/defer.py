@@ -172,3 +172,42 @@ class GetManyDeferredIterator(collections.Iterator):
         for callback, args, kwargs in reversed(node.queue):
             result = {key: bulk_caches[key] for key in args[0] if key in bulk_caches}
             yield callback(node, result)
+
+
+class NoneDeferredIterator(collections.Iterator):
+    """
+    :type state: cache_tagging.defer.State
+    """
+    state = None
+
+    def __init__(self, deferred):
+        """
+        :type deferred: cache_tagging.defer.Deferred
+        """
+        self._deferred = deferred
+        self._iterator = None
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self._iterator is None:
+            self._iterator = self._make_iterator()
+        return next(self._iterator)
+
+    next = __next__
+
+    def _make_iterator(self):
+        node = self._deferred
+        for result in self._iter_node(node):
+            yield result
+        if node.parent:
+            for result in node.parent:
+                yield result
+
+    def _iter_node(self, node):
+        """
+        :type node: cache_tagging.defer.Deferred
+        """
+        for callback, args, kwargs in reversed(node.queue):
+            yield callback(node, None)

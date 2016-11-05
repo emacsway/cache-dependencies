@@ -4,7 +4,7 @@ from __future__ import absolute_import, unicode_literals
 import itertools
 import operator
 from cache_tagging import interfaces
-from cache_tagging.dependencies import TagsDependency
+from cache_tagging.dependencies import CompositeDependency, DummyDependency, TagsDependency
 from cache_tagging.exceptions import TagsLocked, TagsInvalid
 from cache_tagging.utils import warn, make_tag_key, generate_tag_version
 
@@ -55,8 +55,10 @@ class CacheTagging(object):
             return default
 
         value, tag_versions = self._unpack_data(data)
+        dependency = TagsDependency(*tag_versions.keys())
+        dependency.tag_versions = tag_versions
         try:
-            self._validate_tag_versions(tag_versions.items())
+            dependency.validate(self.cache, version)
         except TagsInvalid:
             return default
 
@@ -103,9 +105,14 @@ class CacheTagging(object):
 
         caches = self.cache.get_many(keys, version)
 
-        values, all_tag_versions = dict(), dict()
+        values, dependencies, all_tag_versions = dict(), dict(), dict()
         for key, data in caches.items():
             values[key], all_tag_versions[key] = self._unpack_data(data)
+            if all_tag_versions[key]:
+                dependencies[key] = TagsDependency(*all_tag_versions[key].keys())
+                dependencies[key].tag_versions = all_tag_versions[key]
+            else:
+                dependencies[key] = DummyDependency()
 
         try:
             self._validate_tag_versions(set(itertools.chain(*[tuple(i.items()) for i in all_tag_versions.values() if i])))

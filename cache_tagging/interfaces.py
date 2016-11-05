@@ -45,6 +45,13 @@ class IDependency(object):
         """
         raise NotImplementedError
 
+    def union(self, other):
+        """
+        :type other: cache_tagging.interfaces.IDependency
+        :rtype: bool
+        """
+        raise NotImplementedError
+
 
 class ICacheNode(object):
 

@@ -5,6 +5,86 @@ from cache_tagging import interfaces, defer, exceptions, utils
 TagStateBean = collections.namedtuple('TagBean', ('time', 'status', 'thread_id'))
 
 
+class CompositeDependency(interfaces.IDependency):
+    def __init__(self, *delegates):
+        """
+        :type delegates: tuple[cache_tagging.interfaces.IDependency]
+        """
+        self.delegates = list(delegates)
+
+    def evaluate(self, cache, transaction_start_time, version):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type transaction_start_time: float
+        :type version: int or None
+        """
+        errors = []
+        for delegate in self.delegates:
+            try:
+                delegate.evaluate(cache, transaction_start_time, version)
+            except exceptions.DependencyLocked as e:
+                errors.append(e)
+        if errors:
+            raise exceptions.CompositeDependencyLocked(errors)
+
+    def validate(self, cache, version):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type version: int or None
+        """
+        errors = []
+        for delegate in self.delegates:
+            try:
+                delegate.validate(cache, version)
+            except exceptions.DependencyInvalid as e:
+                errors.append(e)
+        if errors:
+            raise exceptions.CompositeDependencyInvalid(errors)
+
+    def invalidate(self, cache, version):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type version: int or None
+        """
+        for delegate in self.delegates:
+            delegate.invalidate(cache, version)
+
+    def acquire(self, cache, delay, version):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type delay: int
+        :type version: int or None
+        """
+        for delegate in self.delegates:
+            delegate.acquire(cache, delay, version)
+
+    def release(self, cache, delay, version):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type delay: int
+        :type version: int or None
+        """
+        for delegate in self.delegates:
+            delegate.release(cache, delay, version)
+
+    def union(self, other):
+        """
+        :type other: cache_tagging.interfaces.IDependency
+        :rtype: bool
+        """
+        if isinstance(other, CompositeDependency):
+            for other_delegate in other.delegates:
+                self.union(other_delegate)
+            return True
+        else:
+            for delegate in self.delegates:
+                if delegate.union(other):
+                    break
+            else:
+                self.delegates.append(other)
+        return True
+
+
 class TagsDependency(interfaces.IDependency):
     TAG_TIMEOUT = 24 * 3600
     LOCK_PREFIX = "lock"
@@ -48,7 +128,7 @@ class TagsDependency(interfaces.IDependency):
         deferred = self._get_tag_versions(cache, version)
         actual_tag_versions = deferred.get()
         invalid_tag_versions = set(
-            tag for tag, tag_version in self.tag_versions
+            tag for tag, tag_version in self.tag_versions.items()
             if actual_tag_versions.get(tag) != tag_version
         )
         if invalid_tag_versions:
@@ -77,6 +157,17 @@ class TagsDependency(interfaces.IDependency):
         :type version: int or None
         """
         self._set_tags_status(cache, self.STATUS.RELEASED, delay, version)
+
+    def union(self, other):
+        """
+        :type other: cache_tagging.interfaces.IDependency
+        :rtype: bool
+        """
+        if isinstance(other, TagsDependency):
+            self.tags |= other.tags
+            self.tag_versions.update(other.tag_versions)
+            return True
+        return False
 
     def _get_tag_versions(self, cache, version):
         tag_keys = {tag: utils.make_tag_key(tag) for tag in self.tags}
@@ -137,3 +228,48 @@ class TagsDependency(interfaces.IDependency):
             # We don't create cache in all transactions started earlier
             # than finished the transaction which has invalidated tag.
             return True
+
+
+class DummyDependency(interfaces.IDependency):
+
+    def evaluate(self, cache, transaction_start_time, version):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type transaction_start_time: float
+        :type version: int or None
+        """
+
+    def validate(self, cache, version):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type version: int or None
+        """
+
+    def invalidate(self, cache, version):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type version: int or None
+        """
+
+    def acquire(self, cache, delay, version):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type delay: int
+        :type version: int or None
+        """
+
+    def release(self, cache, delay, version):
+        """
+        :type cache: cache_tagging.interfaces.ICache
+        :type delay: int
+        :type version: int or None
+        """
+
+    def union(self, other):
+        """
+        :type other: cache_tagging.interfaces.IDependency
+        :rtype: bool
+        """
+        if isinstance(other, DummyDependency):
+            return True
+        return False
