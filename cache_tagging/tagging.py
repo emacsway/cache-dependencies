@@ -137,7 +137,7 @@ class CacheTagging(object):
         dependency = None
         if len(tags) == 1 and isinstance(tags[0], interfaces.IDependency):
             dependency = tags[0]
-        elif isinstance(tags[0], (list, tuple, set, frozenset)):
+        elif len(tags) == 1 and isinstance(tags[0], (list, tuple, set, frozenset)):
             dependency = TagsDependency(tags[0])
         elif tags:
             dependency = TagsDependency(tags)
