@@ -38,7 +38,7 @@ class CacheNode(ICacheNode):
             return set()
 
 
-class NoneCacheNode(ICacheNode):
+class DummyCacheNode(ICacheNode):
     """Using pattern Special Case"""
     def __init__(self):
         pass
@@ -47,7 +47,7 @@ class NoneCacheNode(ICacheNode):
         return None
 
     def key(self):
-        return 'NoneCache'
+        return 'DummyCache'
 
     def add_tags(self, tags, version=None):
         pass
@@ -71,7 +71,7 @@ class RelationManager(IRelationManager):
         try:
             node = self._data.pop(key)
         except KeyError:
-            node = NoneCacheNode()
+            node = DummyCacheNode()
 
         if self.current() is node:
             self.current(node.parent())
@@ -79,7 +79,7 @@ class RelationManager(IRelationManager):
 
     def current(self, key_or_node=Undef):
         if key_or_node is Undef:
-            return self._current or NoneCacheNode()
+            return self._current or DummyCacheNode()
         if isinstance(key_or_node, string_types):
             node = self.get(key_or_node)
         else:

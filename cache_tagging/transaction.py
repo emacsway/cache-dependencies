@@ -57,7 +57,7 @@ class SavePoint(Transaction):
         pass
 
 
-class NoneTransaction(BaseTransaction):
+class DummyTransaction(BaseTransaction):
     def parent(self):
         return None
 
@@ -101,7 +101,7 @@ class TransactionManager(BaseTransactionManager):
 
     def current(self, node=Undef):
         if node is Undef:
-            return self._current or NoneTransaction(self._lock)
+            return self._current or DummyTransaction(self._lock)
         self._current = node
 
     def begin(self):
