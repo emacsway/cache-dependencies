@@ -237,7 +237,7 @@ class TagsDependency(interfaces.IDependency):
             # Acquired by current thread, ignore it
             return False
         if tag_bean.status == self.STATUS.ACQUIRED:
-            # Tag still is asquired
+            # Tag still is acquired
             return True
         if transaction_start_time <= tag_bean.time:
             # We don't create cache in all transactions started earlier
