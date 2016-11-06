@@ -43,7 +43,6 @@ class DeferredNode(interfaces.IDeferred):
     def __iter__(self):
         if self._iterator is None:
             self._iterator = self.iterator_factory(self)
-            self._iterator.state = State()
         return self._iterator
 
     def __copy__(self):
@@ -147,23 +146,34 @@ class AbstractDeferredIterator(collections.Iterator):
     """
     state = None
 
-    def __init__(self, deferred):
+    def __init__(self, node):
         """
-        :type deferred: cache_tagging.interfaces.IDeferred
+        :type node: cache_tagging.interfaces.IDeferred
         """
-        self._node = deferred
+        self._node = node
         self._index = 0
+        self._state = None
 
     def __iter__(self):
         return self
 
     def _delegate(self):
         if self._node.parent:
-            parent_iterator = iter(self._node.parent)
-            parent_iterator.state = self.state
-            return next(parent_iterator)
+            delegate = iter(self._node.parent)
+            delegate.state = self.state
+            return next(delegate)
         else:
             raise StopIteration
+
+    @property
+    def state(self):
+        if self._state is None:
+            self._state = State()
+        return self._state
+
+    @state.setter
+    def state(self, state):
+        self._state = state
 
 
 class GetManyDeferredIterator(AbstractDeferredIterator):
