@@ -99,7 +99,7 @@ class Deferred(interfaces.IDeferred):
         return self
 
     def __iter__(self):
-        return self.node.iterator
+        return iter(self.node)
 
 
 class State(object):
