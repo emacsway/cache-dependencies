@@ -73,21 +73,21 @@ class GetManyDeferredIteratorTestCase(unittest.TestCase):
         deferred = defer.Deferred(executor1, defer.GetManyDeferredIterator, None)
         deferred.add_callback(
             lambda _, caches: {'result1_' + k: v for k, v in caches.items()},
-            set(('tag_1', 'tag_2',))
+            {'tag_1', 'tag_2'}
         )
 
         executor2 = mock.Mock(side_effect=lambda keys, versions: cached)
         deferred2 = defer.Deferred(executor2, defer.GetManyDeferredIterator, 1)
         deferred2.add_callback(
             lambda _, caches: {'result2_' + k: v for k, v in caches.items()},
-            set(('tag_3', 'tag_4',))
+            {'tag_3', 'tag_4'}
         )
         deferred += deferred2
 
         deferred3 = defer.Deferred(executor1, defer.GetManyDeferredIterator, None)
         deferred3.add_callback(
             lambda _, caches: {'result3_' + k: v for k, v in caches.items()},
-            set(('locked_tag_1', 'locked_tag_2',))
+            {'locked_tag_1', 'locked_tag_2'}
         )
         deferred += deferred3
         result3 = deferred.get()
@@ -111,12 +111,12 @@ class GetManyDeferredIteratorTestCase(unittest.TestCase):
 
         self.assertEqual(executor1.call_count, 1)
         self.assertSetEqual(set(executor1.call_args[0][0]),
-                            set(('tag_1', 'tag_2', 'locked_tag_1', 'locked_tag_2',)))
+                            {'tag_1', 'tag_2', 'locked_tag_1', 'locked_tag_2'})
         self.assertIsNone(executor1.call_args[0][1])
         self.assertDictEqual(executor1.call_args[1], dict())
 
         self.assertEqual(executor2.call_count, 1)
         self.assertSetEqual(set(executor2.call_args[0][0]),
-                            set(('tag_3', 'tag_4',)))
+                            {'tag_3', 'tag_4'})
         self.assertEqual(executor2.call_args[0][1], 1)
         self.assertDictEqual(executor2.call_args[1], dict())

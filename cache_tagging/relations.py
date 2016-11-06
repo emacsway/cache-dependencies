@@ -1,5 +1,4 @@
-from cache_tagging.interfaces import ICacheNode, IRelationManager
-from cache_tagging.mixins import ThreadSafeDecoratorMixIn
+from cache_tagging import dependencies, interfaces, mixins
 from cache_tagging.utils import Undef
 
 try:
@@ -11,12 +10,11 @@ except NameError:
     integer_types = (int,)
 
 
-class CacheNode(ICacheNode):
-
+class CacheNode(interfaces.ICacheNode):
     def __init__(self, key, parent=None):
         self._key = key
         self._parent = parent
-        self._tags = dict()
+        self._dependencies = dict()
 
     def parent(self):
         return self._parent
@@ -24,21 +22,22 @@ class CacheNode(ICacheNode):
     def key(self):
         return self._key
 
-    def add_tags(self, tags, version=None):
-        if version not in self._tags:
-            self._tags[version] = set()
-        self._tags[version] |= set(tags)
+    def add_dependency(self, dependency, version=None):
+        assert isinstance(dependency, interfaces.IDependency)
+        if version not in self._dependencies:
+            self._dependencies[version] = dependencies.CompositeDependency()
+        self._dependencies[version].extend(dependency)
         if self._parent is not None:
-            self._parent.add_tags(tags, version)
+            self._parent.add_dependency(dependency, version)
 
-    def get_tags(self, version=None):
+    def get_dependency(self, version=None):
         try:
-            return self._tags[version]
+            return self._dependencies[version]
         except KeyError:
-            return set()
+            return dependencies.DummyDependency()
 
 
-class DummyCacheNode(ICacheNode):
+class DummyCacheNode(interfaces.ICacheNode):
     """Using pattern Special Case"""
     def __init__(self):
         pass
@@ -49,15 +48,14 @@ class DummyCacheNode(ICacheNode):
     def key(self):
         return 'DummyCache'
 
-    def add_tags(self, tags, version=None):
+    def add_dependency(self, dependency, version=None):
         pass
 
-    def get_tags(self, version=None):
-        return set()
+    def get_dependency(self, version=None):
+        return dependencies.DummyDependency()
 
 
-class RelationManager(IRelationManager):
-
+class RelationManager(interfaces.IRelationManager):
     def __init__(self):
         self._current = None
         self._data = dict()  # recursive cache is not possible, so, using dict instead of stack.
@@ -90,8 +88,7 @@ class RelationManager(IRelationManager):
         self._data = dict()
 
 
-class ThreadSafeRelationManagerDecorator(ThreadSafeDecoratorMixIn, IRelationManager):
-
+class ThreadSafeRelationManagerDecorator(mixins.ThreadSafeDecoratorMixIn, interfaces.IRelationManager):
     def get(self, key):
         self._validate_thread_sharing()
         return self._delegate.get(key)

@@ -1,3 +1,4 @@
+import copy
 import time
 import operator
 import functools
@@ -8,7 +9,7 @@ from cache_tagging import interfaces, defer, exceptions, utils
 TagStateBean = collections.namedtuple('TagStateBean', ('time', 'status', 'thread_id'))
 
 
-class ValidationStatus(object):
+class ValidationStatus(interfaces.IValidationStatus):
     def __init__(self, dependency, errors):
         """
         :type dependency: cache_tagging.interfaces.IDependency
@@ -23,7 +24,7 @@ class ValidationStatus(object):
     __nonzero__ = __bool__
 
 
-class CompositeValidationStatus(object):
+class CompositeValidationStatus(interfaces.IValidationStatus):
     def __init__(self, dependency, children):
         """
         :type dependency: cache_tagging.interfaces.IDependency
@@ -71,7 +72,7 @@ class CompositeDependency(interfaces.IDependency):
         """
         :type cache: cache_tagging.interfaces.ICache
         :type version: int or None
-        :rtype: cache_tagging.defer.Deferred
+        :rtype: cache_tagging.interfaces.IDeferred
         """
         try:
             deferred = functools.reduce(
@@ -122,6 +123,7 @@ class CompositeDependency(interfaces.IDependency):
         :type other: cache_tagging.interfaces.IDependency
         :rtype: bool
         """
+        assert isinstance(other, interfaces.IDependency)
         if isinstance(other, CompositeDependency):
             for other_delegate in other.delegates:
                 self.extend(other_delegate)
@@ -131,8 +133,13 @@ class CompositeDependency(interfaces.IDependency):
                 if delegate.extend(other):
                     break
             else:
-                self.delegates.append(other)
+                self.delegates.append(copy.copy(other))
         return True
+
+    def __copy__(self):
+        c = copy.copy(super(CompositeDependency, self))
+        c.delegates = c.delegates[:]
+        return c
 
 
 class TagsDependency(interfaces.IDependency):
@@ -174,7 +181,7 @@ class TagsDependency(interfaces.IDependency):
         """
         :type cache: cache_tagging.interfaces.ICache
         :type version: int or None
-        :rtype: cache_tagging.defer.Deferred
+        :rtype: cache_tagging.interfaces.IDeferred
         """
         deferred = self._get_tag_versions(cache, version)
 
@@ -223,6 +230,12 @@ class TagsDependency(interfaces.IDependency):
             self.tag_versions.update(other.tag_versions)
             return True
         return False
+
+    def __copy__(self):
+        c = copy.copy(super(TagsDependency, self))
+        c.tags = c.tags.copy()
+        c.tag_versions = c.tag_versions.copy()
+        return c
 
     def _get_tag_versions(self, cache, version):
         tag_keys = {tag: utils.make_tag_key(tag) for tag in self.tags}
@@ -298,7 +311,7 @@ class DummyDependency(interfaces.IDependency):
         """
         :type cache: cache_tagging.interfaces.ICache
         :type version: int or None
-        :rtype: cache_tagging.defer.Deferred
+        :rtype: cache_tagging.interfaces.IDeferred
         """
         deferred = defer.Deferred(None, defer.NoneDeferredIterator)
         deferred.add_callback(lambda *a, **kw: ValidationStatus(self, tuple()))
@@ -332,3 +345,6 @@ class DummyDependency(interfaces.IDependency):
         if isinstance(other, DummyDependency):
             return True
         return False
+
+    def __copy__(self):
+        return copy.copy(super(DummyDependency, self))

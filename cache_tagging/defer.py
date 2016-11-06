@@ -10,6 +10,7 @@ class DeferredNode(interfaces.IDeferred):
     Used mainly to reduce count of cache.get_many().
     """
     def __init__(self, executor, iterator_factory, *args, **kwargs):
+        assert issubclass(iterator_factory, AbstractDeferredIterator)
         self.execute = executor
         self.args = args
         self.kwargs = kwargs
@@ -82,8 +83,10 @@ class Deferred(interfaces.IDeferred):
         """
         if isinstance(other, Deferred):
             other_node = other.node
-        else:
+        elif isinstance(other, interfaces.IDeferred):
             other_node = other
+        else:
+            raise TypeError("\"other\" should to have type derived from interfaces.IDeferred")
 
         if self.node.aggregation_criterion == other_node.aggregation_criterion:
             self.node.queue.extend(other_node.queue)

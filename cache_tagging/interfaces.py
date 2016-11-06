@@ -5,6 +5,18 @@ from cache_tagging.utils import Undef
 MEMCACHE_MAX_KEY_LENGTH = 250
 
 
+class IValidationStatus(object):
+    def __bool__(self):
+        """
+        :rtype: bool
+        """
+
+    def __nonzero__(self):
+        """ Py2 compatibility
+        :rtype: bool
+        """
+
+
 class IDependency(object):
 
     def evaluate(self, cache, transaction_start_time, version):
@@ -19,7 +31,7 @@ class IDependency(object):
         """
         :type cache: cache_tagging.interfaces.ICache
         :type version: int or None
-        :rtype: cache_tagging.defer.Deferred
+        :rtype: cache_tagging.interfaces.IDeferred
         """
         raise NotImplementedError
 
@@ -53,6 +65,41 @@ class IDependency(object):
         """
         raise NotImplementedError
 
+    def __copy__(self):
+        """
+        :rtype: cache_tagging.interfaces.IDependency
+        """
+
+
+class IDeferred(object):  # Queue?
+    """
+    :type queue: list[collections.Callable, tuple, dict]
+    :type aggregation_criterion: tuple
+    """
+    queue = None
+    aggregation_criterion = None
+
+    def add_callback(self, callback, *args, **kwargs):  # put? apply?
+        """
+        :type callback: collections.Callable
+        :rtype: cache_tagging.interfaces.IDeferred
+        """
+        raise NotImplementedError
+
+    def get(self):  # recv?
+        raise NotImplementedError
+
+    @property
+    def parent(self):
+        raise NotImplementedError
+
+    @parent.setter
+    def parent(self, parent):
+        raise NotImplementedError
+
+    def __iter__(self):
+        raise NotImplementedError
+
 
 class ICacheNode(object):
 
@@ -68,10 +115,18 @@ class ICacheNode(object):
         """
         raise NotImplementedError
 
-    def add_tags(self, tags, version=None):
+    def add_dependency(self, dependency, version=None):
+        """
+        :type dependency: cache_tagging.interfaces.IDependency
+        :type version: int or None
+        """
         raise NotImplementedError
 
-    def get_tags(self, version=None):
+    def get_dependency(self, version=None):
+        """
+        :type version: int or None
+        :rtype dependency: cache_tagging.interfaces.IDependency
+        """
         raise NotImplementedError
 
 
