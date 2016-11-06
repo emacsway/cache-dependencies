@@ -126,7 +126,7 @@ class CompositeDependency(interfaces.IDependency):
             return True
         else:
             for delegate in self.delegates:
-                if delegate.extend(other):
+                if delegate.extend(other):  # Chain of responsibility
                     break
             else:
                 self.delegates.append(copy.copy(other))
