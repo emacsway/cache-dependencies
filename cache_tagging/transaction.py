@@ -95,7 +95,7 @@ class TransactionManager(BaseTransactionManager):
 
     def __init__(self, lock):
         """
-        :type lock: cache_tagging.interfaces.ITagsLock
+        :type lock: cache_tagging.interfaces.IDependencyLock
         """
         self._lock = lock
         self._current = None

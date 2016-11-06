@@ -4,7 +4,7 @@ from cache_tagging import locks, utils
 from cache_tagging.tests import helpers
 
 
-class AbstractTagsLockTestCase(unittest.TestCase):
+class AbstractDependencyLockTestCase(unittest.TestCase):
     """Abstract class.
 
     See http://stackoverflow.com/questions/1323455/python-unit-test-with-base-and-sub-class
@@ -31,5 +31,5 @@ class AbstractTagsLockTestCase(unittest.TestCase):
         )
 
 
-class ReadUncommittedTagsLockTestCase(AbstractTagsLockTestCase):
-    lock_factory = locks.ReadUncommittedTagsLock
+class ReadUncommittedDependencyLockTestCase(AbstractDependencyLockTestCase):
+    lock_factory = locks.ReadUncommittedDependencyLock

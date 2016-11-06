@@ -2,7 +2,7 @@ import threading
 from cache_tagging import interfaces
 
 
-class TagsLock(interfaces.ITagsLock):
+class DependencyLock(interfaces.IDependencyLock):
 
     def __init__(self, thread_safe_cache_accessor, delay=0):
         self._cache = thread_safe_cache_accessor
@@ -14,16 +14,16 @@ class TagsLock(interfaces.ITagsLock):
     @staticmethod
     def make(isolation_level, thread_safe_cache_accessor, delay):
         if isolation_level == 'READ UNCOMMITED':
-            return ReadUncommittedTagsLock(thread_safe_cache_accessor, delay)
+            return ReadUncommittedDependencyLock(thread_safe_cache_accessor, delay)
         elif isolation_level == 'READ COMMITED':
-            return ReadCommittedTagsLock(thread_safe_cache_accessor, delay)
+            return ReadCommittedDependencyLock(thread_safe_cache_accessor, delay)
         elif isolation_level == 'REPEATABLE READS':
-            return RepeatableReadsTagsLock(thread_safe_cache_accessor, delay)
+            return RepeatableReadsDependencyLock(thread_safe_cache_accessor, delay)
         elif isolation_level == 'SERIALIZABLE':
-            return SerializableTagsLock(thread_safe_cache_accessor, delay)
+            return SerializableDependencyLock(thread_safe_cache_accessor, delay)
 
 
-class ReadUncommittedTagsLock(TagsLock):
+class ReadUncommittedDependencyLock(DependencyLock):
     """Tag Lock for Read Uncommitted transaction isolation level."""
     def acquire(self, dependency, version):
         """
@@ -46,7 +46,7 @@ class ReadUncommittedTagsLock(TagsLock):
         dependency.invalidate(self._cache(), version)
 
 
-class ReadCommittedTagsLock(ReadUncommittedTagsLock):
+class ReadCommittedDependencyLock(ReadUncommittedDependencyLock):
     """Tag Lock for Read Committed transaction isolation level."""
     def release(self, dependency, version):
         """
@@ -54,10 +54,10 @@ class ReadCommittedTagsLock(ReadUncommittedTagsLock):
         :type version: int or None
         """
         self._release_tags_target(dependency, version)
-        super(ReadCommittedTagsLock, self).release(dependency, version)
+        super(ReadCommittedDependencyLock, self).release(dependency, version)
 
 
-class RepeatableReadsTagsLock(TagsLock):
+class RepeatableReadsDependencyLock(DependencyLock):
     """Tag Lock for Repeatable Reads transaction isolation level."""
     def acquire(self, dependency, version):
         """
@@ -74,5 +74,5 @@ class RepeatableReadsTagsLock(TagsLock):
         dependency.release(self._cache(), self._delay, version)
 
 
-class SerializableTagsLock(RepeatableReadsTagsLock):
+class SerializableDependencyLock(RepeatableReadsDependencyLock):
     """Tag Lock for Serializable transaction isolation level."""

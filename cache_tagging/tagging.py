@@ -125,7 +125,7 @@ class CacheTagging(object):
 
         try:
             self.transaction.current().evaluate(combined_dependency_with_descendants, version)
-        except exceptions.TagsLocked:
+        except exceptions.DependencyLocked:
             self.finish(key, dependency, version=version)
             return
 

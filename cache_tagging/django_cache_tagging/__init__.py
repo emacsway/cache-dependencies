@@ -12,7 +12,7 @@ from django.utils.functional import curry
 
 from cache_tagging.tagging import CacheTagging
 from cache_tagging.relations import RelationManager, ThreadSafeRelationManagerDecorator
-from cache_tagging.locks import TagsLock
+from cache_tagging.locks import DependencyLock
 from cache_tagging.transaction import TransactionManager, ThreadSafeTransactionManagerDecorator
 from cache_tagging.nocache import NoCache
 
@@ -59,7 +59,7 @@ class CacheCollection(object):
 
             def thread_safe_cache_accessor():
                 return self(backend, *args, **kwargs).cache
-            tags_lock = TagsLock.make(isolation_level, thread_safe_cache_accessor, delay)
+            tags_lock = DependencyLock.make(isolation_level, thread_safe_cache_accessor, delay)
             transaction = ThreadSafeTransactionManagerDecorator(TransactionManager(tags_lock))
             relation_manager = ThreadSafeRelationManagerDecorator(RelationManager())
             self._caches[key] = CacheTagging(

@@ -1,9 +1,6 @@
 import warnings
 from cache_tagging.utils import Undef
 
-# Memcached does not accept keys longer than this.
-MEMCACHE_MAX_KEY_LENGTH = 250
-
 
 class IValidationStatus(object):
     def __bool__(self):
@@ -164,7 +161,7 @@ class IRelationManager(object):
         raise NotImplementedError
 
 
-class ITagsLock(object):
+class IDependencyLock(object):
 
     def acquire(self, dependency, version):
         """
@@ -181,7 +178,7 @@ class ITagsLock(object):
         raise NotImplementedError
 
     def evaluate(self, dependency, transaction_start_time, version):
-        """it's okay delegate it to ITagsLock,
+        """it's okay delegate it to IDependencyLock,
 
         because Lock can implement Pessimistic Offline Lock or Mutual Exclusion
         instead of raising TagsLocked exception.
@@ -198,7 +195,7 @@ class ITagsLock(object):
         :type isolation_level: str
         :type thread_safe_cache_accessor: collections.Callable
         :type delay: int
-        :rtype: cache_tagging.interfaces.ITagsLock
+        :rtype: cache_tagging.interfaces.IDependencyLock
         """
         raise NotImplementedError
     
@@ -396,6 +393,9 @@ class BaseCache(ICache):
     You can make wrapper for any cache system.
     """
 
+    # Memcached does not accept keys longer than this.
+    MEMCACHE_MAX_KEY_LENGTH = 250
+
     key_prefix = ''
     version = 1
     key_func = staticmethod(default_key_func)
@@ -491,10 +491,10 @@ class BaseCache(ICache):
         cache code.
 
         """
-        if len(key) > MEMCACHE_MAX_KEY_LENGTH:
+        if len(key) > self.MEMCACHE_MAX_KEY_LENGTH:
             warnings.warn(
                 'Cache key will cause errors if used with memcached: ' +
-                '{0} (longer than {1})'.format(key, MEMCACHE_MAX_KEY_LENGTH)
+                '{0} (longer than {1})'.format(key, self.MEMCACHE_MAX_KEY_LENGTH)
             )
         for char in key:
             if ord(char) < 33 or ord(char) == 127:
