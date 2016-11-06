@@ -10,11 +10,13 @@ class IValidationStatus(object):
         """
         :rtype: bool
         """
+        raise NotImplementedError
 
     def __nonzero__(self):
         """ Py2 compatibility
         :rtype: bool
         """
+        return self.__bool__()
 
 
 class IDependency(object):
@@ -69,6 +71,7 @@ class IDependency(object):
         """
         :rtype: cache_tagging.interfaces.IDependency
         """
+        raise NotImplementedError
 
 
 class IDeferred(object):  # Queue?

@@ -21,8 +21,6 @@ class ValidationStatus(interfaces.IValidationStatus):
     def __bool__(self):
         return not self.errors
 
-    __nonzero__ = __bool__
-
 
 class CompositeValidationStatus(interfaces.IValidationStatus):
     def __init__(self, dependency, children):
@@ -39,8 +37,6 @@ class CompositeValidationStatus(interfaces.IValidationStatus):
 
     def __bool__(self):
         return all(self.children)
-
-    __nonzero__ = __bool__
 
     def __iter__(self):
         return iter(self.children)
