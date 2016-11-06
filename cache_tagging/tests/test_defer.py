@@ -9,14 +9,14 @@ except ImportError:
 
 class DeferredTestCase(unittest.TestCase):
     def test_parent(self):
-        d1 = defer.Deferred(None, defer.NoneDeferredIterator)
-        d2 = defer.Deferred(None, defer.NoneDeferredIterator)
+        d1 = defer.DeferredNode(None, defer.NoneDeferredIterator)
+        d2 = defer.DeferredNode(None, defer.NoneDeferredIterator)
         d1.parent = d2
-        d3 = defer.Deferred(None, defer.NoneDeferredIterator)
+        d3 = defer.DeferredNode(None, defer.NoneDeferredIterator)
         d2.parent = d3
 
-        d4 = defer.Deferred(None, defer.NoneDeferredIterator)
-        d5 = defer.Deferred(None, defer.NoneDeferredIterator)
+        d4 = defer.DeferredNode(None, defer.NoneDeferredIterator)
+        d5 = defer.DeferredNode(None, defer.NoneDeferredIterator)
         d4.parent = d5
 
         d1.parent = d4
@@ -25,9 +25,35 @@ class DeferredTestCase(unittest.TestCase):
         for i in range(0, 4):
             self.assertIs(d_order[i].parent, d_order[i + 1],
                           "d{0}.parent is not d{1}".format(i + 1, i + 2))
-        for i in range(0, 4):
-            self.assertIs(d_order[i].iterator.state, d_order[i + 1].iterator.state,
-                          "d{0}.iterator.state is not d{1}.iterator.state".format(i + 1, i + 2))
+
+    def test_iadd(self):
+        d1 = defer.Deferred(None, defer.NoneDeferredIterator, 1)
+        dn1 = d1.node
+        d2 = defer.Deferred(None, defer.NoneDeferredIterator, 2)
+        dn2 = d2.node
+        d3 = defer.Deferred(None, defer.NoneDeferredIterator, 3)
+        dn3 = d3.node
+        d4 = defer.Deferred(None, defer.NoneDeferredIterator, 4)
+        dn4 = d4.node
+        d5 = defer.Deferred(None, defer.NoneDeferredIterator, 5)
+        dn5 = d5.node
+
+        d_ = d3
+        d_ += d2
+        d_ += d1
+
+        d = d5
+        d += d4
+        d += d_
+
+        node = d.node
+        c = 1
+        while node:
+            self.assertTupleEqual(node.args, (c,))
+            self.assertNotIn(node, [dn1, dn2, dn3, dn4])
+            c += 1
+            node = node.parent
+        self.assertEqual(c, 5 + 1)
 
 
 class GetManyDeferredIteratorTestCase(unittest.TestCase):

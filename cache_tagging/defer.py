@@ -1,9 +1,10 @@
+import copy
 import collections
 from functools import wraps
-from cache_tagging.utils import to_hashable
+from cache_tagging import interfaces, utils
 
 
-class Deferred(object):  # Queue?
+class DeferredNode(interfaces.IDeferred):
     """Defers query execution for aggregation purpose.
 
     Used mainly to reduce count of cache.get_many().
@@ -13,17 +14,17 @@ class Deferred(object):  # Queue?
         self.args = args
         self.kwargs = kwargs
         self.queue = []
+        self.iterator_factory = iterator_factory
+        self.aggregation_criterion = utils.to_hashable((executor, iterator_factory, args, kwargs))
         self._parent = None
-        self.iterator = iterator_factory(self)
-        self.iterator.state = State()
-        self.aggregation_criterion = to_hashable((executor, iterator_factory, args, kwargs))
+        self._iterator = None
 
-    def add_callback(self, callback, *args, **kwargs):  # put? apply?
+    def add_callback(self, callback, *args, **kwargs):
         self.queue.append([callback, args, kwargs])
         return self
 
-    def get(self):  # recv?
-        return next(self.iterator)
+    def get(self):
+        return next(iter(self))
 
     @property
     def parent(self):
@@ -32,28 +33,71 @@ class Deferred(object):  # Queue?
     @parent.setter
     def parent(self, parent):
         """
-        :type parent: cache_tagging.defer.Deferred
+        :type parent: cache_tagging.interfaces.IDeferred
         """
         if self._parent is None:
             self._parent = parent
         else:
             self._parent.parent = parent  # Recursion
-        self.iterator.state = parent.iterator.state
+
+    def __iter__(self):
+        if self._iterator is None:
+            self._iterator = self.iterator_factory(self)
+            self._iterator.state = State()
+        return self._iterator
+
+    def __copy__(self):
+        c = copy.copy(super(DeferredNode, self))
+        c.queue = c.queue[:]
+        c._parent = copy.copy(c._parent)
+        return c
+
+
+class Deferred(interfaces.IDeferred):
+    deferred_factory = DeferredNode
+
+    def __init__(self, executor, iterator_factory, *args, **kwargs):
+        self.node = self.deferred_factory(executor, iterator_factory, *args, **kwargs)
+
+    def add_callback(self, callback, *args, **kwargs):
+        return self.node.add_callback(callback, *args, **kwargs)
+
+    def get(self):
+        return self.node.get()
+
+    @property
+    def parent(self):
+        return self.node.parent
+
+    @parent.setter
+    def parent(self, parent):
+        """
+        :type parent: cache_tagging.interfaces.IDeferred
+        """
+        self.node.parent = parent
 
     def __iadd__(self, other):
         """
-        :type other: cache_tagging.defer.Deferred
-        :rtype: cache_tagging.defer.Deferred
+        :type other: cache_tagging.interfaces.IDeferred
+        :rtype: cache_tagging.interfaces.IDeferred
         """
-        if self.aggregation_criterion == other.aggregation_criterion:
-            self.queue.extend(other.queue)
-            return self
+        if isinstance(other, Deferred):
+            other_node = other.node
         else:
-            other.parent = self
-            return other
+            other_node = other
+
+        if self.node.aggregation_criterion == other_node.aggregation_criterion:
+            self.node.queue.extend(other_node.queue)
+            if other_node.parent is not None:
+                return self.__iadd__(other_node.parent)
+        else:
+            other_node_copy = copy.copy(other_node)
+            other_node_copy.parent = self.node
+            self.node = other_node_copy
+        return self
 
     def __iter__(self):
-        return self.iterator
+        return self.node.iterator
 
 
 class State(object):
@@ -92,7 +136,7 @@ class State(object):
     _attr_exc = staticmethod(_attr_exc)
 
 
-class GetManyDeferredIterator(collections.Iterator):
+class AbstractDeferredIterator(collections.Iterator):
     """
 
     Don't use yield statement, because of:
@@ -105,23 +149,31 @@ class GetManyDeferredIterator(collections.Iterator):
 
     def __init__(self, deferred):
         """
-        :type deferred: cache_tagging.defer.Deferred
+        :type deferred: cache_tagging.interfaces.IDeferred
         """
-        self._deferred = deferred
+        self._node = deferred
         self._index = 0
 
     def __iter__(self):
         return self
 
+    def _delegate(self):
+        if self._node.parent:
+            parent_iterator = iter(self._node.parent)
+            parent_iterator.state = self.state
+            return next(parent_iterator)
+        else:
+            raise StopIteration
+
+
+class GetManyDeferredIterator(AbstractDeferredIterator):
+
     def __next__(self):
-        node = self._deferred
+        node = self._node
         queue_len = len(node.queue)
         self.state.switch_context(node.aggregation_criterion)
         if self._index >= len(node.queue):
-            if node.parent:
-                return next(iter(node.parent))
-            else:
-                raise StopIteration
+            return self._delegate()
         self._index += 1
         bulk_caches = self._get_bulk_caches(node)
         callback, args, kwargs = node.queue[queue_len - self._index]
@@ -145,7 +197,7 @@ class GetManyDeferredIterator(collections.Iterator):
 
     def _get_all_cache_keys(self, acceptable_aggregation_criterion):
         keys = set()
-        node = self._deferred
+        node = self._node
         while node:
             if node.aggregation_criterion == acceptable_aggregation_criterion:
                 keys |= self._get_node_cache_keys(node)
@@ -155,7 +207,7 @@ class GetManyDeferredIterator(collections.Iterator):
     @staticmethod
     def _get_node_cache_keys(node):
         """
-        :type node: cache_tagging.defer.Deferred
+        :type node: cache_tagging.interfaces.IDeferred
         """
         keys = set()
         for callback, args, kwargs in node.queue:
@@ -163,24 +215,10 @@ class GetManyDeferredIterator(collections.Iterator):
         return keys
 
 
-class NoneDeferredIterator(collections.Iterator):
-    """
-    :type state: cache_tagging.defer.State
-    """
-    state = None
-
-    def __init__(self, deferred):
-        """
-        :type deferred: cache_tagging.defer.Deferred
-        """
-        self._deferred = deferred
-        self._index = 0
-
-    def __iter__(self):
-        return self
+class NoneDeferredIterator(AbstractDeferredIterator):
 
     def __next__(self):
-        node = self._deferred
+        node = self._node
         queue_len = len(node.queue)
         self.state.switch_context(node.aggregation_criterion)
         if self._index >= len(node.queue):
