@@ -197,6 +197,12 @@ class AbstractDeferredIterator(collections.Iterator):
     def state(self, state):
         self._state = state
 
+    def next(self):
+        return self.__next__()
+
+    def __next__(self):
+        raise NotImplementedError
+
 
 class GetManyDeferredIterator(AbstractDeferredIterator):
 
@@ -211,8 +217,6 @@ class GetManyDeferredIterator(AbstractDeferredIterator):
         callback, args, kwargs = node.queue[queue_len - self._index]
         result = {key: bulk_caches[key] for key in args[0] if key in bulk_caches}
         return callback(node, result)
-
-    next = __next__
 
     def _get_bulk_caches(self, node):
         if node.aggregation_criterion not in self._bulk_caches_map:
@@ -258,5 +262,3 @@ class NoneDeferredIterator(AbstractDeferredIterator):
         self._index += 1
         callback, args, kwargs = node.queue[queue_len - self._index]
         return callback(node, None)
-
-    next = __next__
