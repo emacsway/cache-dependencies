@@ -213,25 +213,25 @@ class GetManyDeferredIterator(AbstractDeferredIterator):
         if self._index >= len(node.queue):
             return self._delegate()
         self._index += 1
-        bulk_caches = self._get_bulk_caches(node)
+        aggregated_caches = self._get_aggregated_caches(node)
         callback, args, kwargs = node.queue[queue_len - self._index]
-        result = {key: bulk_caches[key] for key in args[0] if key in bulk_caches}
-        return callback(node, result)
+        item_caches = {key: aggregated_caches[key] for key in args[0] if key in aggregated_caches}
+        return callback(node, item_caches)
 
-    def _get_bulk_caches(self, node):
-        if node.aggregation_criterion not in self._bulk_caches_map:
-            self._bulk_caches_map[node.aggregation_criterion] = node.execute(
-                self._get_all_cache_keys(node.aggregation_criterion), *node.args, **node.kwargs
+    def _get_aggregated_caches(self, node):
+        if node.aggregation_criterion not in self._aggregated_caches_map:
+            self._aggregated_caches_map[node.aggregation_criterion] = node.execute(
+                self._get_aggregated_cache_keys(node.aggregation_criterion), *node.args, **node.kwargs
             ) or {}
-        return self._bulk_caches_map[node.aggregation_criterion]
+        return self._aggregated_caches_map[node.aggregation_criterion]
 
     @property
-    def _bulk_caches_map(self):
-        if not hasattr(self.state, 'bulk_caches_map'):
-            self.state.bulk_caches_map = {}
-        return self.state.bulk_caches_map
+    def _aggregated_caches_map(self):
+        if not hasattr(self.state, 'aggregated_caches_map'):
+            self.state.aggregated_caches_map = {}
+        return self.state.aggregated_caches_map
 
-    def _get_all_cache_keys(self, acceptable_aggregation_criterion):
+    def _get_aggregated_cache_keys(self, acceptable_aggregation_criterion):
         keys = set()
         node = self._node
         while node:
