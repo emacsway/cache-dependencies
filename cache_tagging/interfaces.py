@@ -97,6 +97,10 @@ class IDeferred(object):  # Queue?
     def parent(self, parent):
         raise NotImplementedError
 
+    @parent.deleter
+    def parent(self):
+        raise NotImplementedError
+
     def __iter__(self):
         raise NotImplementedError
 

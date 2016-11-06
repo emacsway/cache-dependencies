@@ -1,3 +1,4 @@
+import copy
 import unittest
 from cache_tagging import defer
 
@@ -27,33 +28,57 @@ class DeferredTestCase(unittest.TestCase):
                           "d{0}.parent is not d{1}".format(i + 1, i + 2))
 
     def test_iadd(self):
+        d0 = defer.Deferred(None, defer.NoneDeferredIterator, 0)
+        d0.add_callback(lambda *a, **kw: 0)
+        dn0 = d0.node
         d1 = defer.Deferred(None, defer.NoneDeferredIterator, 1)
+        d1.add_callback(lambda *a, **kw: 1)
         dn1 = d1.node
         d2 = defer.Deferred(None, defer.NoneDeferredIterator, 2)
+        d2.add_callback(lambda *a, **kw: 2)
         dn2 = d2.node
         d3 = defer.Deferred(None, defer.NoneDeferredIterator, 3)
+        d3.add_callback(lambda *a, **kw: 3)
         dn3 = d3.node
         d4 = defer.Deferred(None, defer.NoneDeferredIterator, 4)
+        d4.add_callback(lambda *a, **kw: 4)
         dn4 = d4.node
         d5 = defer.Deferred(None, defer.NoneDeferredIterator, 5)
+        d5.add_callback(lambda *a, **kw: 5)
         dn5 = d5.node
+        d31 = defer.Deferred(None, defer.NoneDeferredIterator, 3)
+        d31.add_callback(lambda *a, **kw: 31)
+        dn31 = d31.node
+        d32 = defer.Deferred(None, defer.NoneDeferredIterator, 3)
+        d32.add_callback(lambda *a, **kw: 32)
+        dn32 = d32.node
 
-        d_ = d3
+        d_ = defer.Deferred(None, defer.NoneDeferredIterator, 3)
+        d_ += d32
+        d_ += d31
         d_ += d2
         d_ += d1
+        d_ += d0
 
-        d = d5
+        d = defer.Deferred(None, defer.NoneDeferredIterator, 5)
+        d += d5
         d += d4
+        d += d3
         d += d_
 
         node = d.node
-        c = 1
+        c = 0
         while node:
+            self.assertEqual(len(node.queue), 3 if c == 3 else 1)
+            if c == 3:
+                for i, n in enumerate([dn3, dn32, dn31]):
+                    self.assertListEqual(node.queue[i], n.queue[0])
             self.assertTupleEqual(node.args, (c,))
-            self.assertNotIn(node, [dn1, dn2, dn3, dn4])
+            self.assertNotIn(node, [dn0, dn1, dn2, dn3, dn4, dn5, d31, d32])
             c += 1
             node = node.parent
         self.assertEqual(c, 5 + 1)
+        self.assertTupleEqual(tuple(d), (0, 1, 2, 31, 32, 3, 4, 5))
 
 
 class GetManyDeferredIteratorTestCase(unittest.TestCase):

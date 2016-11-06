@@ -36,10 +36,14 @@ class DeferredNode(interfaces.IDeferred):
         """
         :type parent: cache_tagging.interfaces.IDeferred
         """
-        if self._parent is None:
+        if getattr(self, '_parent', None) is None or parent is None:
             self._parent = parent
         else:
             self._parent.parent = parent  # Recursion
+
+    @parent.deleter
+    def parent(self):
+        self._parent = None
 
     def __iter__(self):
         if self._iterator is None:
@@ -49,12 +53,24 @@ class DeferredNode(interfaces.IDeferred):
     def __copy__(self):
         c = copy.copy(super(DeferredNode, self))
         c.queue = c.queue[:]
-        c._parent = copy.copy(c._parent)
+        c._parent = copy.copy(c._parent)  # excess?
         return c
 
 
 class Deferred(interfaces.IDeferred):
     deferred_factory = DeferredNode
+
+    def _to_node(f):
+        @wraps(f)
+        def _deco(self, other):
+            if isinstance(other, Deferred):
+                other_node = other.node
+            elif isinstance(other, interfaces.IDeferred):
+                other_node = other
+            else:
+                raise TypeError("\"other\" should to have type derived from interfaces.IDeferred")
+            return f(self, other_node)
+        return _deco
 
     def __init__(self, executor, iterator_factory, *args, **kwargs):
         self.node = self.deferred_factory(executor, iterator_factory, *args, **kwargs)
@@ -70,36 +86,39 @@ class Deferred(interfaces.IDeferred):
         return self.node.parent
 
     @parent.setter
+    @_to_node
     def parent(self, parent):
         """
         :type parent: cache_tagging.interfaces.IDeferred
         """
         self.node.parent = parent
 
+    @parent.deleter
+    def parent(self):
+        del self.node.parent
+
+    @_to_node
     def __iadd__(self, other):
         """
         :type other: cache_tagging.interfaces.IDeferred
         :rtype: cache_tagging.interfaces.IDeferred
         """
-        if isinstance(other, Deferred):
-            other_node = other.node
-        elif isinstance(other, interfaces.IDeferred):
-            other_node = other
-        else:
-            raise TypeError("\"other\" should to have type derived from interfaces.IDeferred")
+        other = copy.copy(other)
+        if other.parent is not None:
+            self.__iadd__(other.parent)
+            del other.parent
 
-        if self.node.aggregation_criterion == other_node.aggregation_criterion:
-            self.node.queue.extend(other_node.queue)
-            if other_node.parent is not None:
-                return self.__iadd__(other_node.parent)
+        if self.node.aggregation_criterion == other.aggregation_criterion:
+            self.node.queue.extend(other.queue)
         else:
-            other_node_copy = copy.copy(other_node)
-            other_node_copy.parent = self.node
-            self.node = other_node_copy
+            other.parent, self.node = self.node, other
+
         return self
 
     def __iter__(self):
         return iter(self.node)
+
+    _to_node = staticmethod(_to_node)
 
 
 class State(object):
