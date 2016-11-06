@@ -161,10 +161,10 @@ template::
         and context has attribute "request".
     {% endcomment %}
 
-`django-phased <https://github.com/codysoyland/django-phased>`_ support::
+Support for `django-phased <https://github.com/codysoyland/django-phased>`_::
 
     {% comment %}
-        django-phased support https://github.com/codysoyland/django-phased
+        Support for django-phased https://github.com/codysoyland/django-phased
         See documentation for more details http://django-phased.readthedocs.org/
     {% endcomment %}
     {% load cache_tagging_tags %}
