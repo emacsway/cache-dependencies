@@ -27,6 +27,7 @@ class Transaction(BaseTransaction):
         return None
 
     def add_dependency(self, dependency, version):
+        assert isinstance(dependency, interfaces.IDependency)
         if version not in self._dependencies:
             self._dependencies[version] = dependencies.CompositeDependency()
         self._dependencies[version].extend(dependency)
@@ -49,6 +50,7 @@ class SavePoint(Transaction):
         return self._parent
 
     def add_dependency(self, dependency, version):
+        assert isinstance(dependency, interfaces.IDependency)
         super(SavePoint, self).add_dependency(dependency, version)
         self._parent.add_dependency(dependency, version)
 
@@ -61,7 +63,7 @@ class DummyTransaction(BaseTransaction):
         return None
 
     def add_dependency(self, dependency, version):
-        pass
+        assert isinstance(dependency, interfaces.IDependency)
 
     def finish(self):
         pass
