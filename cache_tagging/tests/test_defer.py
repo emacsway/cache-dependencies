@@ -8,8 +8,26 @@ except ImportError:
 
 
 class DeferredTestCase(unittest.TestCase):
-    # TODO:
-    pass
+    def test_parent(self):
+        d1 = defer.Deferred(None, defer.NoneDeferredIterator)
+        d2 = defer.Deferred(None, defer.NoneDeferredIterator)
+        d1.parent = d2
+        d3 = defer.Deferred(None, defer.NoneDeferredIterator)
+        d2.parent = d3
+
+        d4 = defer.Deferred(None, defer.NoneDeferredIterator)
+        d5 = defer.Deferred(None, defer.NoneDeferredIterator)
+        d4.parent = d5
+
+        d1.parent = d4
+
+        d_order = [d1, d2, d3, d4, d5, None]
+        for i in range(0, 4):
+            self.assertIs(d_order[i].parent, d_order[i + 1],
+                          "d{0}.parent is not d{1}".format(i + 1, i + 2))
+        for i in range(0, 4):
+            self.assertIs(d_order[i].iterator.state, d_order[i + 1].iterator.state,
+                          "d{0}.iterator.state is not d{1}.iterator.state".format(i + 1, i + 2))
 
 
 class GetManyDeferredIteratorTestCase(unittest.TestCase):

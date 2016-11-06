@@ -34,7 +34,10 @@ class Deferred(object):  # Queue?
         """
         :type parent: cache_tagging.defer.Deferred
         """
-        self._parent = parent
+        if self._parent is None:
+            self._parent = parent
+        else:
+            self._parent.parent = parent  # Recursion
         self.iterator.state = parent.iterator.state
 
     def __iadd__(self, other):
@@ -182,7 +185,7 @@ class NoneDeferredIterator(collections.Iterator):
         self.state.switch_context(node.aggregation_criterion)
         if self._index >= len(node.queue):
             if node.parent:
-                return next(node.parent)
+                return next(iter(node.parent))
             else:
                 raise StopIteration
         self._index += 1
