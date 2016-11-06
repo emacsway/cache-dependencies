@@ -254,10 +254,7 @@ class NoneDeferredIterator(AbstractDeferredIterator):
         queue_len = len(node.queue)
         self.state.switch_context(node.aggregation_criterion)
         if self._index >= len(node.queue):
-            if node.parent:
-                return next(iter(node.parent))
-            else:
-                raise StopIteration
+            return self._delegate()
         self._index += 1
         callback, args, kwargs = node.queue[queue_len - self._index]
         return callback(node, None)
