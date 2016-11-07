@@ -50,7 +50,7 @@ class CacheCollection(object):
         if key not in self._caches:
             options = getattr(settings, 'CACHE_TAGGING', {}).get(backend, {})
             delay = options.get('DELAY', 0) or 0
-            isolation_level = options.get('ISOLATION_LEVEL', 'READ COMMITED')
+            isolation_level = options.get('ISOLATION_LEVEL', 'READ COMMITTED')
             django_backend = options.get('BACKEND', backend)
             if hasattr(django.core.cache, 'caches'):
                 cache = django.core.cache.caches[django_backend]

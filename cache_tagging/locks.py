@@ -13,14 +13,16 @@ class DependencyLock(interfaces.IDependencyLock):
 
     @staticmethod
     def make(isolation_level, thread_safe_cache_accessor, delay):
-        if isolation_level == 'READ UNCOMMITED':
+        if isolation_level == 'READ UNCOMMITTED':
             return ReadUncommittedDependencyLock(thread_safe_cache_accessor, delay)
-        elif isolation_level == 'READ COMMITED':
+        elif isolation_level == 'READ COMMITTED':
             return ReadCommittedDependencyLock(thread_safe_cache_accessor, delay)
         elif isolation_level == 'REPEATABLE READS':
             return RepeatableReadsDependencyLock(thread_safe_cache_accessor, delay)
         elif isolation_level == 'SERIALIZABLE':
             return SerializableDependencyLock(thread_safe_cache_accessor, delay)
+        else:
+            raise ValueError(isolation_level)
 
 
 class ReadUncommittedDependencyLock(DependencyLock):
@@ -37,12 +39,12 @@ class ReadUncommittedDependencyLock(DependencyLock):
         :type version: int or None
         """
         if self._delay:
-            return self._release_tags_delayed(dependency, version)
+            return self._release_dependency_delayed(dependency, version)
 
-    def _release_tags_delayed(self, dependency, version):
-        return threading.Timer(self._delay, self._release_tags_target, [dependency, version]).start()
+    def _release_dependency_delayed(self, dependency, version):
+        return threading.Timer(self._delay, self._release_dependency_target, [dependency, version]).start()
 
-    def _release_tags_target(self, dependency, version):
+    def _release_dependency_target(self, dependency, version):
         dependency.invalidate(self._cache(), version)
 
 
@@ -53,7 +55,7 @@ class ReadCommittedDependencyLock(ReadUncommittedDependencyLock):
         :type dependency: cache_tagging.interfaces.IDependency
         :type version: int or None
         """
-        self._release_tags_target(dependency, version)
+        self._release_dependency_target(dependency, version)
         super(ReadCommittedDependencyLock, self).release(dependency, version)
 
 
