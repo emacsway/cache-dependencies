@@ -1,10 +1,10 @@
 from __future__ import absolute_import, unicode_literals
+import collections
 from django.utils.decorators import decorator_from_middleware_with_args
 
-from ..tagging import CacheTagging
-from . import cache
-from .middleware import CacheMiddleware
-import collections
+from cache_tagging.django_cache_tagging import cache  # in real it used
+from cache_tagging.django_cache_tagging.middleware import CacheMiddleware
+from cache_tagging.tagging import CacheTagging
 
 
 def cache_transaction(f=None, cache=None):
