@@ -137,7 +137,8 @@ class TagsDependency(interfaces.IDependency):
         deferred += self._get_locked_tags(cache, transaction_start_time, version)
         locked_tags = deferred.get()
         tag_versions = deferred.get()
-        # All deferred operations should be completed before exception will be raised.
+        # All deferred operations in this method should be completed
+        # before exception will be raised.
         if locked_tags:
             raise exceptions.TagsLocked(self, locked_tags)
         nonexistent_tags = self.tags - set(tag_versions.keys())
