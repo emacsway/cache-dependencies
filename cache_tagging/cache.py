@@ -205,7 +205,7 @@ def default_key_func(key, key_prefix, version):
 class AbstractCache(interfaces.ICache):
     """Historically used Django API interface.
 
-    You can make wrapper for any cache system.
+    You can make adapter for any cache system.
     """
 
     # Memcached does not accept keys longer than this.
