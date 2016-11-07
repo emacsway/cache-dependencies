@@ -78,6 +78,8 @@ class CompositeDependency(interfaces.IDependency):
         except TypeError:  # self.delegates is empty
             deferred = defer.Deferred(None, defer.NoneDeferredIterator)
 
+        deferred += defer.Deferred(None, defer.NoneDeferredIterator)
+
         def callback(node, caches):
             errors = []
             for _ in range(0, len(self.delegates)):
@@ -85,7 +87,7 @@ class CompositeDependency(interfaces.IDependency):
                 errors.append(validation_status)
             return CompositeValidationStatus(self, tuple(errors))
 
-        deferred.add_callback(callback, set())
+        deferred.add_callback(callback)
         return deferred
 
     def invalidate(self, cache, version):
