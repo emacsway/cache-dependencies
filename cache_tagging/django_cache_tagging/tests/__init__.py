@@ -101,6 +101,12 @@ class CacheTaggingIntegrationTest(TestCase):
             u'name2': u'value2'
         })
 
+        cache.invalidate_tags(*tags2)
+        self.assertDictEqual(cache.get_many(('name1', 'name2')), {
+            u'name1': u'value1',
+        })
+        cache.set('name2', 'value2', tags2, 120)
+
         self.obj2.title = 'title2.2'
         self.obj2.save()
         self.assertEqual(cache.get('name1'), 'value1')

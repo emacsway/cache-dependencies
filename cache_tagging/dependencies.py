@@ -2,44 +2,10 @@ import copy
 import time
 import operator
 import functools
-import itertools
 import collections
 from cache_tagging import interfaces, defer, exceptions, utils
 
 TagStateBean = collections.namedtuple('TagStateBean', ('time', 'status', 'thread_id'))
-
-
-class ValidationStatus(interfaces.IValidationStatus):
-    def __init__(self, dependency, errors):
-        """
-        :type dependency: cache_tagging.interfaces.IDependency
-        :type errors: tuple[str]
-        """
-        self.dependency = dependency
-        self.errors = errors
-
-    def __bool__(self):
-        return not self.errors
-
-
-class CompositeValidationStatus(interfaces.IValidationStatus):
-    def __init__(self, dependency, children):
-        """
-        :type dependency: cache_tagging.interfaces.IDependency
-        :type children: tuple[bool]
-        """
-        self.dependency = dependency
-        self.children = children
-
-    @property
-    def errors(self):
-        return itertools.chain(*map(operator.attrgetter('errors'), self.children))
-
-    def __bool__(self):
-        return all(self.children)
-
-    def __iter__(self):
-        return iter(self.children)
 
 
 class CompositeDependency(interfaces.IDependency):
@@ -83,9 +49,12 @@ class CompositeDependency(interfaces.IDependency):
         def callback(node, caches):
             errors = []
             for _ in range(0, len(self.delegates)):
-                validation_status = node.get()
-                errors.append(validation_status)
-            return CompositeValidationStatus(self, tuple(errors))
+                try:
+                    node.get()
+                except exceptions.DependencyInvalid as e:
+                    errors.append(e)
+            if errors:
+                raise exceptions.CompositeDependencyInvalid(self, tuple(errors))
 
         deferred.add_callback(callback)
         return deferred
@@ -189,7 +158,8 @@ class TagsDependency(interfaces.IDependency):
                 tag for tag, tag_version in self.tag_versions.items()
                 if actual_tag_versions.get(tag) != tag_version
             )
-            return ValidationStatus(self, tuple(invalid_tags))
+            if invalid_tags:
+                raise exceptions.TagsInvalid(self, tuple(invalid_tags))
 
         deferred.add_callback(callback, set())
         return deferred
@@ -312,7 +282,7 @@ class DummyDependency(interfaces.IDependency):
         :rtype: cache_tagging.interfaces.IDeferred
         """
         deferred = defer.Deferred(None, defer.NoneDeferredIterator)
-        deferred.add_callback(lambda *a, **kw: ValidationStatus(self, tuple()))
+        deferred.add_callback(lambda *a, **kw: None)
         return deferred
 
     def invalidate(self, cache, version):

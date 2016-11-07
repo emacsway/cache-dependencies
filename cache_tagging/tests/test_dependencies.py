@@ -183,56 +183,24 @@ class TagsDependencyTestCase(AbstractTagsDependencyTestCase):
         self.assertDictEqual(tag_versions_in_later_concurrent_transaction, self.tag_versions)
 
 
-class ValidationStatusTestCase(unittest.TestCase):
-    def test_false(self):
-        errors = ('err1', 'err2')
-        self.assertFalse(dependencies.ValidationStatus(self._make_dep(), errors))
-
-    def test_true(self):
-        self.assertTrue(dependencies.ValidationStatus(self._make_dep(), ()))
-
-    @staticmethod
-    def _make_dep():
-        return mock.Mock(spec=interfaces.IDependency)
-
-
-class CompositeValidationStatusTest2Case(unittest.TestCase):
+class CompositeExceptionTestCase(unittest.TestCase):
     def test_false(self):
         errors1 = ('err1', 'err2')
         errors2 = ('err3', 'err4')
-        validation_status = dependencies.CompositeValidationStatus(
+        validation_status = exceptions.CompositeDependencyInvalid(
             self._make_dep(),
             (
-                dependencies.ValidationStatus(self._make_dep(), ()),
-                dependencies.ValidationStatus(self._make_dep(), errors1),
-                dependencies.CompositeValidationStatus(
+                exceptions.DependencyInvalid(self._make_dep(), ()),
+                exceptions.DependencyInvalid(self._make_dep(), errors1),
+                exceptions.CompositeDependencyInvalid(
                     self._make_dep(),
                     (
-                        dependencies.ValidationStatus(self._make_dep(), errors2),
+                        exceptions.DependencyInvalid(self._make_dep(), errors2),
                     )
                 )
             )
         )
-        self.assertFalse(validation_status)
         self.assertTupleEqual(tuple(validation_status.errors), errors1 + errors2)
-        self.assertEqual(len(list(validation_status)), 3)
-
-    def test_true(self):
-        validation_status = dependencies.CompositeValidationStatus(
-            self._make_dep(),
-            (
-                dependencies.ValidationStatus(self._make_dep(), ()),
-                dependencies.ValidationStatus(self._make_dep(), ()),
-                dependencies.CompositeValidationStatus(
-                    self._make_dep(),
-                    (
-                        dependencies.ValidationStatus(self._make_dep(), ()),
-                    )
-                )
-            )
-        )
-        self.assertTrue(validation_status)
-        self.assertTupleEqual(tuple(validation_status.errors), ())
         self.assertEqual(len(list(validation_status)), 3)
 
     @staticmethod

@@ -52,8 +52,9 @@ class CacheTagging(object):
         value, dependency = self._unpack_data(data)
 
         deferred = dependency.validate(self.cache, version)
-        validation_status = deferred.get()
-        if not validation_status:
+        try:
+            deferred.get()
+        except exceptions.DependencyInvalid:
             return default
 
         self.finish(key, dependency, version=version)
@@ -93,11 +94,11 @@ class CacheTagging(object):
         dependencies_reversed = {v: k for k, v in cache_dependencies.items()}
         composite_dependency = dependencies.CompositeDependency(*cache_dependencies.values())
         deferred = composite_dependency.validate(self.cache, version)
-        composite_validation_status = deferred.get()
-        if not composite_validation_status:
-            for dependency_validation_status in composite_validation_status:
-                if not dependency_validation_status:
-                    cache_values.pop(dependencies_reversed[dependency_validation_status.dependency], None)
+        try:
+            deferred.get()
+        except exceptions.DependencyInvalid as composite_error:
+            for dependency_error in composite_error:
+                cache_values.pop(dependencies_reversed[dependency_error.dependency], None)
 
         for key in cache_values:  # Looping through filtered result
             self.finish(key, cache_dependencies[key], version=version)

@@ -2,20 +2,6 @@ import warnings
 from cache_tagging.utils import Undef
 
 
-class IValidationStatus(object):
-    def __bool__(self):
-        """
-        :rtype: bool
-        """
-        raise NotImplementedError
-
-    def __nonzero__(self):
-        """ Py2 compatibility
-        :rtype: bool
-        """
-        return self.__bool__()
-
-
 class IDependency(object):
 
     def evaluate(self, cache, transaction_start_time, version):
