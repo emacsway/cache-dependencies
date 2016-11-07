@@ -3,7 +3,13 @@ import itertools
 
 
 class DependencyLocked(Exception):
-    pass
+    def __init__(self, dependency, items):
+        """
+        :type dependency: cache_tagging.interfaces.IDependency
+        :type items: collections.Iterable[str]
+        """
+        self.dependency = dependency
+        self.items = tuple(items)
 
 
 class TagsLocked(DependencyLocked):
@@ -11,17 +17,30 @@ class TagsLocked(DependencyLocked):
 
 
 class CompositeDependencyLocked(DependencyLocked):
-    pass
+    def __init__(self, dependency, children):
+        """
+        :type dependency: cache_tagging.interfaces.IDependency
+        :type children: collections.Iterable[DependencyInvalid]
+        """
+        self.dependency = dependency
+        self.children = tuple(children)
+
+    @property
+    def items(self):
+        return itertools.chain(*map(operator.attrgetter('items'), self.children))
+
+    def __iter__(self):
+        return iter(self.children)
 
 
 class DependencyInvalid(Exception):
     def __init__(self, dependency, errors):
         """
         :type dependency: cache_tagging.interfaces.IDependency
-        :type errors: tuple[str]
+        :type errors: collections.Iterable[str]
         """
         self.dependency = dependency
-        self.errors = errors
+        self.errors = tuple(errors)
 
 
 class TagsInvalid(DependencyInvalid):
@@ -32,10 +51,10 @@ class CompositeDependencyInvalid(DependencyInvalid):
     def __init__(self, dependency, children):
         """
         :type dependency: cache_tagging.interfaces.IDependency
-        :type children: tuple[DependencyInvalid]
+        :type children: collections.Iterable[DependencyInvalid]
         """
         self.dependency = dependency
-        self.children = children
+        self.children = tuple(children)
 
     @property
     def errors(self):

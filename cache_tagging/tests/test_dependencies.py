@@ -90,7 +90,7 @@ class TagsDependencyTestCase(AbstractTagsDependencyTestCase):
                 self.cache, acquire_time - 1, None
             )
         except exceptions.TagsLocked as e:
-            self.assertSetEqual(tags, e.args[0])
+            self.assertSetEqual(tags, set(e.items))
         else:
             self.fail("Exception is not raised!")
 
@@ -100,7 +100,7 @@ class TagsDependencyTestCase(AbstractTagsDependencyTestCase):
                 self.cache, acquire_time + 1, None
             )
         except exceptions.TagsLocked as e:
-            self.assertSetEqual(tags, e.args[0])
+            self.assertSetEqual(tags, set(e.items))
         else:
             self.fail("Exception is not raised!")
 
@@ -127,7 +127,7 @@ class TagsDependencyTestCase(AbstractTagsDependencyTestCase):
                 self.cache, release_time - 1, None
             )
         except exceptions.TagsLocked as e:
-            self.assertSetEqual(tags, e.args[0])
+            self.assertSetEqual(tags, set(e.items))
         else:
             self.fail("Exception is not raised!")
 
@@ -162,7 +162,7 @@ class TagsDependencyTestCase(AbstractTagsDependencyTestCase):
                 self.cache, release_time - 1, None
             )
         except exceptions.TagsLocked as e:
-            self.assertSetEqual(tags, e.args[0])
+            self.assertSetEqual(tags, set(e.items))
         else:
             self.fail("Exception is not raised!")
 
@@ -172,7 +172,7 @@ class TagsDependencyTestCase(AbstractTagsDependencyTestCase):
                 self.cache, release_time + 1, None
             )
         except exceptions.TagsLocked as e:
-            self.assertSetEqual(tags, e.args[0])
+            self.assertSetEqual(tags, set(e.items))
         else:
             self.fail("Exception is not raised!")
 
@@ -183,7 +183,7 @@ class TagsDependencyTestCase(AbstractTagsDependencyTestCase):
         self.assertDictEqual(tag_versions_in_later_concurrent_transaction, self.tag_versions)
 
 
-class CompositeExceptionTestCase(unittest.TestCase):
+class CompositeDependencyInvalidTestCase(unittest.TestCase):
     def test_false(self):
         errors1 = ('err1', 'err2')
         errors2 = ('err3', 'err4')
@@ -201,6 +201,31 @@ class CompositeExceptionTestCase(unittest.TestCase):
             )
         )
         self.assertTupleEqual(tuple(validation_status.errors), errors1 + errors2)
+        self.assertEqual(len(list(validation_status)), 3)
+
+    @staticmethod
+    def _make_dep():
+        return mock.Mock(spec=interfaces.IDependency)
+
+
+class CompositeDependencyLockedTestCase(unittest.TestCase):
+    def test_false(self):
+        items1 = ('item1', 'item2')
+        items2 = ('item3', 'item4')
+        validation_status = exceptions.CompositeDependencyLocked(
+            self._make_dep(),
+            (
+                exceptions.DependencyLocked(self._make_dep(), ()),
+                exceptions.DependencyLocked(self._make_dep(), items1),
+                exceptions.CompositeDependencyLocked(
+                    self._make_dep(),
+                    (
+                        exceptions.DependencyLocked(self._make_dep(), items2),
+                    )
+                )
+            )
+        )
+        self.assertTupleEqual(tuple(validation_status.items), items1 + items2)
         self.assertEqual(len(list(validation_status)), 3)
 
     @staticmethod

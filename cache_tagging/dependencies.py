@@ -21,14 +21,14 @@ class CompositeDependency(interfaces.IDependency):
         :type transaction_start_time: float
         :type version: int or None
         """
-        errors = []
+        items = []
         for delegate in self.delegates:
             try:
                 delegate.evaluate(cache, transaction_start_time, version)
             except exceptions.DependencyLocked as e:
-                errors.append(e)
-        if errors:
-            raise exceptions.CompositeDependencyLocked(errors)
+                items.append(e)
+        if items:
+            raise exceptions.CompositeDependencyLocked(self, items)
 
     def validate(self, cache, version):
         """
@@ -54,7 +54,7 @@ class CompositeDependency(interfaces.IDependency):
                 except exceptions.DependencyInvalid as e:
                     errors.append(e)
             if errors:
-                raise exceptions.CompositeDependencyInvalid(self, tuple(errors))
+                raise exceptions.CompositeDependencyInvalid(self, errors)
 
         deferred.add_callback(callback)
         return deferred
@@ -136,9 +136,10 @@ class TagsDependency(interfaces.IDependency):
         deferred = self._get_tag_versions(cache, version)
         deferred += self._get_locked_tags(cache, transaction_start_time, version)
         locked_tags = deferred.get()
-        if locked_tags:
-            raise exceptions.TagsLocked(locked_tags)
         tag_versions = deferred.get()
+        # All deferred operations should be completed before exception will be raised.
+        if locked_tags:
+            raise exceptions.TagsLocked(self, locked_tags)
         nonexistent_tags = self.tags - set(tag_versions.keys())
         new_tag_versions = self._make_tag_versions(cache, nonexistent_tags, version)
         tag_versions.update(new_tag_versions)
@@ -159,7 +160,7 @@ class TagsDependency(interfaces.IDependency):
                 if actual_tag_versions.get(tag) != tag_version
             )
             if invalid_tags:
-                raise exceptions.TagsInvalid(self, tuple(invalid_tags))
+                raise exceptions.TagsInvalid(self, invalid_tags)
 
         deferred.add_callback(callback, set())
         return deferred
