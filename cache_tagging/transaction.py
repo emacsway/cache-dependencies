@@ -5,7 +5,7 @@ from cache_tagging import dependencies, interfaces, mixins
 from cache_tagging.utils import Undef
 
 
-class BaseTransaction(interfaces.ITransaction):
+class AbstractTransaction(interfaces.ITransaction):
     def __init__(self, lock):
         self._lock = lock
         self.start_time = self._current_time()
@@ -18,7 +18,7 @@ class BaseTransaction(interfaces.ITransaction):
         return time.time()
 
 
-class Transaction(BaseTransaction):
+class Transaction(AbstractTransaction):
     def __init__(self, lock):
         super(Transaction, self).__init__(lock)
         self._dependencies = dict()
@@ -58,7 +58,7 @@ class SavePoint(Transaction):
         pass
 
 
-class DummyTransaction(BaseTransaction):
+class DummyTransaction(AbstractTransaction):
     def parent(self):
         return None
 
@@ -69,7 +69,7 @@ class DummyTransaction(BaseTransaction):
         pass
 
 
-class BaseTransactionManager(interfaces.ITransactionManager):
+class AbstractTransactionManager(interfaces.ITransactionManager):
 
     def __call__(self, func=None):
         if func is None:
@@ -91,7 +91,7 @@ class BaseTransactionManager(interfaces.ITransactionManager):
         return False
 
 
-class TransactionManager(BaseTransactionManager):
+class TransactionManager(AbstractTransactionManager):
 
     def __init__(self, lock):
         """
@@ -121,7 +121,7 @@ class TransactionManager(BaseTransactionManager):
             self.finish()
 
 
-class ThreadSafeTransactionManagerDecorator(mixins.ThreadSafeDecoratorMixIn, BaseTransactionManager):
+class ThreadSafeTransactionManagerDecorator(mixins.ThreadSafeDecoratorMixIn, AbstractTransactionManager):
 
     def current(self, node=Undef):
         self._validate_thread_sharing()

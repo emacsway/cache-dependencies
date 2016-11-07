@@ -1,9 +1,9 @@
 import time
 import pickle
-from cache_tagging.interfaces import BaseCache
+from cache_tagging.cache import AbstractCache
 
 
-class CacheStub(BaseCache):
+class CacheStub(AbstractCache):
 
     def __init__(self):
         self._cache = {}
