@@ -17,8 +17,8 @@ class DependencyLock(interfaces.IDependencyLock):
             return ReadUncommittedDependencyLock(thread_safe_cache_accessor, delay)
         elif isolation_level == 'READ COMMITTED':
             return ReadCommittedDependencyLock(thread_safe_cache_accessor, delay)
-        elif isolation_level == 'REPEATABLE READS':
-            return RepeatableReadsDependencyLock(thread_safe_cache_accessor, delay)
+        elif isolation_level == 'REPEATABLE READ':
+            return RepeatableReadDependencyLock(thread_safe_cache_accessor, delay)
         elif isolation_level == 'SERIALIZABLE':
             return SerializableDependencyLock(thread_safe_cache_accessor, delay)
         else:
@@ -59,7 +59,7 @@ class ReadCommittedDependencyLock(ReadUncommittedDependencyLock):
         super(ReadCommittedDependencyLock, self).release(dependency, version)
 
 
-class RepeatableReadsDependencyLock(DependencyLock):
+class RepeatableReadDependencyLock(DependencyLock):
     """Tag Lock for Repeatable Reads transaction isolation level."""
     def acquire(self, dependency, version):
         """
@@ -76,5 +76,5 @@ class RepeatableReadsDependencyLock(DependencyLock):
         dependency.release(self._cache(), self._delay, version)
 
 
-class SerializableDependencyLock(RepeatableReadsDependencyLock):
+class SerializableDependencyLock(RepeatableReadDependencyLock):
     """Tag Lock for Serializable transaction isolation level."""

@@ -85,7 +85,7 @@ STATIC_URL = '/static/'
 
 CACHE_TAGGING_DISABLED = {
     'default': {
-        'ISOLATION_LEVEL': 'REPEATABLE READS',
+        'ISOLATION_LEVEL': 'REPEATABLE READ',
         'DELAY': 5,
     }
 }

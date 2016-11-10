@@ -18,7 +18,7 @@ def main():
         },
         CACHE_TAGGING = {
             'default': {
-                'ISOLATION_LEVEL': 'REPEATABLE READS',
+                'ISOLATION_LEVEL': 'REPEATABLE READ',
                 'DELAY': 5,
             }
         },
