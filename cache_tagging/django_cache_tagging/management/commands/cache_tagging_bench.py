@@ -72,39 +72,15 @@ class GetManyInvalidCase(object):
         return self.cache.cache.get_many(('name1', 'name2'))
 
 
-class Command(BaseCommand):
+class Bench(object):
 
-    _cases = {
-        'get_valid': GetValidCase(cache),
-        'get_many_valid':  GetManyValidCase(cache),
-        'get_invalid': GetInvalidCase(cache),
-        'get_many_invalid':  GetManyInvalidCase(cache),
-    }
-
-    def add_arguments(self, parser):
-        parser.add_argument('case', nargs='+', choices=tuple(self._cases.keys()))
-
-    def handle(self, *args, **options):
-        for case_key in options['case']:
-            case = self._cases[case_key]
-            case.cache_tagging_call()  # Just prepare
-            case.native_cache_call()
-            result = self._bench_complex(case.cache_tagging_call, case.native_cache_call)
-            self.stdout.write("=" * 50, ending="\n")
-            self.stdout.write("Cache-tagging result, sec.: {}".format(result[case.cache_tagging_call]), ending="\n")
-            self.stdout.write("Native cache result, sec. : {}".format(result[case.native_cache_call]), ending="\n")
-            overhead = (result[case.cache_tagging_call] * 100 / result[case.native_cache_call]) - 100
-            self.stdout.write("Overhead, %               : {}".format(overhead), ending="\n")
-            self.stdout.write("=" * 50, ending="\n")
-            self._prof(case.cache_tagging_call)
-            self.stdout.write("=" * 50, ending="\n\n\n")
-
-    def _bench(self, callback):
+    @staticmethod
+    def _bench(callback):
         s = time.time()
         callback()
         return time.time() - s
 
-    def _bench_complex(self, *args):
+    def __call__(self, *args):
         r = OrderedDict()
         for a in args:
             r[a] = []
@@ -117,15 +93,77 @@ class Command(BaseCommand):
 
         return r
 
-    def _prof(self, callback, *a, **kw):
-        pr = cProfile.Profile()
-        pr.enable()
+
+class Profile(object):
+
+    def __init__(self, stdout, sort_keys=('cumulative',), stats_restrictions=(30,)):
+        self._prof = cProfile.Profile()
+        self._stdout = stdout
+        self._sort_keys = sort_keys
+        self._stats_restrictions = stats_restrictions
+
+    def __call__(self, callback, *a, **kw):
+        self._prof.enable()
         result = callback(*a, **kw)
         s = StringIO()
-        sortby = 'tottime'
-        sortby = 'cumulative'
-        ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-        ps.print_stats(30)
-        self.stdout.write(s.getvalue())
-        pr.disable()
+        ps = pstats.Stats(self._prof, stream=s).sort_stats(*self._sort_keys)
+        ps.print_stats(*self._stats_restrictions)
+        self._stdout.write(s.getvalue())
+        self._prof.disable()
         return result
+
+
+class Command(BaseCommand):
+
+    bench_factory = Bench
+    profile_factory = Profile
+
+    _cases = {
+        'get_valid': GetValidCase(cache),
+        'get_many_valid':  GetManyValidCase(cache),
+        'get_invalid': GetInvalidCase(cache),
+        'get_many_invalid':  GetManyInvalidCase(cache),
+    }
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            'case',
+            nargs='+',
+            choices=tuple(self._cases.keys())
+        )
+        parser.add_argument(
+            '--sort-key',
+            dest='sort_keys',
+            nargs='+',
+            choices=('tottime', 'cumulative',),
+            default=('cumulative',),
+            help="See https://docs.python.org/3/library/profile.html#pstats.Stats.sort_stats"
+        )
+        parser.add_argument(
+            '--limit-lines',
+            nargs='?',
+            type=int,
+            default=30,
+            help="See https://docs.python.org/3/library/profile.html#pstats.Stats.print_stats"
+        )
+
+    def handle(self, *args, **options):
+        bench = self.bench_factory()
+        prof = self.profile_factory(
+            self.stdout,
+            sort_keys=options['sort_keys'],
+            stats_restrictions=(options['limit_lines'],),
+        )
+        for case_key in options['case']:
+            case = self._cases[case_key]
+            case.cache_tagging_call()  # Just prepare
+            case.native_cache_call()
+            result = bench(case.cache_tagging_call, case.native_cache_call)
+            self.stdout.write("=" * 50, ending="\n")
+            self.stdout.write("Cache-tagging result, sec.: {}".format(result[case.cache_tagging_call]), ending="\n")
+            self.stdout.write("Native cache result, sec. : {}".format(result[case.native_cache_call]), ending="\n")
+            overhead = (result[case.cache_tagging_call] * 100 / result[case.native_cache_call]) - 100
+            self.stdout.write("Overhead, %               : {}".format(overhead), ending="\n")
+            self.stdout.write("=" * 50, ending="\n")
+            prof(case.cache_tagging_call)
+            self.stdout.write("=" * 50, ending="\n\n\n")
