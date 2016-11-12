@@ -46,7 +46,7 @@ class AbstractDependencyLockTestCase(unittest.TestCase):
         self.dependency.evaluate.assert_called_once_with(self.cache, self.transaction_start_time, 1)
 
     def run(self, result=None):
-        if self.lock_factory is None:
+        if self.__class__.__name__.startswith('Abstract'):
             return
         super(AbstractDependencyLockTestCase, self).run(result)
 
