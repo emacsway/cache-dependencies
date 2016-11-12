@@ -134,14 +134,5 @@ class GetManyDeferredIteratorTestCase(unittest.TestCase):
             'result1_tag_2': 'tag_2_value',
         })
 
-        self.assertEqual(executor1.call_count, 1)
-        self.assertSetEqual(set(executor1.call_args[0][0]),
-                            {'tag_1', 'tag_2', 'locked_tag_1', 'locked_tag_2'})
-        self.assertIsNone(executor1.call_args[0][1])
-        self.assertDictEqual(executor1.call_args[1], dict())
-
-        self.assertEqual(executor2.call_count, 1)
-        self.assertSetEqual(set(executor2.call_args[0][0]),
-                            {'tag_3', 'tag_4'})
-        self.assertEqual(executor2.call_args[0][1], 1)
-        self.assertDictEqual(executor2.call_args[1], dict())
+        executor1.assert_called_once_with({'tag_1', 'tag_2', 'locked_tag_1', 'locked_tag_2'}, None)
+        executor2.assert_called_once_with({'tag_3', 'tag_4'}, 1)

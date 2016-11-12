@@ -247,7 +247,7 @@ class GetManyDeferredIterator(AbstractDeferredIterator):
             if node.aggregation_criterion == acceptable_aggregation_criterion:
                 keys |= self._get_node_cache_keys(node)
             node = node.parent
-        return list(keys)
+        return keys
 
     @staticmethod
     def _get_node_cache_keys(node):

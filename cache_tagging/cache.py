@@ -78,7 +78,7 @@ class CacheWrapper(object):  # Adapter
 
     def get_many(self, keys, version=None, abort=False):
         """
-        :type keys: list[str]
+        :type keys: collections.Iterable[str]
         :type version: int or None
         :type abort: bool
         """
