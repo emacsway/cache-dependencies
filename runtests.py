@@ -72,6 +72,7 @@ def main():
 
     test_runner = TestRunner(verbosity=1, interactive=False, failfast=False)
     failures = test_runner.run_tests([
+        'cache_tagging.tests.test_cache',
         'cache_tagging.tests.test_defer',
         'cache_tagging.tests.test_dependencies',
         'cache_tagging.tests.test_helpers',

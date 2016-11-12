@@ -1,13 +1,19 @@
 import time
 import unittest
-from cache_tagging import locks, utils
+from cache_tagging import interfaces, locks, utils
 from cache_tagging.tests import helpers
+
+try:
+    from unittest import mock
+except ImportError:
+    import mock
 
 
 class AbstractDependencyLockTestCase(unittest.TestCase):
     """Abstract class.
 
     See http://stackoverflow.com/questions/1323455/python-unit-test-with-base-and-sub-class
+    and self.run()
     """
 
     delay = 0
@@ -17,6 +23,7 @@ class AbstractDependencyLockTestCase(unittest.TestCase):
         self.transaction_start_time = time.time() - 2
         self.cache = helpers.CacheStub()
         self.lock = self.lock_factory(lambda: self.cache, self.delay)
+        self.dependency = self._make_dep()
         self.tag_versions = {
             'tag1': utils.generate_tag_version(),
             'tag2': utils.generate_tag_version(),
@@ -30,6 +37,81 @@ class AbstractDependencyLockTestCase(unittest.TestCase):
             3600
         )
 
+    @staticmethod
+    def _make_dep():
+        return mock.Mock(spec=interfaces.IDependency)
+
+    def test_evaluate(self):
+        self.lock.evaluate(self.dependency, self.transaction_start_time, 1)
+        self.dependency.evaluate.assert_called_once_with(self.cache, self.transaction_start_time, 1)
+
+    def run(self, result=None):
+        if self.lock_factory is None:
+            return
+        super(AbstractDependencyLockTestCase, self).run(result)
+
 
 class ReadUncommittedDependencyLockTestCase(AbstractDependencyLockTestCase):
     lock_factory = locks.ReadUncommittedDependencyLock
+
+    def test_acquire(self):
+        self.lock.acquire(self.dependency, 1)
+        self.dependency.acquire.assert_not_called()
+
+    def test_release(self):
+        self.lock.release(self.dependency, 1)
+        self.dependency.release.assert_not_called()
+
+
+class ReadUncommittedDependencyLockDelayedTestCase(ReadUncommittedDependencyLockTestCase):
+    delay = 1
+
+    def test_release(self):
+        super(ReadUncommittedDependencyLockDelayedTestCase, self).test_release()
+        time.sleep(2)
+        self.dependency.invalidate.assert_called_once_with(self.cache, 1)
+
+
+class ReadCommittedDependencyLockTestCase(AbstractDependencyLockTestCase):
+    lock_factory = locks.ReadCommittedDependencyLock
+
+    def test_acquire(self):
+        self.lock.acquire(self.dependency, 1)
+        self.dependency.acquire.assert_not_called()
+
+    def test_release(self):
+        self.lock.release(self.dependency, 1)
+        self.dependency.invalidate.assert_called_once_with(self.cache, 1)
+
+
+class ReadCommittedDependencyLockDelayedTestCase(ReadCommittedDependencyLockTestCase):
+    delay = 1
+
+    def test_release(self):
+        super(ReadCommittedDependencyLockDelayedTestCase, self).test_release()
+        time.sleep(2)
+        self.dependency.invalidate.assert_called_with(self.cache, 1)
+
+
+class RepeatableReadDependencyLockTestCase(AbstractDependencyLockTestCase):
+    lock_factory = locks.RepeatableReadDependencyLock
+
+    def test_acquire(self):
+        self.lock.acquire(self.dependency, 1)
+        self.dependency.acquire.assert_called_once_with(self.cache, self.delay, 1)
+
+    def test_release(self):
+        self.lock.release(self.dependency, 1)
+        self.dependency.release.assert_called_once_with(self.cache, self.delay, 1)
+
+
+class RepeatableReadDependencyLockDelayedTestCase(RepeatableReadDependencyLockTestCase):
+    delay = 1
+
+
+class SerializableDependencyLockTestCase(RepeatableReadDependencyLockTestCase):
+    lock_factory = locks.SerializableDependencyLock
+
+
+class SerializableDependencyLockDelayedTestCase(SerializableDependencyLockTestCase):
+    delay = 1
