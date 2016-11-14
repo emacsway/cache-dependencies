@@ -292,8 +292,10 @@ class TagsDependency(interfaces.IDependency):
         for tag in self.tags:
             state = acquired_tag_states.get(tag)
             released_state = released_tag_states.get(tag)
-            if released_state is not None and (state is None or state.time < released_state.time):
-                state = released_state
+            if released_state is not None:
+                if state is None or state.transaction_id == released_state.transaction_id:
+                    # Tag has not been already acquired (or acquired and released) by concurrent transactions.
+                    state = released_state
             if state is not None and state.is_locked(transaction):
                 locked_tags.add(tag)
         return locked_tags

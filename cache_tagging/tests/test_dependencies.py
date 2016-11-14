@@ -40,7 +40,7 @@ class AbstractTagsDependencyTestCase(unittest.TestCase):
 
         self.concurrent_transaction = mock.Mock(interfaces.ITransaction)
         self.concurrent_transaction.get_start_time.return_value = self.start_time
-        self.transaction.get_end_time.return_value = self.end_time
+        self.concurrent_transaction.get_end_time.return_value = self.end_time
         self.concurrent_transaction.get_id.return_value = 'ivan-X555LF.21920.140481146955584' + '1'
 
         self.concurrent_dependency = dependencies.TagsDependency(*self.tag_versions.keys())
@@ -106,6 +106,54 @@ class TagsDependencyTestCase(AbstractTagsDependencyTestCase):
             self.concurrent_dependency.evaluate(
                 self.cache, self.concurrent_transaction, None
             )
+        except exceptions.TagsLocked as e:
+            self.assertSetEqual(tags, set(e.items))
+        else:
+            self.fail("Exception is not raised!")
+
+    def test_concurrent_repeat_acquire(self):
+        tags = set(self.tag_versions.keys())
+        self.dependency.acquire(self.cache, self.transaction, None)
+
+        self.concurrent_transaction.get_start_time.return_value = self.start_time + 1
+        self.concurrent_dependency.acquire(self.cache, self.concurrent_transaction, None)
+
+        self.dependency.release(self.cache, self.transaction, 0, None)
+
+        try:
+            self.dependency.evaluate(self.cache, self.transaction, None)
+        except exceptions.TagsLocked as e:
+            self.assertSetEqual(tags, set(e.items))
+        else:
+            self.fail("Exception is not raised!")
+
+    def test_concurrent_release(self):
+        tags = set(self.tag_versions.keys())
+        self.dependency.acquire(self.cache, self.transaction, None)
+
+        self.concurrent_transaction.get_start_time.return_value = self.start_time + 1
+        self.concurrent_dependency.acquire(self.cache, self.concurrent_transaction, None)
+        self.concurrent_dependency.release(self.cache, self.concurrent_transaction, 0, None)
+
+        try:
+            self.dependency.evaluate(self.cache, self.transaction, None)
+        except exceptions.TagsLocked as e:
+            self.assertSetEqual(tags, set(e.items))
+        else:
+            self.fail("Exception is not raised!")
+
+    def test_concurrent_repeat_release(self):
+        tags = set(self.tag_versions.keys())
+        self.dependency.acquire(self.cache, self.transaction, None)
+
+        self.concurrent_transaction.get_start_time.return_value = self.start_time + 1
+        self.concurrent_dependency.acquire(self.cache, self.concurrent_transaction, None)
+        self.concurrent_dependency.release(self.cache, self.concurrent_transaction, 0, None)
+
+        self.dependency.release(self.cache, self.transaction, 0, None)
+
+        try:
+            self.dependency.evaluate(self.cache, self.transaction, None)
         except exceptions.TagsLocked as e:
             self.assertSetEqual(tags, set(e.items))
         else:
