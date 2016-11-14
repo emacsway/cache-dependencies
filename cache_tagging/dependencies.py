@@ -228,7 +228,7 @@ class TagsDependency(interfaces.IDependency):
         :type transaction: cache_tagging.interfaces.ITransaction
         :type version: int or None
         """
-        data = AcquiredTagState(transaction.get_id(), self._current_time())
+        data = AcquiredTagState(transaction.get_id(), transaction.get_start_time())
         cache.set_many(
             {AcquiredTagState.make_key(tag): data for tag in self.tags}, self._get_tag_state_timeout(), version
         )
@@ -240,7 +240,7 @@ class TagsDependency(interfaces.IDependency):
         :type delay: int
         :type version: int or None
         """
-        data = ReleasedTagState(transaction.get_id(), self._current_time() + delay)
+        data = ReleasedTagState(transaction.get_id(), transaction.get_end_time() + delay)
         cache.set_many(
             {ReleasedTagState.make_key(tag): data for tag in self.tags},
             self._get_tag_state_timeout(max(delay, 1)),  # Must have ttl greater than ttl of AcquiredTagState
@@ -309,10 +309,6 @@ class TagsDependency(interfaces.IDependency):
         timeout = self.TAG_STATE_TIMEOUT
         timeout += delay
         return timeout
-
-    @staticmethod
-    def _current_time():
-        return time.time()
 
 
 class DummyDependency(interfaces.IDependency):

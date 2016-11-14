@@ -26,6 +26,7 @@ class Transaction(AbstractTransaction):
         super(Transaction, self).__init__(lock)
         self._dependencies = dict()
         self._start_time = self._current_time()
+        self._end_time = None
         self._id = self._make_id()
 
     def get_id(self):
@@ -33,6 +34,10 @@ class Transaction(AbstractTransaction):
 
     def get_start_time(self):
         return self._start_time
+
+    def get_end_time(self):
+        assert self._end_time is not None
+        return self._end_time
 
     def parent(self):
         return None
@@ -45,6 +50,7 @@ class Transaction(AbstractTransaction):
         self._lock.acquire(dependency, self, version)
 
     def finish(self):
+        self._end_time = self._current_time()
         for version, dependency in self._dependencies.items():
             self._lock.release(dependency, self, version)
 
@@ -70,6 +76,9 @@ class SavePoint(Transaction):
     def get_start_time(self):
         return self.parent().get_start_time()
 
+    def get_end_time(self):
+        return self.parent().get_end_time()
+
     def parent(self):
         return self._parent
 
@@ -89,6 +98,10 @@ class DummyTransaction(AbstractTransaction):
         # return "DummyTransaction"
 
     def get_start_time(self):
+        return self._current_time()
+        # return "DummyTransaction"
+
+    def get_end_time(self):
         return self._current_time()
 
     def parent(self):

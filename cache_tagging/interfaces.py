@@ -198,6 +198,12 @@ class ITransaction(object):
         """
         raise NotImplementedError
 
+    def get_end_time(self):
+        """
+        :rtype: float
+        """
+        raise NotImplementedError
+
     def parent(self):
         """
         :rtype: cache_tagging.interfaces.ITransaction
