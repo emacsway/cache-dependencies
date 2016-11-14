@@ -9,13 +9,6 @@ except ImportError:
     import mock
 
 
-class TagsDependency(dependencies.TagsDependency):
-    thread_id = 'ivan-X555LF.21920.140481146955584'
-
-    def _get_thread_id(self):
-        return self.thread_id
-
-
 class AbstractTagsDependencyTestCase(unittest.TestCase):
     """Abstract class.
 
@@ -25,8 +18,7 @@ class AbstractTagsDependencyTestCase(unittest.TestCase):
     delay = 0
 
     def setUp(self):
-        self.transaction = mock.Mock(interfaces.ITransaction)
-        self.transaction.get_start_time.return_value = time.time() - 2
+
         self.cache = helpers.CacheStub()
         self.tag_versions = {
             'tag1': utils.generate_tag_version(),
@@ -34,12 +26,20 @@ class AbstractTagsDependencyTestCase(unittest.TestCase):
             'tag3': utils.generate_tag_version(),
         }
         self._set_tag_versions()
-        self.dependency = TagsDependency(*self.tag_versions.keys())
+
+        self.transaction = mock.Mock(interfaces.ITransaction)
+        self.transaction.get_start_time.return_value = time.time() - 2
+        self.transaction.get_id.return_value = 'ivan-X555LF.21920.140481146955584'
+
+        self.dependency = dependencies.TagsDependency(*self.tag_versions.keys())
         self.dependency.tag_versions = self.tag_versions
 
-        self.concurrent_dependency = TagsDependency(*self.tag_versions.keys())
+        self.concurrent_transaction = mock.Mock(interfaces.ITransaction)
+        self.concurrent_transaction.get_start_time.return_value = time.time() - 3
+        self.concurrent_transaction.get_id.return_value = 'ivan-X555LF.21920.140481146955584' + '1'
+
+        self.concurrent_dependency = dependencies.TagsDependency(*self.tag_versions.keys())
         self.concurrent_dependency.tag_versions = self.tag_versions
-        self.concurrent_dependency.thread_id += '1'
 
     def _set_tag_versions(self):
         self.cache.set_many(
@@ -86,10 +86,10 @@ class TagsDependencyTestCase(AbstractTagsDependencyTestCase):
             self.assertNotEqual(v, self.tag_versions[k])
 
         # Earlier concurrent transaction.
-        self.transaction.get_start_time.return_value = acquire_time - 1
+        self.concurrent_transaction.get_start_time.return_value = acquire_time - 1
         try:
             self.concurrent_dependency.evaluate(
-                self.cache, self.transaction, None
+                self.cache, self.concurrent_transaction, None
             )
         except exceptions.TagsLocked as e:
             self.assertSetEqual(tags, set(e.items))
@@ -97,10 +97,10 @@ class TagsDependencyTestCase(AbstractTagsDependencyTestCase):
             self.fail("Exception is not raised!")
 
         # Later concurrent transaction
-        self.transaction.get_start_time.return_value = acquire_time + 1
+        self.concurrent_transaction.get_start_time.return_value = acquire_time + 1
         try:
             self.concurrent_dependency.evaluate(
-                self.cache, self.transaction, None
+                self.cache, self.concurrent_transaction, None
             )
         except exceptions.TagsLocked as e:
             self.assertSetEqual(tags, set(e.items))
@@ -125,10 +125,10 @@ class TagsDependencyTestCase(AbstractTagsDependencyTestCase):
             self.assertNotEqual(v, self.tag_versions[k])
 
         # Earlier concurrent transaction.
-        self.transaction.get_start_time.return_value = release_time - 1
+        self.concurrent_transaction.get_start_time.return_value = release_time - 1
         try:
             self.concurrent_dependency.evaluate(
-                self.cache, self.transaction, None
+                self.cache, self.concurrent_transaction, None
             )
         except exceptions.TagsLocked as e:
             self.assertSetEqual(tags, set(e.items))
@@ -136,9 +136,9 @@ class TagsDependencyTestCase(AbstractTagsDependencyTestCase):
             self.fail("Exception is not raised!")
 
         # Later concurrent transaction
-        self.transaction.get_start_time.return_value = release_time + 1
+        self.concurrent_transaction.get_start_time.return_value = release_time + 1
         self.concurrent_dependency.evaluate(
-            self.cache, self.transaction, None
+            self.cache, self.concurrent_transaction, None
         )
         tag_versions_in_later_concurrent_transaction = self.concurrent_dependency.tag_versions
         self.assertDictEqual(tag_versions_in_later_concurrent_transaction, self.tag_versions)
@@ -161,10 +161,10 @@ class TagsDependencyTestCase(AbstractTagsDependencyTestCase):
             self.assertNotEqual(v, self.tag_versions[k])
 
         # Earlier concurrent transaction.
-        self.transaction.get_start_time.return_value = release_time - 1
+        self.concurrent_transaction.get_start_time.return_value = release_time - 1
         try:
             self.concurrent_dependency.evaluate(
-                self.cache, self.transaction, None
+                self.cache, self.concurrent_transaction, None
             )
         except exceptions.TagsLocked as e:
             self.assertSetEqual(tags, set(e.items))
@@ -172,10 +172,10 @@ class TagsDependencyTestCase(AbstractTagsDependencyTestCase):
             self.fail("Exception is not raised!")
 
         # Later concurrent transaction
-        self.transaction.get_start_time.return_value = release_time + 1
+        self.concurrent_transaction.get_start_time.return_value = release_time + 1
         try:
             self.concurrent_dependency.evaluate(
-                self.cache, self.transaction, None
+                self.cache, self.concurrent_transaction, None
             )
         except exceptions.TagsLocked as e:
             self.assertSetEqual(tags, set(e.items))
@@ -183,9 +183,9 @@ class TagsDependencyTestCase(AbstractTagsDependencyTestCase):
             self.fail("Exception is not raised!")
 
 
-        self.transaction.get_start_time.return_value = release_time + 3
+        self.concurrent_transaction.get_start_time.return_value = release_time + 3
         self.concurrent_dependency.evaluate(
-            self.cache, self.transaction, None
+            self.cache, self.concurrent_transaction, None
         )
         tag_versions_in_later_concurrent_transaction = self.concurrent_dependency.tag_versions
         self.assertDictEqual(tag_versions_in_later_concurrent_transaction, self.tag_versions)

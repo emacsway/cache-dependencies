@@ -1,8 +1,8 @@
 import time
-import uuid
+# import uuid
 from functools import wraps
 
-from cache_tagging import dependencies, interfaces, mixins
+from cache_tagging import dependencies, interfaces, mixins, utils
 from cache_tagging.utils import Undef
 
 
@@ -50,7 +50,8 @@ class Transaction(AbstractTransaction):
 
     @staticmethod
     def _make_id():
-        return uuid.uuid4().hex
+        return utils.get_thread_id()
+        # return uuid.uuid4().hex
 
 
 class SavePoint(Transaction):
@@ -84,7 +85,8 @@ class SavePoint(Transaction):
 class DummyTransaction(AbstractTransaction):
 
     def get_id(self):
-        return "DummyTransaction"
+        return utils.get_thread_id()
+        # return "DummyTransaction"
 
     def get_start_time(self):
         return self._current_time()

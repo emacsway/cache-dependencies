@@ -5,8 +5,6 @@ import functools
 import collections
 from cache_tagging import interfaces, defer, exceptions, utils
 
-TagStateBean = collections.namedtuple('TagStateBean', ('time', 'status', 'thread_id'))
-
 
 class CompositeDependency(interfaces.IDependency):
     def __init__(self, *delegates):
@@ -110,14 +108,63 @@ class CompositeDependency(interfaces.IDependency):
         return c
 
 
+class AbstractTagState(collections.namedtuple('TagStateBean', ('transaction_id', 'time'))):
+    @staticmethod
+    def make_key(tag):
+        raise NotImplementedError
+
+    def is_locked(self, transaction):
+        """
+        :type transaction: cache_tagging.interfaces.ITransaction
+        """
+        raise NotImplementedError
+
+    def __repr__(self):
+        return '{0}({1})'.format(
+            self.__class__.__name__,
+            ', '.join(
+                '{0}={1!r}'.format(name, getattr(self, name)) for name in self._fields
+            )
+        )
+
+class AcquiredTagState(AbstractTagState):
+    __slots__ = ()
+
+    @staticmethod
+    def make_key(tag):
+        return 'acquired_{0}'.format(utils.make_tag_key(tag))
+
+    def is_locked(self, transaction):
+        """
+        :type transaction: cache_tagging.interfaces.ITransaction
+        """
+        return transaction.get_id() != self.transaction_id  # Acquired by current thread, ignore it
+
+
+class ReleasedTagState(AbstractTagState):
+    __slots__ = ()
+
+    @staticmethod
+    def make_key(tag):
+        return 'released_{0}'.format(utils.make_tag_key(tag))
+
+    def is_locked(self, transaction):
+        """
+        :type transaction: cache_tagging.interfaces.ITransaction
+        """
+        if transaction.get_id() == self.transaction_id:
+            # Released by current thread, ignore it
+            return False
+        elif transaction.get_start_time() <= self.time:
+            # We don't create cache in all transactions started earlier
+            # than finished the transaction which has invalidated tag.
+            return True
+        return False
+
+
 class TagsDependency(interfaces.IDependency):
     TAG_TIMEOUT = 24 * 3600
-    LOCK_PREFIX = "lock"
-    LOCK_TIMEOUT = 5
-
-    class STATUS(object):
-        ACQUIRED = 0
-        RELEASED = 1
+    TAG_STATE_TIMEOUT = 5
 
     def __init__(self, *tags):
         """
@@ -181,9 +228,9 @@ class TagsDependency(interfaces.IDependency):
         :type transaction: cache_tagging.interfaces.ITransaction
         :type version: int or None
         """
-        data = TagStateBean(time.time(), self.STATUS.ACQUIRED, self._get_thread_id())
+        data = AcquiredTagState(transaction.get_id(), time.time())
         cache.set_many(
-            {self._make_locked_tag_key(tag): data for tag in self.tags}, self._get_timeout(0), version
+            {AcquiredTagState.make_key(tag): data for tag in self.tags}, self._get_tag_state_timeout(), version
         )
 
     def release(self, cache, transaction, delay, version):
@@ -193,9 +240,11 @@ class TagsDependency(interfaces.IDependency):
         :type delay: int
         :type version: int or None
         """
-        data = TagStateBean(time.time() + delay, self.STATUS.RELEASED, self._get_thread_id())
+        data = ReleasedTagState(transaction.get_id(), time.time() + delay)
         cache.set_many(
-            {self._make_locked_tag_key(tag): data for tag in self.tags}, self._get_timeout(delay), version
+            {ReleasedTagState.make_key(tag): data for tag in self.tags},
+            self._get_tag_state_timeout(max(delay, 1)),  # Must have ttl greater than ttl of AcquiredTagState
+            version
         )
 
     def extend(self, other):
@@ -225,15 +274,27 @@ class TagsDependency(interfaces.IDependency):
         return deferred
 
     def _get_locked_tags(self, cache, transaction, version):
-        tag_keys = {tag: self._make_locked_tag_key(tag) for tag in self.tags}
+        acquired_tag_keys = {AcquiredTagState.make_key(tag): tag for tag in self.tags}
+        released_tag_keys = {ReleasedTagState.make_key(tag): tag for tag in self.tags}
 
         def callback(_, caches):
-            locked_tag_caches = {tag: caches[tag_key] for tag, tag_key in tag_keys.items() if tag_key in caches}
-            return set(tag for tag, tag_bean in locked_tag_caches.items()
-                       if self._tag_is_locked(tag_bean, transaction))
+            acquired_tag_states = {acquired_tag_keys[tag_key]: state for tag_key, state in caches.items()
+                                   if tag_key in acquired_tag_keys}
+            released_tag_states = {released_tag_keys[tag_key]: state for tag_key, state in caches.items()
+                                   if tag_key in released_tag_keys}
+            locked_tags = set()
+            for tag in self.tags:
+                state = acquired_tag_states.get(tag)
+                released_state = released_tag_states.get(tag)
+                if released_state is not None and (state is None or state.time < released_state.time):
+                    state = released_state
+                if state is not None and state.is_locked(transaction):
+                    locked_tags.add(tag)
+            return locked_tags
 
         deferred = defer.Deferred(cache.get_many, defer.GetManyDeferredIterator, version)
-        deferred.add_callback(callback, tag_keys.values())
+        bulk_keys = set(acquired_tag_keys.keys()) | set(released_tag_keys.keys())
+        deferred.add_callback(callback, bulk_keys)
         return deferred
 
     def _make_tag_versions(self, cache, tags, version):
@@ -244,29 +305,10 @@ class TagsDependency(interfaces.IDependency):
         cache.set_many(new_tag_key_versions, self.TAG_TIMEOUT, version)
         return new_tag_versions
 
-    @staticmethod
-    def _get_thread_id():
-        return utils.get_thread_id()
-
-    def _make_locked_tag_key(self, tag):
-        return '{0}_{1}'.format(self.LOCK_PREFIX, utils.make_tag_key(tag))
-
-    def _get_timeout(self, delay):
-        timeout = self.LOCK_TIMEOUT
+    def _get_tag_state_timeout(self, delay=0):
+        timeout = self.TAG_STATE_TIMEOUT
         timeout += delay
         return timeout
-
-    def _tag_is_locked(self, tag_bean, transaction):
-        if tag_bean.thread_id == self._get_thread_id():
-            # Acquired by current thread, ignore it
-            return False
-        if tag_bean.status == self.STATUS.ACQUIRED:
-            # Tag still is acquired
-            return True
-        if transaction.get_start_time() <= tag_bean.time:
-            # We don't create cache in all transactions started earlier
-            # than finished the transaction which has invalidated tag.
-            return True
 
 
 class DummyDependency(interfaces.IDependency):
