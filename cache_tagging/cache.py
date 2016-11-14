@@ -124,12 +124,15 @@ class CacheWrapper(object):  # Adapter
 
         try:
             self.transaction.current().evaluate(combined_dependency_with_descendants, version)
+            # if cache will be invalidated again during this time by concurrent transaction - no problem, we just
+            # save cache with invalid tags, and no one can read this cache.
         except exceptions.DependencyLocked:
+            pass
+        else:
+            return self.cache.set(key, self._pack_data(value, combined_dependency_with_descendants), timeout, version)
+        finally:
             self.finish(key, dependency, version=version)
-            return
 
-        self.finish(key, dependency, version=version)
-        return self.cache.set(key, self._pack_data(value, combined_dependency_with_descendants), timeout, version)
 
     def invalidate_dependency(self, dependency, version=None):
         """Invalidate dependency.
