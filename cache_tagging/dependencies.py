@@ -294,8 +294,9 @@ class TagsDependency(interfaces.IDependency):
             released_state = released_tag_states.get(tag)
             if released_state is not None:
                 if state is None or state.transaction_id == released_state.transaction_id:
-                    # Tag has not been already repeatedly acquired (or acquired and released)
-                    # by concurrent transactions.
+                    # Tag has not been already repeatedly acquired by concurrent transactions,
+                    # or already acquired and released by concurrent transactions and then
+                    # again released by current transaction.
                     state = released_state
             if state is not None and state.is_locked(transaction):
                 locked_tags.add(tag)
