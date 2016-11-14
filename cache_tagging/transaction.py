@@ -36,7 +36,8 @@ class Transaction(AbstractTransaction):
         return self._start_time
 
     def get_end_time(self):
-        assert self._end_time is not None
+        if self._end_time is None:
+            raise Exception("Transaction is not finished yet!")
         return self._end_time
 
     def parent(self):
@@ -99,7 +100,6 @@ class DummyTransaction(AbstractTransaction):
 
     def get_start_time(self):
         return self._current_time()
-        # return "DummyTransaction"
 
     def get_end_time(self):
         return self._current_time()

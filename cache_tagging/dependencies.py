@@ -127,6 +127,7 @@ class AbstractTagState(collections.namedtuple('TagStateBean', ('transaction_id',
             )
         )
 
+
 class AcquiredTagState(AbstractTagState):
     __slots__ = ()
 
