@@ -20,7 +20,8 @@ class AbstractDependencyLockTestCase(unittest.TestCase):
     lock_factory = None
 
     def setUp(self):
-        self.transaction_start_time = time.time() - 2
+        self.transaction = mock.Mock(interfaces.ITransaction)
+        self.transaction.get_start_time.return_value = time.time() - 2
         self.cache = helpers.CacheStub()
         self.lock = self.lock_factory(lambda: self.cache, self.delay)
         self.dependency = self._make_dep()
@@ -42,8 +43,8 @@ class AbstractDependencyLockTestCase(unittest.TestCase):
         return mock.Mock(spec=interfaces.IDependency)
 
     def test_evaluate(self):
-        self.lock.evaluate(self.dependency, self.transaction_start_time, 1)
-        self.dependency.evaluate.assert_called_once_with(self.cache, self.transaction_start_time, 1)
+        self.lock.evaluate(self.dependency, self.transaction, 1)
+        self.dependency.evaluate.assert_called_once_with(self.cache, self.transaction, 1)
 
     def run(self, result=None):
         if self.__class__.__name__.startswith('Abstract'):
@@ -55,11 +56,11 @@ class ReadUncommittedDependencyLockTestCase(AbstractDependencyLockTestCase):
     lock_factory = locks.ReadUncommittedDependencyLock
 
     def test_acquire(self):
-        self.lock.acquire(self.dependency, 1)
+        self.lock.acquire(self.dependency, self.transaction, 1)
         self.dependency.acquire.assert_not_called()
 
     def test_release(self):
-        self.lock.release(self.dependency, 1)
+        self.lock.release(self.dependency, self.transaction, 1)
         self.dependency.release.assert_not_called()
 
 
@@ -76,11 +77,11 @@ class ReadCommittedDependencyLockTestCase(AbstractDependencyLockTestCase):
     lock_factory = locks.ReadCommittedDependencyLock
 
     def test_acquire(self):
-        self.lock.acquire(self.dependency, 1)
+        self.lock.acquire(self.dependency, self.transaction, 1)
         self.dependency.acquire.assert_not_called()
 
     def test_release(self):
-        self.lock.release(self.dependency, 1)
+        self.lock.release(self.dependency, self.transaction, 1)
         self.dependency.invalidate.assert_called_once_with(self.cache, 1)
 
 
@@ -97,12 +98,12 @@ class RepeatableReadDependencyLockTestCase(AbstractDependencyLockTestCase):
     lock_factory = locks.RepeatableReadDependencyLock
 
     def test_acquire(self):
-        self.lock.acquire(self.dependency, 1)
-        self.dependency.acquire.assert_called_once_with(self.cache, self.delay, 1)
+        self.lock.acquire(self.dependency, self.transaction, 1)
+        self.dependency.acquire.assert_called_once_with(self.cache, self.transaction, 1)
 
     def test_release(self):
-        self.lock.release(self.dependency, 1)
-        self.dependency.release.assert_called_once_with(self.cache, self.delay, 1)
+        self.lock.release(self.dependency, self.transaction, 1)
+        self.dependency.release.assert_called_once_with(self.cache, self.transaction, self.delay, 1)
 
 
 class RepeatableReadDependencyLockDelayedTestCase(RepeatableReadDependencyLockTestCase):

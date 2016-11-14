@@ -15,16 +15,16 @@ class CompositeDependency(interfaces.IDependency):
         """
         self.delegates = list(delegates)
 
-    def evaluate(self, cache, transaction_start_time, version):
+    def evaluate(self, cache, transaction, version):
         """
         :type cache: cache_tagging.interfaces.ICache
-        :type transaction_start_time: float
+        :type transaction: cache_tagging.interfaces.ITransaction
         :type version: int or None
         """
         items = []
         for delegate in self.delegates:
             try:
-                delegate.evaluate(cache, transaction_start_time, version)
+                delegate.evaluate(cache, transaction, version)
             except exceptions.DependencyLocked as e:
                 items.append(e)
         if items:
@@ -67,23 +67,24 @@ class CompositeDependency(interfaces.IDependency):
         for delegate in self.delegates:
             delegate.invalidate(cache, version)
 
-    def acquire(self, cache, delay, version):
+    def acquire(self, cache, transaction, version):
         """
         :type cache: cache_tagging.interfaces.ICache
-        :type delay: int
+        :type transaction: cache_tagging.interfaces.ITransaction
         :type version: int or None
         """
         for delegate in self.delegates:
-            delegate.acquire(cache, delay, version)
+            delegate.acquire(cache, transaction, version)
 
-    def release(self, cache, delay, version):
+    def release(self, cache, transaction, delay, version):
         """
         :type cache: cache_tagging.interfaces.ICache
+        :type transaction: cache_tagging.interfaces.ITransaction
         :type delay: int
         :type version: int or None
         """
         for delegate in self.delegates:
-            delegate.release(cache, delay, version)
+            delegate.release(cache, transaction, delay, version)
 
     def extend(self, other):
         """
@@ -127,14 +128,14 @@ class TagsDependency(interfaces.IDependency):
         self.tags = set(tags)
         self.tag_versions = {}
 
-    def evaluate(self, cache, transaction_start_time, version):
+    def evaluate(self, cache, transaction, version):
         """
         :type cache: cache_tagging.interfaces.ICache
-        :type transaction_start_time: float
+        :type transaction: cache_tagging.interfaces.ITransaction
         :type version: int or None
         """
         deferred = self._get_tag_versions(cache, version)
-        deferred += self._get_locked_tags(cache, transaction_start_time, version)
+        deferred += self._get_locked_tags(cache, transaction, version)
         locked_tags = deferred.get()
         tag_versions = deferred.get()
         # All deferred operations in this method should be completed
@@ -174,21 +175,28 @@ class TagsDependency(interfaces.IDependency):
         tag_keys = list(map(utils.make_tag_key, self.tags))
         cache.delete_many(tag_keys, version=version)
 
-    def acquire(self, cache, delay, version):
+    def acquire(self, cache, transaction, version):
         """
         :type cache: cache_tagging.interfaces.ICache
-        :type delay: int
+        :type transaction: cache_tagging.interfaces.ITransaction
         :type version: int or None
         """
-        return self._set_tags_status(cache, self.STATUS.ACQUIRED, delay, version)
+        data = TagStateBean(time.time(), self.STATUS.ACQUIRED, self._get_thread_id())
+        cache.set_many(
+            {self._make_locked_tag_key(tag): data for tag in self.tags}, self._get_timeout(0), version
+        )
 
-    def release(self, cache, delay, version):
+    def release(self, cache, transaction, delay, version):
         """
         :type cache: cache_tagging.interfaces.ICache
+        :type transaction: cache_tagging.interfaces.ITransaction
         :type delay: int
         :type version: int or None
         """
-        self._set_tags_status(cache, self.STATUS.RELEASED, delay, version)
+        data = TagStateBean(time.time() + delay, self.STATUS.RELEASED, self._get_thread_id())
+        cache.set_many(
+            {self._make_locked_tag_key(tag): data for tag in self.tags}, self._get_timeout(delay), version
+        )
 
     def extend(self, other):
         """
@@ -216,13 +224,13 @@ class TagsDependency(interfaces.IDependency):
         )
         return deferred
 
-    def _get_locked_tags(self, cache, transaction_start_time, version):
+    def _get_locked_tags(self, cache, transaction, version):
         tag_keys = {tag: self._make_locked_tag_key(tag) for tag in self.tags}
 
         def callback(_, caches):
             locked_tag_caches = {tag: caches[tag_key] for tag, tag_key in tag_keys.items() if tag_key in caches}
             return set(tag for tag, tag_bean in locked_tag_caches.items()
-                       if self._tag_is_locked(tag_bean, transaction_start_time))
+                       if self._tag_is_locked(tag_bean, transaction))
 
         deferred = defer.Deferred(cache.get_many, defer.GetManyDeferredIterator, version)
         deferred.add_callback(callback, tag_keys.values())
@@ -236,13 +244,6 @@ class TagsDependency(interfaces.IDependency):
         cache.set_many(new_tag_key_versions, self.TAG_TIMEOUT, version)
         return new_tag_versions
 
-    def _set_tags_status(self, cache, status, delay, version):
-        """Locks tags for concurrent transactions."""
-        data = TagStateBean(time.time() + delay, status, self._get_thread_id())
-        cache.set_many(
-            {self._make_locked_tag_key(tag): data for tag in self.tags}, self._get_timeout(delay), version
-        )
-
     @staticmethod
     def _get_thread_id():
         return utils.get_thread_id()
@@ -255,14 +256,14 @@ class TagsDependency(interfaces.IDependency):
         timeout += delay
         return timeout
 
-    def _tag_is_locked(self, tag_bean, transaction_start_time):
+    def _tag_is_locked(self, tag_bean, transaction):
         if tag_bean.thread_id == self._get_thread_id():
             # Acquired by current thread, ignore it
             return False
         if tag_bean.status == self.STATUS.ACQUIRED:
             # Tag still is acquired
             return True
-        if transaction_start_time <= tag_bean.time:
+        if transaction.get_start_time() <= tag_bean.time:
             # We don't create cache in all transactions started earlier
             # than finished the transaction which has invalidated tag.
             return True
@@ -270,10 +271,10 @@ class TagsDependency(interfaces.IDependency):
 
 class DummyDependency(interfaces.IDependency):
 
-    def evaluate(self, cache, transaction_start_time, version):
+    def evaluate(self, cache, transaction, version):
         """
         :type cache: cache_tagging.interfaces.ICache
-        :type transaction_start_time: float
+        :type transaction: cache_tagging.interfaces.ITransaction
         :type version: int or None
         """
 
@@ -293,16 +294,17 @@ class DummyDependency(interfaces.IDependency):
         :type version: int or None
         """
 
-    def acquire(self, cache, delay, version):
+    def acquire(self, cache, transaction, version):
         """
         :type cache: cache_tagging.interfaces.ICache
-        :type delay: int
+        :type transaction: cache_tagging.interfaces.ITransaction
         :type version: int or None
         """
 
-    def release(self, cache, delay, version):
+    def release(self, cache, transaction, delay, version):
         """
         :type cache: cache_tagging.interfaces.ICache
+        :type transaction: cache_tagging.interfaces.ITransaction
         :type delay: int
         :type version: int or None
         """

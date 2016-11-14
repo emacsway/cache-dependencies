@@ -3,10 +3,10 @@ from cache_tagging.utils import Undef
 
 class IDependency(object):
 
-    def evaluate(self, cache, transaction_start_time, version):
+    def evaluate(self, cache, transaction, version):
         """
         :type cache: cache_tagging.interfaces.ICache
-        :type transaction_start_time: float
+        :type transaction: cache_tagging.interfaces.ITransaction
         :type version: int or None
         """
         raise NotImplementedError
@@ -26,17 +26,18 @@ class IDependency(object):
         """
         raise NotImplementedError
 
-    def acquire(self, cache, delay, version):
+    def acquire(self, cache, transaction, version):
         """
         :type cache: cache_tagging.interfaces.ICache
-        :type delay: int
+        :type transaction: cache_tagging.interfaces.ITransaction
         :type version: int or None
         """
         raise NotImplementedError
 
-    def release(self, cache, delay, version):
+    def release(self, cache, transaction, delay, version):
         """
         :type cache: cache_tagging.interfaces.ICache
+        :type transaction: cache_tagging.interfaces.ITransaction
         :type delay: int
         :type version: int or None
         """
@@ -148,28 +149,26 @@ class IRelationManager(object):
 
 class IDependencyLock(object):
 
-    def acquire(self, dependency, version):
+    def acquire(self, dependency, transaction, version):
         """
         :type dependency: cache_tagging.interfaces.IDependency
+        :type transaction: cache_tagging.interfaces.ITransaction
         :type version: int or None
         """
         raise NotImplementedError
 
-    def release(self, dependency, version):
+    def release(self, dependency, transaction, version):
         """
         :type dependency: cache_tagging.interfaces.IDependency
+        :type transaction: cache_tagging.interfaces.ITransaction
         :type version: int or None
         """
         raise NotImplementedError
 
-    def evaluate(self, dependency, transaction_start_time, version):
-        """it's okay delegate it to IDependencyLock,
-
-        because Lock can implement Pessimistic Offline Lock or Mutual Exclusion
-        instead of raising TagsLocked exception.
-
+    def evaluate(self, dependency, transaction, version):
+        """
         :type dependency: cache_tagging.interfaces.IDependency
-        :type transaction_start_time: float
+        :type transaction: cache_tagging.interfaces.ITransaction
         :type version: int or None
         """
         raise NotImplementedError
@@ -178,7 +177,7 @@ class IDependencyLock(object):
     def make(isolation_level, thread_safe_cache_accessor, delay):
         """
         :type isolation_level: str
-        :type thread_safe_cache_accessor: collections.Callable
+        :type thread_safe_cache_accessor: () -> cache_tagging.interfaces.ICache
         :type delay: int
         :rtype: cache_tagging.interfaces.IDependencyLock
         """
@@ -186,6 +185,18 @@ class IDependencyLock(object):
     
 
 class ITransaction(object):
+
+    def get_id(self):
+        """
+        :rtype:
+        """
+        raise NotImplementedError
+
+    def get_start_time(self):
+        """
+        :rtype: float
+        """
+        raise NotImplementedError
 
     def parent(self):
         """

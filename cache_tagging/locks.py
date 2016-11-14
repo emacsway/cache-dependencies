@@ -5,14 +5,29 @@ from cache_tagging import interfaces
 class DependencyLock(interfaces.IDependencyLock):
 
     def __init__(self, thread_safe_cache_accessor, delay=0):
+        """
+        :type thread_safe_cache_accessor: () -> cache_tagging.interfaces.ICache
+        :type delay: int
+        """
         self._cache = thread_safe_cache_accessor
         self._delay = delay  # For master/slave
 
-    def evaluate(self, dependency, transaction_start_time, version):
-        dependency.evaluate(self._cache(), transaction_start_time, version)
+    def evaluate(self, dependency, transaction, version):
+        """
+        :type dependency: cache_tagging.interfaces.IDependency
+        :type transaction: cache_tagging.interfaces.ITransaction
+        :type version: int or None
+        """
+        dependency.evaluate(self._cache(), transaction, version)
 
     @staticmethod
     def make(isolation_level, thread_safe_cache_accessor, delay):
+        """
+        :type isolation_level: str
+        :type thread_safe_cache_accessor: () -> cache_tagging.interfaces.ICache
+        :type delay: int
+        :rtype: cache_tagging.interfaces.IDependencyLock
+        """
         if isolation_level == 'READ UNCOMMITTED':
             return ReadUncommittedDependencyLock(thread_safe_cache_accessor, delay)
         elif isolation_level == 'READ COMMITTED':
@@ -27,15 +42,17 @@ class DependencyLock(interfaces.IDependencyLock):
 
 class ReadUncommittedDependencyLock(DependencyLock):
     """Tag Lock for Read Uncommitted transaction isolation level."""
-    def acquire(self, dependency, version):
+    def acquire(self, dependency, transaction, version):
         """
         :type dependency: cache_tagging.interfaces.IDependency
+        :type transaction: cache_tagging.interfaces.ITransaction
         :type version: int or None
         """
 
-    def release(self, dependency, version):
+    def release(self, dependency, transaction, version):
         """
         :type dependency: cache_tagging.interfaces.IDependency
+        :type transaction: cache_tagging.interfaces.ITransaction
         :type version: int or None
         """
         if self._delay:
@@ -50,30 +67,33 @@ class ReadUncommittedDependencyLock(DependencyLock):
 
 class ReadCommittedDependencyLock(ReadUncommittedDependencyLock):
     """Tag Lock for Read Committed transaction isolation level."""
-    def release(self, dependency, version):
+    def release(self, dependency, transaction, version):
         """
         :type dependency: cache_tagging.interfaces.IDependency
+        :type transaction: cache_tagging.interfaces.ITransaction
         :type version: int or None
         """
         self._release_dependency_target(dependency, version)
-        super(ReadCommittedDependencyLock, self).release(dependency, version)
+        super(ReadCommittedDependencyLock, self).release(dependency, transaction, version)
 
 
 class RepeatableReadDependencyLock(DependencyLock):
     """Tag Lock for Repeatable Reads transaction isolation level."""
-    def acquire(self, dependency, version):
+    def acquire(self, dependency, transaction, version):
         """
         :type dependency: cache_tagging.interfaces.IDependency
+        :type transaction: cache_tagging.interfaces.ITransaction
         :type version: int or None
         """
-        dependency.acquire(self._cache(), self._delay, version)
+        dependency.acquire(self._cache(), transaction, version)
 
-    def release(self, dependency, version):
+    def release(self, dependency, transaction, version):
         """
         :type dependency: cache_tagging.interfaces.IDependency
+        :type transaction: cache_tagging.interfaces.ITransaction
         :type version: int or None
         """
-        dependency.release(self._cache(), self._delay, version)
+        dependency.release(self._cache(), transaction, self._delay, version)
 
 
 class SerializableDependencyLock(RepeatableReadDependencyLock):

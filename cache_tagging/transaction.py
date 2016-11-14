@@ -1,4 +1,5 @@
 import time
+import uuid
 from functools import wraps
 
 from cache_tagging import dependencies, interfaces, mixins
@@ -8,10 +9,9 @@ from cache_tagging.utils import Undef
 class AbstractTransaction(interfaces.ITransaction):
     def __init__(self, lock):
         self._lock = lock
-        self.start_time = self._current_time()
 
     def evaluate(self, tags, version):
-        return self._lock.evaluate(tags, self.start_time, version)
+        return self._lock.evaluate(tags, self, version)
 
     @staticmethod
     def _current_time():
@@ -20,8 +20,19 @@ class AbstractTransaction(interfaces.ITransaction):
 
 class Transaction(AbstractTransaction):
     def __init__(self, lock):
+        """
+        :type lock: cache_tagging.interfaces.IDependencyLock
+        """
         super(Transaction, self).__init__(lock)
         self._dependencies = dict()
+        self._start_time = self._current_time()
+        self._id = self._make_id()
+
+    def get_id(self):
+        return self._id
+
+    def get_start_time(self):
+        return self._start_time
 
     def parent(self):
         return None
@@ -31,20 +42,32 @@ class Transaction(AbstractTransaction):
         if version not in self._dependencies:
             self._dependencies[version] = dependencies.CompositeDependency()
         self._dependencies[version].extend(dependency)
-        self._lock.acquire(dependency, version)
+        self._lock.acquire(dependency, self, version)
 
     def finish(self):
         for version, dependency in self._dependencies.items():
-            self._lock.release(dependency, version)
+            self._lock.release(dependency, self, version)
+
+    @staticmethod
+    def _make_id():
+        return uuid.uuid4().hex
 
 
 class SavePoint(Transaction):
     def __init__(self, lock, parent):
+        """
+        :type lock: cache_tagging.interfaces.IDependencyLock
+        :type parent: cache_tagging.transaction.Transaction or cache_tagging.transaction.SavePoint
+        """
         super(SavePoint, self).__init__(lock)
-        assert parent is not None
         assert isinstance(parent, (SavePoint, Transaction))
         self._parent = parent
-        self.start_time = parent.start_time
+
+    def get_id(self):
+        return self.parent().get_id()
+
+    def get_start_time(self):
+        return self.parent().get_start_time()
 
     def parent(self):
         return self._parent
@@ -59,6 +82,13 @@ class SavePoint(Transaction):
 
 
 class DummyTransaction(AbstractTransaction):
+
+    def get_id(self):
+        return "DummyTransaction"
+
+    def get_start_time(self):
+        return self._current_time()
+
     def parent(self):
         return None
 
