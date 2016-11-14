@@ -276,26 +276,26 @@ class TagsDependency(interfaces.IDependency):
     def _get_locked_tags(self, cache, transaction, version):
         acquired_tag_keys = {AcquiredTagState.make_key(tag): tag for tag in self.tags}
         released_tag_keys = {ReleasedTagState.make_key(tag): tag for tag in self.tags}
-
-        def callback(node, caches, keys):
-            acquired_tag_states = {acquired_tag_keys[tag_key]: state for tag_key, state in caches.items()
-                                   if tag_key in acquired_tag_keys}
-            released_tag_states = {released_tag_keys[tag_key]: state for tag_key, state in caches.items()
-                                   if tag_key in released_tag_keys}
-            locked_tags = set()
-            for tag in self.tags:
-                state = acquired_tag_states.get(tag)
-                released_state = released_tag_states.get(tag)
-                if released_state is not None and (state is None or state.time < released_state.time):
-                    state = released_state
-                if state is not None and state.is_locked(transaction):
-                    locked_tags.add(tag)
-            return locked_tags
-
         deferred = defer.Deferred(cache.get_many, defer.GetManyDeferredIterator, version)
         bulk_keys = set(acquired_tag_keys.keys()) | set(released_tag_keys.keys())
-        deferred.add_callback(callback, bulk_keys)
+        deferred.add_callback(self._get_locked_tags_callback, bulk_keys, transaction,
+                              acquired_tag_keys, released_tag_keys)
         return deferred
+
+    def _get_locked_tags_callback(self, node, caches, keys, transaction, acquired_tag_keys, released_tag_keys):
+        acquired_tag_states = {acquired_tag_keys[tag_key]: state for tag_key, state in caches.items()
+                               if tag_key in acquired_tag_keys}
+        released_tag_states = {released_tag_keys[tag_key]: state for tag_key, state in caches.items()
+                               if tag_key in released_tag_keys}
+        locked_tags = set()
+        for tag in self.tags:
+            state = acquired_tag_states.get(tag)
+            released_state = released_tag_states.get(tag)
+            if released_state is not None and (state is None or state.time < released_state.time):
+                state = released_state
+            if state is not None and state.is_locked(transaction):
+                locked_tags.add(tag)
+        return locked_tags
 
     def _make_tag_versions(self, cache, tags, version):
         if not tags:
