@@ -225,7 +225,7 @@ class GetManyDeferredIterator(AbstractDeferredIterator):
         aggregated_caches = self._get_aggregated_caches(node)
         callback, args, kwargs = node.queue[queue_len - self._index]
         item_caches = {key: aggregated_caches[key] for key in args[0] if key in aggregated_caches}
-        return callback(node, item_caches, *args[1:], **kwargs)
+        return callback(node, item_caches, *args, **kwargs)
 
     def _get_aggregated_caches(self, node):
         if node.aggregation_criterion not in self._aggregated_caches_map:

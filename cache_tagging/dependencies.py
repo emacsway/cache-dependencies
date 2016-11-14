@@ -202,7 +202,7 @@ class TagsDependency(interfaces.IDependency):
         """
         deferred = self._get_tag_versions(cache, version)
 
-        def callback(node, caches):
+        def callback(node, caches, keys):
             actual_tag_versions = node.get()
             invalid_tags = set(
                 tag for tag, tag_version in self.tag_versions.items()
@@ -268,7 +268,7 @@ class TagsDependency(interfaces.IDependency):
         tag_keys = {tag: utils.make_tag_key(tag) for tag in self.tags}
         deferred = defer.Deferred(cache.get_many, defer.GetManyDeferredIterator, version)
         deferred.add_callback(
-            lambda _, caches: {tag: caches[tag_key] for tag, tag_key in tag_keys.items() if tag_key in caches},
+            lambda _, caches, keys: {tag: caches[tag_key] for tag, tag_key in tag_keys.items() if tag_key in caches},
             tag_keys.values()
         )
         return deferred
@@ -277,7 +277,7 @@ class TagsDependency(interfaces.IDependency):
         acquired_tag_keys = {AcquiredTagState.make_key(tag): tag for tag in self.tags}
         released_tag_keys = {ReleasedTagState.make_key(tag): tag for tag in self.tags}
 
-        def callback(_, caches):
+        def callback(node, caches, keys):
             acquired_tag_states = {acquired_tag_keys[tag_key]: state for tag_key, state in caches.items()
                                    if tag_key in acquired_tag_keys}
             released_tag_states = {released_tag_keys[tag_key]: state for tag_key, state in caches.items()

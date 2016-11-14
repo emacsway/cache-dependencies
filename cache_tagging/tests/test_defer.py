@@ -97,21 +97,21 @@ class GetManyDeferredIteratorTestCase(unittest.TestCase):
         executor1 = mock.Mock(side_effect=lambda keys, versions: cached)
         deferred = defer.Deferred(executor1, defer.GetManyDeferredIterator, None)
         deferred.add_callback(
-            lambda _, caches: {'result1_' + k: v for k, v in caches.items()},
+            lambda node, caches, keys: {'result1_' + k: v for k, v in caches.items()},
             {'tag_1', 'tag_2'}
         )
 
         executor2 = mock.Mock(side_effect=lambda keys, versions: cached)
         deferred2 = defer.Deferred(executor2, defer.GetManyDeferredIterator, 1)
         deferred2.add_callback(
-            lambda _, caches: {'result2_' + k: v for k, v in caches.items()},
+            lambda node, caches, keys: {'result2_' + k: v for k, v in caches.items()},
             {'tag_3', 'tag_4'}
         )
         deferred += deferred2
 
         deferred3 = defer.Deferred(executor1, defer.GetManyDeferredIterator, None)
         deferred3.add_callback(
-            lambda _, caches: {'result3_' + k: v for k, v in caches.items()},
+            lambda node, caches, keys: {'result3_' + k: v for k, v in caches.items()},
             {'locked_tag_1', 'locked_tag_2'}
         )
         deferred += deferred3
