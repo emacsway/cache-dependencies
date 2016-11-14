@@ -231,7 +231,7 @@ class TagsDependency(interfaces.IDependency):
         """
         data = AcquiredTagState(transaction.get_id(), transaction.get_start_time())
         cache.set_many(
-            {AcquiredTagState.make_key(tag): data for tag in self.tags}, self._get_tag_state_timeout(), version
+            {AcquiredTagState.make_key(tag): data for tag in self.tags}, self.TAG_STATE_TIMEOUT, version
         )
 
     def release(self, cache, transaction, delay, version):
@@ -244,7 +244,7 @@ class TagsDependency(interfaces.IDependency):
         data = ReleasedTagState(transaction.get_id(), transaction.get_end_time() + delay)
         cache.set_many(
             {ReleasedTagState.make_key(tag): data for tag in self.tags},
-            self._get_tag_state_timeout(max(delay, 1)),  # Must have ttl greater than ttl of AcquiredTagState
+            self.TAG_STATE_TIMEOUT + max(delay, 1),  # Must have ttl greater than ttl of AcquiredTagState
             version
         )
 
@@ -305,11 +305,6 @@ class TagsDependency(interfaces.IDependency):
         new_tag_key_versions = {utils.make_tag_key(tag): tag_version for tag, tag_version in new_tag_versions.items()}
         cache.set_many(new_tag_key_versions, self.TAG_TIMEOUT, version)
         return new_tag_versions
-
-    def _get_tag_state_timeout(self, delay=0):
-        timeout = self.TAG_STATE_TIMEOUT
-        timeout += delay
-        return timeout
 
 
 class DummyDependency(interfaces.IDependency):
