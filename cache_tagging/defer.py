@@ -228,17 +228,17 @@ class GetManyDeferredIterator(AbstractDeferredIterator):
         return callback(node, item_caches, *args, **kwargs)
 
     def _get_aggregated_caches(self, node):
-        if node.aggregation_criterion not in self._aggregated_caches_map:
-            self._aggregated_caches_map[node.aggregation_criterion] = node.execute(
+        if node.aggregation_criterion not in self._aggregated_caches_mapping:
+            self._aggregated_caches_mapping[node.aggregation_criterion] = node.execute(
                 self._get_aggregated_cache_keys(node.aggregation_criterion), *node.args, **node.kwargs
             ) or {}
-        return self._aggregated_caches_map[node.aggregation_criterion]
+        return self._aggregated_caches_mapping[node.aggregation_criterion]
 
     @property
-    def _aggregated_caches_map(self):
-        if not hasattr(self.state, 'aggregated_caches_map'):
-            self.state.aggregated_caches_map = {}
-        return self.state.aggregated_caches_map
+    def _aggregated_caches_mapping(self):
+        if not hasattr(self.state, 'aggregated_caches_mapping'):
+            self.state.aggregated_caches_mapping = {}
+        return self.state.aggregated_caches_mapping
 
     def _get_aggregated_cache_keys(self, acceptable_aggregation_criterion):
         keys = set()
