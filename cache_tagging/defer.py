@@ -26,14 +26,14 @@ class DeferredNode(interfaces.IDeferred):
 
     def get(self):
         # We should get result in ordered way.
-        # Getting result by named key is a bad idea, because in this case
+        # Getting result by named key is a bad idea, because of, in this case,
         # caller should to know not only result type (Deferred),
         # but also named key of result.
-        # Too big coupling.
+        # Too high coupling.
         # But in ordered way (i.e. in current case) caller should always get
         # the deferred result to handle whole queue in correct order.
         # Be careful with exceptions!
-        # You should raise exception after all deferred results in method is received!
+        # You should raise exception only when all deferred results in callback already is obtained!
         return next(iter(self))
 
     @property
