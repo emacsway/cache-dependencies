@@ -1,5 +1,4 @@
 import time
-# import uuid
 from functools import wraps
 
 from cache_tagging import dependencies, interfaces, mixins, utils
@@ -9,6 +8,9 @@ from cache_tagging.utils import Undef
 class AbstractTransaction(interfaces.ITransaction):
     def __init__(self, lock):
         self._lock = lock
+
+    def get_session_id(self):
+        return utils.get_thread_id()
 
     def evaluate(self, tags, version):
         return self._lock.evaluate(tags, self, version)
@@ -27,10 +29,6 @@ class Transaction(AbstractTransaction):
         self._dependencies = dict()
         self._start_time = self._current_time()
         self._end_time = None
-        self._id = self._make_id()
-
-    def get_id(self):
-        return self._id
 
     def get_start_time(self):
         return self._start_time
@@ -55,11 +53,6 @@ class Transaction(AbstractTransaction):
         for version, dependency in self._dependencies.items():
             self._lock.release(dependency, self, version)
 
-    @staticmethod
-    def _make_id():
-        return utils.get_thread_id()
-        # return uuid.uuid4().hex
-
 
 class SavePoint(Transaction):
     def __init__(self, lock, parent):
@@ -70,9 +63,6 @@ class SavePoint(Transaction):
         super(SavePoint, self).__init__(lock)
         assert isinstance(parent, (SavePoint, Transaction))
         self._parent = parent
-
-    def get_id(self):
-        return self.parent().get_id()
 
     def get_start_time(self):
         return self.parent().get_start_time()
@@ -93,10 +83,6 @@ class SavePoint(Transaction):
 
 
 class DummyTransaction(AbstractTransaction):
-
-    def get_id(self):
-        return utils.get_thread_id()
-        # return "DummyTransaction"
 
     def get_start_time(self):
         return self._current_time()

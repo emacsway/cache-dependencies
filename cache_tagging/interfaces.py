@@ -186,7 +186,7 @@ class IDependencyLock(object):
 
 class ITransaction(object):
 
-    def get_id(self):
+    def get_session_id(self):
         """
         :rtype:
         """

@@ -33,7 +33,7 @@ class AbstractTagsDependencyTestCase(unittest.TestCase):
         self.transaction = mock.Mock(interfaces.ITransaction)
         self.transaction.get_start_time.return_value = self.start_time
         self.transaction.get_end_time.return_value = self.end_time
-        self.transaction.get_id.return_value = 'ivan-X555LF.21920.140481146955584'
+        self.transaction.get_session_id.return_value = 'ivan-X555LF.21920.140481146955584'
 
         self.dependency = dependencies.TagsDependency(*self.tag_versions.keys())
         self.dependency.tag_versions = self.tag_versions
@@ -41,7 +41,7 @@ class AbstractTagsDependencyTestCase(unittest.TestCase):
         self.concurrent_transaction = mock.Mock(interfaces.ITransaction)
         self.concurrent_transaction.get_start_time.return_value = self.start_time
         self.concurrent_transaction.get_end_time.return_value = self.end_time
-        self.concurrent_transaction.get_id.return_value = 'ivan-X555LF.21920.140481146955584' + '1'
+        self.concurrent_transaction.get_session_id.return_value = 'ivan-X555LF.21920.140481146955584' + '1'
 
         self.concurrent_dependency = dependencies.TagsDependency(*self.tag_versions.keys())
         self.concurrent_dependency.tag_versions = self.tag_versions

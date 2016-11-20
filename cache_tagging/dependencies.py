@@ -108,7 +108,19 @@ class CompositeDependency(interfaces.IDependency):
         return c
 
 
-class AbstractTagState(collections.namedtuple('TagStateBean', ('transaction_id', 'time'))):
+class AbstractTagState(object):
+    """
+    :type session_id: str
+    :type time: float
+    """
+    time = None
+
+    def __init__(self, transaction):
+        """
+        :type transaction: cache_tagging.interfaces.ITransaction
+        """
+        self.session_id = transaction.get_session_id()
+
     @staticmethod
     def make_key(tag):
         raise NotImplementedError
@@ -119,17 +131,15 @@ class AbstractTagState(collections.namedtuple('TagStateBean', ('transaction_id',
         """
         raise NotImplementedError
 
-    def __repr__(self):
-        return '{0}({1})'.format(
-            self.__class__.__name__,
-            ', '.join(
-                '{0}={1!r}'.format(name, getattr(self, name)) for name in self._fields
-            )
-        )
-
 
 class AcquiredTagState(AbstractTagState):
-    __slots__ = ()
+
+    def __init__(self, transaction):
+        """
+        :type transaction: cache_tagging.interfaces.ITransaction
+        """
+        super(AcquiredTagState, self).__init__(transaction)
+        self.time = transaction.get_start_time()
 
     @staticmethod
     def make_key(tag):
@@ -139,11 +149,19 @@ class AcquiredTagState(AbstractTagState):
         """
         :type transaction: cache_tagging.interfaces.ITransaction
         """
-        return transaction.get_id() != self.transaction_id  # Acquired by current thread, ignore it
+        return transaction.get_session_id() != self.session_id  # Acquired by current thread, ignore it
 
 
 class ReleasedTagState(AbstractTagState):
-    __slots__ = ()
+
+    def __init__(self, transaction, delay):
+        """
+        :type transaction: cache_tagging.interfaces.ITransaction
+        :type delay: int
+        """
+        super(ReleasedTagState, self).__init__(transaction)
+        self.time = transaction.get_end_time()
+        self.delay = delay
 
     @staticmethod
     def make_key(tag):
@@ -153,10 +171,10 @@ class ReleasedTagState(AbstractTagState):
         """
         :type transaction: cache_tagging.interfaces.ITransaction
         """
-        if transaction.get_id() == self.transaction_id:
+        if transaction.get_session_id() == self.session_id:
             # Released by current thread, ignore it
             return False
-        elif transaction.get_start_time() <= self.time:
+        elif transaction.get_start_time() <= (self.time + self.delay):
             # We don't create cache in all transactions started earlier
             # than finished the transaction which has invalidated tag.
             return True
@@ -229,7 +247,7 @@ class TagsDependency(interfaces.IDependency):
         :type transaction: cache_tagging.interfaces.ITransaction
         :type version: int or None
         """
-        data = AcquiredTagState(transaction.get_id(), transaction.get_start_time())
+        data = AcquiredTagState(transaction)
         cache.set_many(
             {AcquiredTagState.make_key(tag): data for tag in self.tags}, self.TAG_STATE_TIMEOUT, version
         )
@@ -241,7 +259,7 @@ class TagsDependency(interfaces.IDependency):
         :type delay: int
         :type version: int or None
         """
-        data = ReleasedTagState(transaction.get_id(), transaction.get_end_time() + delay)
+        data = ReleasedTagState(transaction, delay)
         cache.set_many(
             {ReleasedTagState.make_key(tag): data for tag in self.tags},
             self.TAG_STATE_TIMEOUT + max(delay, 1),  # Must have ttl greater than ttl of AcquiredTagState
@@ -293,7 +311,8 @@ class TagsDependency(interfaces.IDependency):
             state = acquired_tag_states.get(tag)
             released_state = released_tag_states.get(tag)
             if released_state is not None:
-                if state is None or state.transaction_id == released_state.transaction_id:
+                if state is None or (state.session_id == released_state.session_id and
+                                     state.time < released_state.time):
                     # Tag has not been already repeatedly acquired by concurrent transactions,
                     # or already acquired and released by concurrent transactions and then
                     # again released by current transaction.
