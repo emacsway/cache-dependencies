@@ -1,8 +1,6 @@
 import copy
-import time
 import operator
 import functools
-import collections
 from cache_tagging import interfaces, defer, exceptions, utils
 
 
@@ -180,6 +178,17 @@ class ReleasedTagState(AbstractTagState):
             return True
         return False
 
+    def is_released(self, acquired_tag_state):
+        """
+        Tag has not been already repeatedly acquired by concurrent transaction,
+        or already acquired and released by concurrent transactions and then
+        again released by current transaction.
+
+        :type acquired_tag_state: cache_tagging.dependencies.AcquiredTagState
+        :rtype: bool
+        """
+        return self.session_id == acquired_tag_state.session_id and self.time > acquired_tag_state.time
+
 
 class TagsDependency(interfaces.IDependency):
     TAG_TIMEOUT = 24 * 3600
@@ -311,11 +320,7 @@ class TagsDependency(interfaces.IDependency):
             state = acquired_tag_states.get(tag)
             released_state = released_tag_states.get(tag)
             if released_state is not None:
-                if state is None or (state.session_id == released_state.session_id and
-                                     state.time < released_state.time):
-                    # Tag has not been already repeatedly acquired by concurrent transactions,
-                    # or already acquired and released by concurrent transactions and then
-                    # again released by current transaction.
+                if state is None or released_state.is_released(state):
                     state = released_state
             if state is not None and state.is_locked(transaction):
                 locked_tags.add(tag)
