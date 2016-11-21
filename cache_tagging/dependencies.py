@@ -256,9 +256,9 @@ class TagsDependency(interfaces.IDependency):
         :type transaction: cache_tagging.interfaces.ITransaction
         :type version: int or None
         """
-        data = AcquiredTagState(transaction)
+        state = AcquiredTagState(transaction)
         cache.set_many(
-            {AcquiredTagState.make_key(tag): data for tag in self.tags}, self.TAG_STATE_TIMEOUT, version
+            {AcquiredTagState.make_key(tag): state for tag in self.tags}, self.TAG_STATE_TIMEOUT, version
         )
 
     def release(self, cache, transaction, delay, version):
@@ -268,9 +268,9 @@ class TagsDependency(interfaces.IDependency):
         :type delay: int
         :type version: int or None
         """
-        data = ReleasedTagState(transaction, delay)
+        state = ReleasedTagState(transaction, delay)
         cache.set_many(
-            {ReleasedTagState.make_key(tag): data for tag in self.tags},
+            {ReleasedTagState.make_key(tag): state for tag in self.tags},
             self.TAG_STATE_TIMEOUT + max(delay, 1),  # Must have ttl greater than ttl of AcquiredTagState
             version
         )
