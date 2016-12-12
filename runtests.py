@@ -25,21 +25,21 @@ def main():
         INSTALLED_APPS = [
             'django.contrib.sessions',
             'django.contrib.messages',
-            'cache_tagging.django_cache_tagging',
+            'django_cache_dependencies',
         ],
         MIDDLEWARE_CLASSES = [
             'django.middleware.common.CommonMiddleware',
             'django.contrib.sessions.middleware.SessionMiddleware',
             'django.middleware.csrf.CsrfViewMiddleware',
             'django.contrib.messages.middleware.MessageMiddleware',
-            'cache_tagging.django_cache_tagging.middleware.TransactionMiddleware',
+            'django_cache_dependencies.middleware.TransactionMiddleware',
         ],
         MIDDLEWARE = [
             'django.middleware.common.CommonMiddleware',
             'django.contrib.sessions.middleware.SessionMiddleware',
             'django.middleware.csrf.CsrfViewMiddleware',
             'django.contrib.messages.middleware.MessageMiddleware',
-            'cache_tagging.django_cache_tagging.middleware.TransactionMiddleware',
+            'django_cache_dependencies.middleware.TransactionMiddleware',
         ],
         TEST_RUNNER = 'django.test.runner.DiscoverRunner',
         TEMPLATE_DIRS = [],
@@ -63,7 +63,7 @@ def main():
     except AttributeError:
         pass
 
-    from cache_tagging.django_cache_tagging import autodiscover
+    from django_cache_dependencies import autodiscover
     autodiscover()
 
     # Run the test suite, including the extra validation tests.
@@ -72,15 +72,15 @@ def main():
 
     test_runner = TestRunner(verbosity=1, interactive=False, failfast=False)
     failures = test_runner.run_tests([
-        'cache_tagging.tests.test_cache',
-        'cache_tagging.tests.test_defer',
-        'cache_tagging.tests.test_dependencies',
-        'cache_tagging.tests.test_helpers',
-        'cache_tagging.tests.test_relations',
-        'cache_tagging.tests.test_locks',
-        'cache_tagging.tests.test_transaction',
-        'cache_tagging.tests.test_tagging',
-        'cache_tagging.django_cache_tagging.tests',
+        'cache_dependencies.tests.test_cache',
+        'cache_dependencies.tests.test_defer',
+        'cache_dependencies.tests.test_dependencies',
+        'cache_dependencies.tests.test_helpers',
+        'cache_dependencies.tests.test_relations',
+        'cache_dependencies.tests.test_locks',
+        'cache_dependencies.tests.test_transaction',
+        'cache_dependencies.tests.test_tagging',
+        'django_cache_dependencies.tests',
     ])
     sys.exit(failures)
 
