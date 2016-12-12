@@ -1,7 +1,7 @@
 from __future__ import absolute_import, unicode_literals
 from django.conf.urls import url
-from cache_tagging.django_cache_tagging.decorators import cache_page
-from cache_tagging.django_cache_tagging.tests import views
+from django_cache_dependencies.decorators import cache_page
+from django_cache_dependencies.tests import views
 
 
 urlpatterns = [

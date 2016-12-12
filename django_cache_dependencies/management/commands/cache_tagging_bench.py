@@ -2,7 +2,7 @@ import time
 from collections import OrderedDict
 import cProfile, pstats
 from django.core.management.base import BaseCommand
-from cache_tagging.django_cache_tagging import cache
+from django_cache_dependencies import cache
 
 try:
     from StringIO import StringIO

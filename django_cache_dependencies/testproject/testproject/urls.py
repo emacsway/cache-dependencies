@@ -1,11 +1,11 @@
 from django.conf.urls import include, url
 
-from cache_tagging.django_cache_tagging.tests import urls as test_urls
+from django_cache_dependencies.tests import urls as test_urls
 
 from django.contrib import admin
 admin.autodiscover()
 
-from cache_tagging.django_cache_tagging import autodiscover
+from django_cache_dependencies import autodiscover
 autodiscover()
 
 urlpatterns = [

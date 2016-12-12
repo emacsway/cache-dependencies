@@ -36,7 +36,7 @@ INSTALLED_APPS = (
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'cache_tagging.django_cache_tagging',
+    'django_cache_dependencies',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -46,7 +46,7 @@ MIDDLEWARE_CLASSES = (
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'cache_tagging.django_cache_tagging.middleware.TransactionMiddleware',
+    'django_cache_dependencies.middleware.TransactionMiddleware',
 )
 
 ROOT_URLCONF = 'testproject.urls'

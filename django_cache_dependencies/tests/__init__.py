@@ -33,7 +33,7 @@ registry.register(CACHES)
 
 class CacheTaggingIntegrationTest(TestCase):
 
-    urls = 'cache_tagging.django_cache_tagging.tests.urls'
+    urls = 'django_cache_dependencies.tests.urls'
 
     @classmethod
     def setUpClass(cls):

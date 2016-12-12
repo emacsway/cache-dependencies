@@ -4,7 +4,7 @@ from django.http import HttpResponse
 from django.views.generic import View
 from django.utils.decorators import method_decorator
 
-from cache_tagging.django_cache_tagging.decorators import cache_page
+from django_cache_dependencies.decorators import cache_page
 
 
 @cache_page(3600, tags=lambda request: ('tests.firsttestmodel', ))

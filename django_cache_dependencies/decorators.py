@@ -2,8 +2,8 @@ from __future__ import absolute_import, unicode_literals
 import collections
 from django.utils.decorators import decorator_from_middleware_with_args
 
-from cache_tagging.django_cache_tagging import cache  # in real it used
-from cache_tagging.django_cache_tagging.middleware import CacheMiddleware
+from django_cache_dependencies import cache  # in real it used
+from django_cache_dependencies.middleware import CacheMiddleware
 from cache_tagging.tagging import CacheTagging
 
 
