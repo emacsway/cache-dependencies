@@ -1,8 +1,8 @@
-=======================================
-Cache Tagging (with support for Django)
-=======================================
+============================================
+Cache Dependencies (with support for Django)
+============================================
 
-Cache tagging allows you easily invalidate all cache records tagged with a given tag(s). Supports Django.
+Cache-dependencies (former Cache-tagging) allows you easily invalidate all cache records tagged with a given tag(s). Supports Django.
 
 Tags are a way to categorize cache records.
 When you save a cache, you can set a list of tags to apply for this record.
