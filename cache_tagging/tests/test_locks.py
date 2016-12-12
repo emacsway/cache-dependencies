@@ -24,7 +24,7 @@ class AbstractDependencyLockTestCase(unittest.TestCase):
         self.transaction.get_start_time.return_value = time.time() - 2
         self.cache = helpers.CacheStub()
         self.lock = self.lock_factory(lambda: self.cache, self.delay)
-        self.dependency = self._make_dep()
+        self.dependency = self._make_dependency()
         self.tag_versions = {
             'tag1': utils.generate_tag_version(),
             'tag2': utils.generate_tag_version(),
@@ -39,7 +39,7 @@ class AbstractDependencyLockTestCase(unittest.TestCase):
         )
 
     @staticmethod
-    def _make_dep():
+    def _make_dependency():
         return mock.Mock(spec=interfaces.IDependency)
 
     def test_evaluate(self):

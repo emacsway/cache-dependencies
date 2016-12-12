@@ -12,8 +12,12 @@ class AbstractTransaction(interfaces.ITransaction):
     def get_session_id(self):
         return utils.get_thread_id()
 
-    def evaluate(self, tags, version):
-        return self._lock.evaluate(tags, self, version)
+    def evaluate(self, dependency, version):
+        """
+        :type dependency: cache_tagging.interfaces.IDependency
+        :type version: int or None
+        """
+        return self._lock.evaluate(dependency, self, version)
 
     @staticmethod
     def _current_time():
@@ -35,13 +39,17 @@ class Transaction(AbstractTransaction):
 
     def get_end_time(self):
         if self._end_time is None:
-            raise Exception("Transaction is not finished yet!")
+            raise RuntimeError("Transaction is not finished yet!")
         return self._end_time
 
     def parent(self):
         return None
 
     def add_dependency(self, dependency, version):
+        """
+        :type dependency: cache_tagging.interfaces.IDependency
+        :type version: int or None
+        """
         assert isinstance(dependency, interfaces.IDependency)
         if version not in self._dependencies:
             self._dependencies[version] = dependencies.CompositeDependency()
@@ -74,6 +82,10 @@ class SavePoint(Transaction):
         return self._parent
 
     def add_dependency(self, dependency, version):
+        """
+        :type dependency: cache_tagging.interfaces.IDependency
+        :type version: int or None
+        """
         assert isinstance(dependency, interfaces.IDependency)
         super(SavePoint, self).add_dependency(dependency, version)
         self._parent.add_dependency(dependency, version)
@@ -94,6 +106,10 @@ class DummyTransaction(AbstractTransaction):
         return None
 
     def add_dependency(self, dependency, version):
+        """
+        :type dependency: cache_tagging.interfaces.IDependency
+        :type version: int or None
+        """
         assert isinstance(dependency, interfaces.IDependency)
 
     def finish(self):
