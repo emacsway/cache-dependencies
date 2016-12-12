@@ -107,5 +107,3 @@ class TransactionTestCase(AbstractTransactionTestCase):
         self.assertEqual(args[0].delegates[0].id, 3)
         self.assertIs(args[1], self.transaction)
         self.assertEqual(args[2], 1)
-
-
