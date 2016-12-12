@@ -4,7 +4,7 @@ from django.utils.decorators import decorator_from_middleware_with_args
 
 from django_cache_dependencies import cache  # in real it used
 from django_cache_dependencies.middleware import CacheMiddleware
-from cache_tagging.tagging import CacheTagging
+from cache_dependencies.tagging import CacheTagging
 
 
 def cache_transaction(f=None, cache=None):

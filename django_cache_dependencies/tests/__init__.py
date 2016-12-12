@@ -44,10 +44,10 @@ class CacheTaggingIntegrationTest(TestCase):
             cls.ORIGINAL_CACHE_TAGGING = settings.CACHE_TAGGING
         settings.CACHE_TAGGING = {'default': {}}
 
-        if 'cache_tagging.middleware.TransactionMiddleware' in settings.MIDDLEWARE_CLASSES:
+        if 'cache_dependencies.middleware.TransactionMiddleware' in settings.MIDDLEWARE_CLASSES:
             cls.ORIGINAL_MIDDLEWARE_CLASSES = settings.MIDDLEWARE_CLASSES
             settings.MIDDLEWARE_CLASSES = list(cls.ORIGINAL_MIDDLEWARE_CLASSES)
-            settings.MIDDLEWARE_CLASSES.remove('cache_tagging.middleware.TransactionMiddleware')
+            settings.MIDDLEWARE_CLASSES.remove('cache_dependencies.middleware.TransactionMiddleware')
 
     @classmethod
     def tearDownClass(cls):

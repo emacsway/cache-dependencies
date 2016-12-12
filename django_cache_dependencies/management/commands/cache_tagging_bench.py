@@ -17,7 +17,7 @@ class GetValidCase(object):
         tags1 = ('tag1_1', 'tag1_2', 'tag1_3', 'tag1_4',)
         self.cache.set('name1', 'value1', tags1, 120)
 
-    def cache_tagging_call(self):
+    def cache_dependencies_call(self):
         return self.cache.get('name1')
 
     def native_cache_call(self):
@@ -33,7 +33,7 @@ class GetManyValidCase(object):
         tags2 = ('tag2_1', 'tag2_2', 'tag2_3', 'tag2_4',)
         self.cache.set('name2', 'value2', tags2, 120)
 
-    def cache_tagging_call(self):
+    def cache_dependencies_call(self):
         return self.cache.get_many(('name1', 'name2'))
 
     def native_cache_call(self):
@@ -48,7 +48,7 @@ class GetInvalidCase(object):
         self.cache.set('name1', 'value1', tags1, 120)
         self.cache.invalidate_tags('tag1_1')
 
-    def cache_tagging_call(self):
+    def cache_dependencies_call(self):
         return self.cache.get('name1')
 
     def native_cache_call(self):
@@ -65,7 +65,7 @@ class GetManyInvalidCase(object):
         self.cache.set('name2', 'value2', tags2, 120)
         self.cache.invalidate_tags('tag1_1')
 
-    def cache_tagging_call(self):
+    def cache_dependencies_call(self):
         return self.cache.get_many(('name1', 'name2'))
 
     def native_cache_call(self):
@@ -156,14 +156,14 @@ class Command(BaseCommand):
         )
         for case_key in options['case']:
             case = self._cases[case_key]
-            case.cache_tagging_call()  # Just prepare
+            case.cache_dependencies_call()  # Just prepare
             case.native_cache_call()
-            result = bench(case.cache_tagging_call, case.native_cache_call)
+            result = bench(case.cache_dependencies_call, case.native_cache_call)
             self.stdout.write("=" * 50, ending="\n")
-            self.stdout.write("Cache-tagging result, sec.: {}".format(result[case.cache_tagging_call]), ending="\n")
+            self.stdout.write("Cache-tagging result, sec.: {}".format(result[case.cache_dependencies_call]), ending="\n")
             self.stdout.write("Native cache result, sec. : {}".format(result[case.native_cache_call]), ending="\n")
-            overhead = (result[case.cache_tagging_call] * 100 / result[case.native_cache_call]) - 100
+            overhead = (result[case.cache_dependencies_call] * 100 / result[case.native_cache_call]) - 100
             self.stdout.write("Overhead, %               : {}".format(overhead), ending="\n")
             self.stdout.write("=" * 50, ending="\n")
-            prof(case.cache_tagging_call)
+            prof(case.cache_dependencies_call)
             self.stdout.write("=" * 50, ending="\n\n\n")

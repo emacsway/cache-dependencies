@@ -20,19 +20,19 @@ project settings.py::
 
     INSTALLED_APPS = (
         # ...
-        'cache_tagging.django_cache_tagging',
+        'django_cache_dependencies',
         # ...
     )
 
 project urls.py::
 
-    from cache_tagging.django_cache_tagging import autodiscover
+    from django_cache_dependencies import autodiscover
     autodiscover()
 
 application example::
 
     # Default backend
-    from cache_tagging.django_cache_tagging import caches
+    from django_cache_dependencies import caches
     cache = caches['default']
 
     value = cache.get('cache_name')
@@ -45,7 +45,7 @@ application example::
 
 manual invalidation::
 
-    from cache_tagging.django_cache_tagging import caches
+    from django_cache_dependencies import caches
     cache = caches['default']
 
     # ...
@@ -101,7 +101,7 @@ appname.caches.py file::
     # Inside the handler function available all local variables from signal.
     # Or only object. Of your choice.
 
-    from cache_tagging.django_cache_tagging import registry, caches
+    from django_cache_dependencies import registry, caches
     from models import Post
     from news import Article
 
@@ -119,7 +119,7 @@ appname.caches.py file::
 
     # Variant 2. Low-lewel. Using signals for invalidation.
 
-    from cache_tagging.django_cache_tagging import registry
+    from django_cache_dependencies import registry
     from models import Post
     from django.db.models.signals import post_save, post_delete
 
@@ -199,7 +199,7 @@ nocache support::
 
 view decorator::
 
-    from cache_tagging.django_cache_tagging.decorators import cache_page
+    from django_cache_dependencies.decorators import cache_page
 
     # See also useful decorator to bind view's args and kwargs to request
     # https://bitbucket.org/emacsway/django-ext/src/d8b55d86680e/django_ext/middleware/view_args_to_request.py
@@ -212,8 +212,8 @@ view decorator::
 How about transaction and multithreading (multiprocessing)?::
 
     from django.db import transaction
-    from cache_tagging.django_cache_tagging import cache
-    from cache_tagging.django_cache_tagging import cache_transaction
+    from django_cache_dependencies import cache
+    from django_cache_dependencies import cache_transaction
 
     with cache.transaction, transaction.commit_on_success():
         # ... some code
@@ -229,8 +229,8 @@ How about transaction and multithreading (multiprocessing)?::
 Transaction handler as decorator::
 
     from django.db import transaction
-    from cache_tagging.django_cache_tagging import cache
-    from cache_tagging.django_cache_tagging.decorators import cache_transaction
+    from django_cache_dependencies import cache
+    from django_cache_dependencies.decorators import cache_transaction
 
     @cache.transaction
     @transaction.commit_on_success():
@@ -252,7 +252,7 @@ Transaction handler as middleware::
 
     MIDDLEWARE_CLASSES = [
         # ...
-        "cache_tagging.django_cache_tagging.middleware.TransactionMiddleware",  # Should be before
+        "django_cache_dependencies.middleware.TransactionMiddleware",  # Should be before
         "django.middleware.transaction.TransactionMiddleware",
         # ...
     ]

@@ -10,11 +10,11 @@ from django.core.cache import DEFAULT_CACHE_ALIAS
 from django.db.models import signals as model_signals
 from django.utils.functional import curry
 
-from cache_tagging.tagging import CacheTagging
-from cache_tagging.relations import RelationManager, ThreadSafeRelationManagerDecorator
-from cache_tagging.locks import DependencyLock
-from cache_tagging.transaction import TransactionManager, ThreadSafeTransactionManagerDecorator
-from cache_tagging.nocache import NoCache
+from cache_dependencies.tagging import CacheTagging
+from cache_dependencies.relations import RelationManager, ThreadSafeRelationManagerDecorator
+from cache_dependencies.locks import DependencyLock
+from cache_dependencies.transaction import TransactionManager, ThreadSafeTransactionManagerDecorator
+from cache_dependencies.nocache import NoCache
 
 try:
     str = unicode  # Python 2.* compatible
