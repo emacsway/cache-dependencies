@@ -1,20 +1,20 @@
 import copy
 import operator
 import functools
-from cache_tagging import interfaces, defer, exceptions, utils
+from cache_dependencies import interfaces, defer, exceptions, utils
 
 
 class CompositeDependency(interfaces.IDependency):
     def __init__(self, *delegates):
         """
-        :type delegates: tuple[cache_tagging.interfaces.IDependency]
+        :type delegates: tuple[cache_dependencies.interfaces.IDependency]
         """
         self.delegates = list(delegates)
 
     def evaluate(self, cache, transaction, version):
         """
-        :type cache: cache_tagging.interfaces.ICache
-        :type transaction: cache_tagging.interfaces.ITransaction
+        :type cache: cache_dependencies.interfaces.ICache
+        :type transaction: cache_dependencies.interfaces.ITransaction
         :type version: int or None
         """
         items = []
@@ -28,9 +28,9 @@ class CompositeDependency(interfaces.IDependency):
 
     def validate(self, cache, version):
         """
-        :type cache: cache_tagging.interfaces.ICache
+        :type cache: cache_dependencies.interfaces.ICache
         :type version: int or None
-        :rtype: cache_tagging.interfaces.IDeferred
+        :rtype: cache_dependencies.interfaces.IDeferred
         """
         try:
             deferred = functools.reduce(
@@ -57,7 +57,7 @@ class CompositeDependency(interfaces.IDependency):
 
     def invalidate(self, cache, version):
         """
-        :type cache: cache_tagging.interfaces.ICache
+        :type cache: cache_dependencies.interfaces.ICache
         :type version: int or None
         """
         for delegate in self.delegates:
@@ -65,8 +65,8 @@ class CompositeDependency(interfaces.IDependency):
 
     def acquire(self, cache, transaction, version):
         """
-        :type cache: cache_tagging.interfaces.ICache
-        :type transaction: cache_tagging.interfaces.ITransaction
+        :type cache: cache_dependencies.interfaces.ICache
+        :type transaction: cache_dependencies.interfaces.ITransaction
         :type version: int or None
         """
         for delegate in self.delegates:
@@ -74,8 +74,8 @@ class CompositeDependency(interfaces.IDependency):
 
     def release(self, cache, transaction, delay, version):
         """
-        :type cache: cache_tagging.interfaces.ICache
-        :type transaction: cache_tagging.interfaces.ITransaction
+        :type cache: cache_dependencies.interfaces.ICache
+        :type transaction: cache_dependencies.interfaces.ITransaction
         :type delay: int
         :type version: int or None
         """
@@ -84,7 +84,7 @@ class CompositeDependency(interfaces.IDependency):
 
     def extend(self, other):
         """
-        :type other: cache_tagging.interfaces.IDependency
+        :type other: cache_dependencies.interfaces.IDependency
         :rtype: bool
         """
         assert isinstance(other, interfaces.IDependency)
@@ -115,7 +115,7 @@ class AbstractTagState(object):
 
     def __init__(self, transaction):
         """
-        :type transaction: cache_tagging.interfaces.ITransaction
+        :type transaction: cache_dependencies.interfaces.ITransaction
         """
         self.session_id = transaction.get_session_id()
 
@@ -125,7 +125,7 @@ class AbstractTagState(object):
 
     def is_locked(self, transaction):
         """
-        :type transaction: cache_tagging.interfaces.ITransaction
+        :type transaction: cache_dependencies.interfaces.ITransaction
         """
         raise NotImplementedError
 
@@ -134,7 +134,7 @@ class AcquiredTagState(AbstractTagState):
 
     def __init__(self, transaction):
         """
-        :type transaction: cache_tagging.interfaces.ITransaction
+        :type transaction: cache_dependencies.interfaces.ITransaction
         """
         super(AcquiredTagState, self).__init__(transaction)
         self.time = transaction.get_start_time()
@@ -145,7 +145,7 @@ class AcquiredTagState(AbstractTagState):
 
     def is_locked(self, transaction):
         """
-        :type transaction: cache_tagging.interfaces.ITransaction
+        :type transaction: cache_dependencies.interfaces.ITransaction
         """
         return transaction.get_session_id() != self.session_id  # Acquired by current thread, ignore it
 
@@ -154,7 +154,7 @@ class ReleasedTagState(AbstractTagState):
 
     def __init__(self, transaction, delay):
         """
-        :type transaction: cache_tagging.interfaces.ITransaction
+        :type transaction: cache_dependencies.interfaces.ITransaction
         :type delay: int
         """
         super(ReleasedTagState, self).__init__(transaction)
@@ -167,7 +167,7 @@ class ReleasedTagState(AbstractTagState):
 
     def is_locked(self, transaction):
         """
-        :type transaction: cache_tagging.interfaces.ITransaction
+        :type transaction: cache_dependencies.interfaces.ITransaction
         """
         if transaction.get_session_id() == self.session_id:
             # Released by current thread, ignore it
@@ -184,7 +184,7 @@ class ReleasedTagState(AbstractTagState):
         or already acquired and released by concurrent transactions and then
         again released by current transaction.
 
-        :type acquired_tag_state: cache_tagging.dependencies.AcquiredTagState
+        :type acquired_tag_state: cache_dependencies.dependencies.AcquiredTagState
         :rtype: bool
         """
         return self.session_id == acquired_tag_state.session_id and self.time > acquired_tag_state.time
@@ -205,8 +205,8 @@ class TagsDependency(interfaces.IDependency):
 
     def evaluate(self, cache, transaction, version):
         """
-        :type cache: cache_tagging.interfaces.ICache
-        :type transaction: cache_tagging.interfaces.ITransaction
+        :type cache: cache_dependencies.interfaces.ICache
+        :type transaction: cache_dependencies.interfaces.ITransaction
         :type version: int or None
         """
         deferred = self._get_tag_versions(cache, version)
@@ -224,9 +224,9 @@ class TagsDependency(interfaces.IDependency):
 
     def validate(self, cache, version):
         """
-        :type cache: cache_tagging.interfaces.ICache
+        :type cache: cache_dependencies.interfaces.ICache
         :type version: int or None
-        :rtype: cache_tagging.interfaces.IDeferred
+        :rtype: cache_dependencies.interfaces.IDeferred
         """
         deferred = self._get_tag_versions(cache, version)
 
@@ -244,7 +244,7 @@ class TagsDependency(interfaces.IDependency):
 
     def invalidate(self, cache, version):
         """
-        :type cache: cache_tagging.interfaces.ICache
+        :type cache: cache_dependencies.interfaces.ICache
         :type version: int or None
         """
         tag_keys = list(map(utils.make_tag_key, self.tags))
@@ -252,8 +252,8 @@ class TagsDependency(interfaces.IDependency):
 
     def acquire(self, cache, transaction, version):
         """
-        :type cache: cache_tagging.interfaces.ICache
-        :type transaction: cache_tagging.interfaces.ITransaction
+        :type cache: cache_dependencies.interfaces.ICache
+        :type transaction: cache_dependencies.interfaces.ITransaction
         :type version: int or None
         """
         state = AcquiredTagState(transaction)
@@ -263,8 +263,8 @@ class TagsDependency(interfaces.IDependency):
 
     def release(self, cache, transaction, delay, version):
         """
-        :type cache: cache_tagging.interfaces.ICache
-        :type transaction: cache_tagging.interfaces.ITransaction
+        :type cache: cache_dependencies.interfaces.ICache
+        :type transaction: cache_dependencies.interfaces.ITransaction
         :type delay: int
         :type version: int or None
         """
@@ -277,7 +277,7 @@ class TagsDependency(interfaces.IDependency):
 
     def extend(self, other):
         """
-        :type other: cache_tagging.interfaces.IDependency
+        :type other: cache_dependencies.interfaces.IDependency
         :rtype: bool
         """
         if isinstance(other, TagsDependency):
@@ -339,16 +339,16 @@ class DummyDependency(interfaces.IDependency):
 
     def evaluate(self, cache, transaction, version):
         """
-        :type cache: cache_tagging.interfaces.ICache
-        :type transaction: cache_tagging.interfaces.ITransaction
+        :type cache: cache_dependencies.interfaces.ICache
+        :type transaction: cache_dependencies.interfaces.ITransaction
         :type version: int or None
         """
 
     def validate(self, cache, version):
         """
-        :type cache: cache_tagging.interfaces.ICache
+        :type cache: cache_dependencies.interfaces.ICache
         :type version: int or None
-        :rtype: cache_tagging.interfaces.IDeferred
+        :rtype: cache_dependencies.interfaces.IDeferred
         """
         deferred = defer.Deferred(None, defer.NoneDeferredIterator)
         deferred.add_callback(lambda *a, **kw: None)
@@ -356,28 +356,28 @@ class DummyDependency(interfaces.IDependency):
 
     def invalidate(self, cache, version):
         """
-        :type cache: cache_tagging.interfaces.ICache
+        :type cache: cache_dependencies.interfaces.ICache
         :type version: int or None
         """
 
     def acquire(self, cache, transaction, version):
         """
-        :type cache: cache_tagging.interfaces.ICache
-        :type transaction: cache_tagging.interfaces.ITransaction
+        :type cache: cache_dependencies.interfaces.ICache
+        :type transaction: cache_dependencies.interfaces.ITransaction
         :type version: int or None
         """
 
     def release(self, cache, transaction, delay, version):
         """
-        :type cache: cache_tagging.interfaces.ICache
-        :type transaction: cache_tagging.interfaces.ITransaction
+        :type cache: cache_dependencies.interfaces.ICache
+        :type transaction: cache_dependencies.interfaces.ITransaction
         :type delay: int
         :type version: int or None
         """
 
     def extend(self, other):
         """
-        :type other: cache_tagging.interfaces.IDependency
+        :type other: cache_dependencies.interfaces.IDependency
         :rtype: bool
         """
         if isinstance(other, DummyDependency):

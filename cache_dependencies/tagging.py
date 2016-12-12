@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, unicode_literals
-from cache_tagging import interfaces, dependencies, utils
-from cache_tagging.cache import CacheWrapper
+from cache_dependencies import interfaces, dependencies, utils
+from cache_dependencies.cache import CacheWrapper
 
 
 class CacheTagging(object):  # Backward compatibility

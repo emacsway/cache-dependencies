@@ -1,8 +1,8 @@
 import time
 from functools import wraps
 
-from cache_tagging import dependencies, interfaces, mixins, utils
-from cache_tagging.utils import Undef
+from cache_dependencies import dependencies, interfaces, mixins, utils
+from cache_dependencies.utils import Undef
 
 
 class AbstractTransaction(interfaces.ITransaction):
@@ -14,7 +14,7 @@ class AbstractTransaction(interfaces.ITransaction):
 
     def evaluate(self, dependency, version):
         """
-        :type dependency: cache_tagging.interfaces.IDependency
+        :type dependency: cache_dependencies.interfaces.IDependency
         :type version: int or None
         """
         return self._lock.evaluate(dependency, self, version)
@@ -27,7 +27,7 @@ class AbstractTransaction(interfaces.ITransaction):
 class Transaction(AbstractTransaction):
     def __init__(self, lock):
         """
-        :type lock: cache_tagging.interfaces.IDependencyLock
+        :type lock: cache_dependencies.interfaces.IDependencyLock
         """
         super(Transaction, self).__init__(lock)
         self._dependencies = dict()
@@ -47,7 +47,7 @@ class Transaction(AbstractTransaction):
 
     def add_dependency(self, dependency, version):
         """
-        :type dependency: cache_tagging.interfaces.IDependency
+        :type dependency: cache_dependencies.interfaces.IDependency
         :type version: int or None
         """
         assert isinstance(dependency, interfaces.IDependency)
@@ -65,8 +65,8 @@ class Transaction(AbstractTransaction):
 class SavePoint(Transaction):
     def __init__(self, lock, parent):
         """
-        :type lock: cache_tagging.interfaces.IDependencyLock
-        :type parent: cache_tagging.transaction.Transaction or cache_tagging.transaction.SavePoint
+        :type lock: cache_dependencies.interfaces.IDependencyLock
+        :type parent: cache_dependencies.transaction.Transaction or cache_dependencies.transaction.SavePoint
         """
         super(SavePoint, self).__init__(lock)
         assert isinstance(parent, interfaces.ITransaction)
@@ -83,7 +83,7 @@ class SavePoint(Transaction):
 
     def add_dependency(self, dependency, version):
         """
-        :type dependency: cache_tagging.interfaces.IDependency
+        :type dependency: cache_dependencies.interfaces.IDependency
         :type version: int or None
         """
         assert isinstance(dependency, interfaces.IDependency)
@@ -107,7 +107,7 @@ class DummyTransaction(AbstractTransaction):
 
     def add_dependency(self, dependency, version):
         """
-        :type dependency: cache_tagging.interfaces.IDependency
+        :type dependency: cache_dependencies.interfaces.IDependency
         :type version: int or None
         """
         assert isinstance(dependency, interfaces.IDependency)
@@ -142,7 +142,7 @@ class TransactionManager(AbstractTransactionManager):
 
     def __init__(self, lock):
         """
-        :type lock: cache_tagging.interfaces.IDependencyLock
+        :type lock: cache_dependencies.interfaces.IDependencyLock
         """
         self._lock = lock
         self._current = None

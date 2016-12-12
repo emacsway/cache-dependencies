@@ -1,6 +1,6 @@
 import copy
 import unittest
-from cache_tagging import defer
+from cache_dependencies import defer
 
 try:
     from unittest import mock

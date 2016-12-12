@@ -5,7 +5,7 @@ import socket
 import hashlib
 import warnings
 from threading import local
-from cache_tagging import __version__
+from cache_dependencies import __version__
 
 try:
     import _thread

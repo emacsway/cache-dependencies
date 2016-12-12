@@ -1,7 +1,7 @@
 import copy
 import collections
 from functools import wraps
-from cache_tagging import interfaces, utils
+from cache_dependencies import interfaces, utils
 
 
 class DeferredNode(interfaces.IDeferred):
@@ -43,7 +43,7 @@ class DeferredNode(interfaces.IDeferred):
     @parent.setter
     def parent(self, parent):
         """
-        :type parent: cache_tagging.interfaces.IDeferred
+        :type parent: cache_dependencies.interfaces.IDeferred
         """
         if getattr(self, '_parent', None) is None or parent is None:
             self._parent = parent
@@ -98,7 +98,7 @@ class Deferred(interfaces.IDeferred):
     @_to_node
     def parent(self, parent):
         """
-        :type parent: cache_tagging.interfaces.IDeferred
+        :type parent: cache_dependencies.interfaces.IDeferred
         """
         self.node.parent = parent
 
@@ -109,8 +109,8 @@ class Deferred(interfaces.IDeferred):
     @_to_node
     def __iadd__(self, other):
         """
-        :type other: cache_tagging.interfaces.IDeferred
-        :rtype: cache_tagging.interfaces.IDeferred
+        :type other: cache_dependencies.interfaces.IDeferred
+        :rtype: cache_dependencies.interfaces.IDeferred
         """
         other = copy.copy(other)
         if other.parent is not None:
@@ -173,13 +173,13 @@ class AbstractDeferredIterator(collections.Iterator):
     "Restriction:  A generator cannot be resumed while it is actively"
     Source: https://www.python.org/dev/peps/pep-0255/
 
-    :type state: cache_tagging.defer.State
+    :type state: cache_dependencies.defer.State
     """
     state = None
 
     def __init__(self, node):
         """
-        :type node: cache_tagging.interfaces.IDeferred
+        :type node: cache_dependencies.interfaces.IDeferred
         """
         self._node = node
         self._index = 0
@@ -252,7 +252,7 @@ class GetManyDeferredIterator(AbstractDeferredIterator):
     @staticmethod
     def _get_node_cache_keys(node):
         """
-        :type node: cache_tagging.interfaces.IDeferred
+        :type node: cache_dependencies.interfaces.IDeferred
         """
         keys = set()
         for callback, args, kwargs in node.queue:

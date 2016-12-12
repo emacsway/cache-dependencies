@@ -1,5 +1,5 @@
-from cache_tagging import dependencies, interfaces, mixins
-from cache_tagging.utils import Undef
+from cache_dependencies import dependencies, interfaces, mixins
+from cache_dependencies.utils import Undef
 
 try:
     str = unicode  # Python 2.* compatible

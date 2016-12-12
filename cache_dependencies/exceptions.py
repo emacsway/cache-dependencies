@@ -5,7 +5,7 @@ import itertools
 class DependencyLocked(Exception):
     def __init__(self, dependency, items):
         """
-        :type dependency: cache_tagging.interfaces.IDependency
+        :type dependency: cache_dependencies.interfaces.IDependency
         :type items: collections.Iterable[str]
         """
         self.dependency = dependency
@@ -19,7 +19,7 @@ class TagsLocked(DependencyLocked):
 class CompositeDependencyLocked(DependencyLocked):
     def __init__(self, dependency, children):
         """
-        :type dependency: cache_tagging.interfaces.IDependency
+        :type dependency: cache_dependencies.interfaces.IDependency
         :type children: collections.Iterable[DependencyInvalid]
         """
         self.dependency = dependency
@@ -36,7 +36,7 @@ class CompositeDependencyLocked(DependencyLocked):
 class DependencyInvalid(Exception):
     def __init__(self, dependency, errors):
         """
-        :type dependency: cache_tagging.interfaces.IDependency
+        :type dependency: cache_dependencies.interfaces.IDependency
         :type errors: collections.Iterable[str]
         """
         self.dependency = dependency
@@ -50,7 +50,7 @@ class TagsInvalid(DependencyInvalid):
 class CompositeDependencyInvalid(DependencyInvalid):
     def __init__(self, dependency, children):
         """
-        :type dependency: cache_tagging.interfaces.IDependency
+        :type dependency: cache_dependencies.interfaces.IDependency
         :type children: collections.Iterable[DependencyInvalid]
         """
         self.dependency = dependency

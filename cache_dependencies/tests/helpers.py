@@ -1,6 +1,6 @@
 import time
 import pickle
-from cache_tagging.cache import AbstractCache
+from cache_dependencies.cache import AbstractCache
 
 
 class CacheStub(AbstractCache):

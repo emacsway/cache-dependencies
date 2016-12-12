@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, unicode_literals
 import warnings
-from cache_tagging import interfaces, exceptions, dependencies
+from cache_dependencies import interfaces, exceptions, dependencies
 
 try:
     str = unicode  # Python 2.* compatible
@@ -18,9 +18,9 @@ class CacheWrapper(object):  # Adapter
     def __init__(self, cache, relation_manager, transaction):
         """Constructor of cache instance.
 
-        :type cache: cache_tagging.interfaces.ICache
-        :type relation_manager: cache_tagging.interfaces.IRelationManager
-        :type transaction: cache_tagging.interfaces.ITransactionManager
+        :type cache: cache_dependencies.interfaces.ICache
+        :type relation_manager: cache_dependencies.interfaces.IRelationManager
+        :type transaction: cache_dependencies.interfaces.ITransactionManager
         """
         self.cache = cache
         self.ignore_descendants = False
@@ -35,7 +35,7 @@ class CacheWrapper(object):  # Adapter
 
         :type key: str
         :type callback: collections.Callable
-        :type dependency: cache_tagging.interfaces.IDependency
+        :type dependency: cache_dependencies.interfaces.IDependency
         :type timeout: int or None
         :type version: int or None
         :type args: tuple
@@ -112,7 +112,7 @@ class CacheWrapper(object):  # Adapter
 
         :type key: str
         :type value: object
-        :type dependency: cache_tagging.interfaces.IDependency or None
+        :type dependency: cache_dependencies.interfaces.IDependency or None
         :type timeout: int or None
         :type version: int or None
         """
@@ -137,7 +137,7 @@ class CacheWrapper(object):  # Adapter
     def invalidate_dependency(self, dependency, version=None):
         """Invalidate dependency.
 
-        :type dependency: cache_tagging.interfaces.IDependency
+        :type dependency: cache_dependencies.interfaces.IDependency
         :type version: int or None
         """
         self.transaction.current().add_dependency(dependency, version=version)
@@ -161,7 +161,7 @@ class CacheWrapper(object):  # Adapter
         """Start cache creating.
 
         :type key: str
-        :type dependency: cache_tagging.interfaces.IDependency
+        :type dependency: cache_dependencies.interfaces.IDependency
         :type version: int or None
         """
         self.relation_manager.pop(key).add_dependency(dependency, version)

@@ -1,7 +1,7 @@
 import time
 import unittest
-from cache_tagging import interfaces, locks, utils
-from cache_tagging.tests import helpers
+from cache_dependencies import interfaces, locks, utils
+from cache_dependencies.tests import helpers
 
 try:
     from unittest import mock

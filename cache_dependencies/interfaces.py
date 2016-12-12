@@ -1,43 +1,43 @@
-from cache_tagging.utils import Undef
+from cache_dependencies.utils import Undef
 
 
 class IDependency(object):
 
     def evaluate(self, cache, transaction, version):
         """
-        :type cache: cache_tagging.interfaces.ICache
-        :type transaction: cache_tagging.interfaces.ITransaction
+        :type cache: cache_dependencies.interfaces.ICache
+        :type transaction: cache_dependencies.interfaces.ITransaction
         :type version: int or None
         """
         raise NotImplementedError
 
     def validate(self, cache, version):
         """
-        :type cache: cache_tagging.interfaces.ICache
+        :type cache: cache_dependencies.interfaces.ICache
         :type version: int or None
-        :rtype: cache_tagging.interfaces.IDeferred
+        :rtype: cache_dependencies.interfaces.IDeferred
         """
         raise NotImplementedError
 
     def invalidate(self, cache, version):
         """
-        :type cache: cache_tagging.interfaces.ICache
+        :type cache: cache_dependencies.interfaces.ICache
         :type version: int or None
         """
         raise NotImplementedError
 
     def acquire(self, cache, transaction, version):
         """
-        :type cache: cache_tagging.interfaces.ICache
-        :type transaction: cache_tagging.interfaces.ITransaction
+        :type cache: cache_dependencies.interfaces.ICache
+        :type transaction: cache_dependencies.interfaces.ITransaction
         :type version: int or None
         """
         raise NotImplementedError
 
     def release(self, cache, transaction, delay, version):
         """
-        :type cache: cache_tagging.interfaces.ICache
-        :type transaction: cache_tagging.interfaces.ITransaction
+        :type cache: cache_dependencies.interfaces.ICache
+        :type transaction: cache_dependencies.interfaces.ITransaction
         :type delay: int
         :type version: int or None
         """
@@ -45,14 +45,14 @@ class IDependency(object):
 
     def extend(self, other):
         """
-        :type other: cache_tagging.interfaces.IDependency
+        :type other: cache_dependencies.interfaces.IDependency
         :rtype: bool
         """
         raise NotImplementedError
 
     def __copy__(self):
         """
-        :rtype: cache_tagging.interfaces.IDependency
+        :rtype: cache_dependencies.interfaces.IDependency
         """
         raise NotImplementedError
 
@@ -68,7 +68,7 @@ class IDeferred(object):  # Queue?
     def add_callback(self, callback, *args, **kwargs):  # put? apply?
         """
         :type callback: collections.Callable
-        :rtype: cache_tagging.interfaces.IDeferred
+        :rtype: cache_dependencies.interfaces.IDeferred
         """
         raise NotImplementedError
 
@@ -95,7 +95,7 @@ class ICacheNode(object):
 
     def parent(self):
         """
-        :rtype: cache_tagging.interfaces.ICacheNode
+        :rtype: cache_dependencies.interfaces.ICacheNode
         """
         raise NotImplementedError
 
@@ -107,7 +107,7 @@ class ICacheNode(object):
 
     def add_dependency(self, dependency, version=None):
         """
-        :type dependency: cache_tagging.interfaces.IDependency
+        :type dependency: cache_dependencies.interfaces.IDependency
         :type version: int or None
         """
         raise NotImplementedError
@@ -115,7 +115,7 @@ class ICacheNode(object):
     def get_dependency(self, version=None):
         """
         :type version: int or None
-        :rtype dependency: cache_tagging.interfaces.IDependency
+        :rtype dependency: cache_dependencies.interfaces.IDependency
         """
         raise NotImplementedError
 
@@ -125,21 +125,21 @@ class IRelationManager(object):
     def get(self, key):
         """
         :type key: str
-        :rtype: cache_tagging.interfaces.ICacheNode
+        :rtype: cache_dependencies.interfaces.ICacheNode
         """
         raise NotImplementedError
 
     def pop(self, key):
         """
         :type key: str
-        :rtype: cache_tagging.interfaces.ICacheNode
+        :rtype: cache_dependencies.interfaces.ICacheNode
         """
         raise NotImplementedError
 
     def current(self, key_or_node=Undef):
         """
-        :type key_or_node: str or cache_tagging.interfaces.ICacheNode
-        :rtype: cache_tagging.interfaces.ICacheNode
+        :type key_or_node: str or cache_dependencies.interfaces.ICacheNode
+        :rtype: cache_dependencies.interfaces.ICacheNode
         """
         raise NotImplementedError
 
@@ -151,24 +151,24 @@ class IDependencyLock(object):
 
     def acquire(self, dependency, transaction, version):
         """
-        :type dependency: cache_tagging.interfaces.IDependency
-        :type transaction: cache_tagging.interfaces.ITransaction
+        :type dependency: cache_dependencies.interfaces.IDependency
+        :type transaction: cache_dependencies.interfaces.ITransaction
         :type version: int or None
         """
         raise NotImplementedError
 
     def release(self, dependency, transaction, version):
         """
-        :type dependency: cache_tagging.interfaces.IDependency
-        :type transaction: cache_tagging.interfaces.ITransaction
+        :type dependency: cache_dependencies.interfaces.IDependency
+        :type transaction: cache_dependencies.interfaces.ITransaction
         :type version: int or None
         """
         raise NotImplementedError
 
     def evaluate(self, dependency, transaction, version):
         """
-        :type dependency: cache_tagging.interfaces.IDependency
-        :type transaction: cache_tagging.interfaces.ITransaction
+        :type dependency: cache_dependencies.interfaces.IDependency
+        :type transaction: cache_dependencies.interfaces.ITransaction
         :type version: int or None
         """
         raise NotImplementedError
@@ -177,9 +177,9 @@ class IDependencyLock(object):
     def make(isolation_level, thread_safe_cache_accessor, delay):
         """
         :type isolation_level: str
-        :type thread_safe_cache_accessor: () -> cache_tagging.interfaces.ICache
+        :type thread_safe_cache_accessor: () -> cache_dependencies.interfaces.ICache
         :type delay: int
-        :rtype: cache_tagging.interfaces.IDependencyLock
+        :rtype: cache_dependencies.interfaces.IDependencyLock
         """
         raise NotImplementedError
     
@@ -206,20 +206,20 @@ class ITransaction(object):
 
     def parent(self):
         """
-        :rtype: cache_tagging.interfaces.ITransaction
+        :rtype: cache_dependencies.interfaces.ITransaction
         """
         raise NotImplementedError
 
     def add_dependency(self, dependency, version):
         """
-        :type dependency: cache_tagging.interfaces.IDependency
+        :type dependency: cache_dependencies.interfaces.IDependency
         :type version: int or None
         """
         raise NotImplementedError
 
     def evaluate(self, dependency, version):
         """
-        :type dependency: cache_tagging.interfaces.IDependency
+        :type dependency: cache_dependencies.interfaces.IDependency
         :type version: int or None
         """
         raise NotImplementedError
@@ -241,8 +241,8 @@ class ITransactionManager(object):
 
     def current(self, node=Undef):
         """
-        :type node: cache_tagging.interfaces.ITransaction
-        :rtype: cache_tagging.interfaces.ITransaction
+        :type node: cache_dependencies.interfaces.ITransaction
+        :rtype: cache_dependencies.interfaces.ITransaction
         """
         raise NotImplementedError
 
