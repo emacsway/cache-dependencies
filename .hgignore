@@ -12,7 +12,7 @@
 .autosave$
 ^\.search/
 ^dist/
-^cache_tagging.egg-info/
+^cache_dependencies.egg-info/
 ^build/
 ^.eggs/
 ^TODO$
