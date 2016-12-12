@@ -69,7 +69,7 @@ class SavePoint(Transaction):
         :type parent: cache_tagging.transaction.Transaction or cache_tagging.transaction.SavePoint
         """
         super(SavePoint, self).__init__(lock)
-        assert isinstance(parent, (SavePoint, Transaction))
+        assert isinstance(parent, interfaces.ITransaction)
         self._parent = parent
 
     def get_start_time(self):
