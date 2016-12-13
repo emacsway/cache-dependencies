@@ -10,7 +10,7 @@ Then you will be able to invalidate all cache records tagged with a given tag (o
 
 Cache tagging allows to manage cached values and easily link them to Model signals.
 
-Home Page: https://bitbucket.org/emacsway/cache-tagging
+Home Page: https://bitbucket.org/emacsway/cache-dependencies
 
 
 Usage with Django
