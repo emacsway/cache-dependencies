@@ -259,4 +259,4 @@ Transaction handler as middleware::
 
 Forked from https://github.com/Harut/django-cachecontrol
 
-See also article "`About problems cache invalidation. Tagging cache. <http://emacsway.bitbucket.org/ru/cache-tagging/>`_" (in Russian).
+See also article "`About problems cache invalidation. Tagging cache. <http://emacsway.bitbucket.org/ru/cache-dependencies/>`_" (in Russian).
