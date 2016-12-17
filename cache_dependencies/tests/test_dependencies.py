@@ -242,7 +242,7 @@ class TagsDependencyTestCase(AbstractTagsDependencyTestCase):
 
 
 class CompositeDependencyInvalidTestCase(unittest.TestCase):
-    def test_false(self):
+    def test_invalid(self):
         errors1 = ('err1', 'err2')
         errors2 = ('err3', 'err4')
         validation_status = exceptions.CompositeDependencyInvalid(
@@ -267,7 +267,7 @@ class CompositeDependencyInvalidTestCase(unittest.TestCase):
 
 
 class CompositeDependencyLockedTestCase(unittest.TestCase):
-    def test_false(self):
+    def test_locked(self):
         items1 = ('item1', 'item2')
         items2 = ('item3', 'item4')
         validation_status = exceptions.CompositeDependencyLocked(
