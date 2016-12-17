@@ -17,7 +17,7 @@ class CacheNode(interfaces.ICacheNode):
         self._dependencies = dict()
 
     def parent(self):
-        return self._parent
+        return self._parent or DummyCacheNode()
 
     def key(self):
         return self._key
@@ -27,8 +27,7 @@ class CacheNode(interfaces.ICacheNode):
         if version not in self._dependencies:
             self._dependencies[version] = dependencies.CompositeDependency()
         self._dependencies[version].extend(dependency)
-        if self._parent is not None:
-            self._parent.add_dependency(dependency, version)
+        self.parent().add_dependency(dependency, version)
 
     def get_dependency(self, version=None):
         try:
@@ -43,7 +42,7 @@ class DummyCacheNode(interfaces.ICacheNode):
         pass
 
     def parent(self):
-        return None
+        return DummyCacheNode()
 
     def key(self):
         return 'DummyCache'
