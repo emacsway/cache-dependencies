@@ -64,6 +64,15 @@ class RelationManager(interfaces.IRelationManager):
             self._data[key] = CacheNode(key, self._current)
         return self._data[key]
 
+    def current(self, key_or_node=Undef):
+        if key_or_node is Undef:
+            return self._current or DummyCacheNode()
+        if isinstance(key_or_node, string_types):
+            node = self.get(key_or_node)
+        else:
+            node = key_or_node
+        self._current = node
+
     def pop(self, key):
         try:
             node = self._data.pop(key)
@@ -74,15 +83,6 @@ class RelationManager(interfaces.IRelationManager):
             self.current(node.parent())
         return node
 
-    def current(self, key_or_node=Undef):
-        if key_or_node is Undef:
-            return self._current or DummyCacheNode()
-        if isinstance(key_or_node, string_types):
-            node = self.get(key_or_node)
-        else:
-            node = key_or_node
-        self._current = node
-
     def clear(self):
         self._data = dict()
 
@@ -92,13 +92,13 @@ class ThreadSafeRelationManagerDecorator(mixins.ThreadSafeDecoratorMixIn, interf
         self._validate_thread_sharing()
         return self._delegate.get(key)
 
-    def pop(self, key):
-        self._validate_thread_sharing()
-        return self._delegate.pop(key)
-
     def current(self, key_or_node=Undef):
         self._validate_thread_sharing()
         return self._delegate.current(key_or_node)
+
+    def pop(self, key):
+        self._validate_thread_sharing()
+        return self._delegate.pop(key)
 
     def clear(self):
         self._validate_thread_sharing()

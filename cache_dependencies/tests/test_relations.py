@@ -88,3 +88,50 @@ class DummyCacheNodeTestCase(AbstractCacheNodeTestCase):
 
     def test_get_dependency(self):
         self.assertIsInstance(self.cache_node.get_dependency(), dependencies.DummyDependency)
+
+
+class RelationManagerTestCase(unittest.TestCase):
+    def setUp(self):
+        self.relation_manager = relations.RelationManager()
+
+    def test_get(self):
+        node_key1 = self.relation_manager.get('key1')
+        self.assertIsInstance(node_key1, relations.CacheNode)
+        self.assertEqual(node_key1.key(), 'key1')
+        self.assertIsInstance(node_key1.parent(), relations.DummyCacheNode)
+
+        node_key1_2 = self.relation_manager.get('key1')
+        self.assertIs(node_key1, node_key1_2)
+
+        node_key2 = self.relation_manager.get('key2')
+        self.assertEqual(node_key2.key(), 'key2')
+        self.assertIsNot(node_key2, node_key1)
+        self.assertIsInstance(node_key2.parent(), relations.DummyCacheNode)
+
+    def test_get_sets_parent(self):
+        self.relation_manager.current('key1')
+        node_key1 = self.relation_manager.get('key1')
+        self.assertIsInstance(node_key1.parent(), relations.DummyCacheNode)
+
+        node_key2 = self.relation_manager.get('key2')
+        self.assertEqual(node_key2.key(), 'key2')
+        self.assertIsNot(node_key2, node_key1)
+        self.assertIs(node_key2.parent(), node_key1)
+
+    def test_current_none(self):
+        self.assertIsInstance(self.relation_manager.current(), relations.DummyCacheNode)
+
+    def test_current_by_key(self):
+        self.relation_manager.current('key1')
+        node_key1 = self.relation_manager.current()
+        self.assertEqual(node_key1.key(), 'key1')
+        self.assertIsInstance(node_key1.parent(), relations.DummyCacheNode)
+
+    def test_current_by_node(self):
+        init_node_key1 = self.relation_manager.get('key1')
+        self.relation_manager.current(init_node_key1)
+        node_key1 = self.relation_manager.current()
+        self.assertIs(node_key1, init_node_key1)
+
+    def test_pop_none(self):
+        self.assertIsInstance(self.relation_manager.pop('key1'), relations.DummyCacheNode)

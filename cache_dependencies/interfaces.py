@@ -129,16 +129,16 @@ class IRelationManager(object):
         """
         raise NotImplementedError
 
-    def pop(self, key):
+    def current(self, key_or_node=Undef):
         """
-        :type key: str
+        :type key_or_node: str or cache_dependencies.interfaces.ICacheNode
         :rtype: cache_dependencies.interfaces.ICacheNode
         """
         raise NotImplementedError
 
-    def current(self, key_or_node=Undef):
+    def pop(self, key):
         """
-        :type key_or_node: str or cache_dependencies.interfaces.ICacheNode
+        :type key: str
         :rtype: cache_dependencies.interfaces.ICacheNode
         """
         raise NotImplementedError
