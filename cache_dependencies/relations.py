@@ -11,9 +11,9 @@ except NameError:
 
 
 class CacheNode(interfaces.ICacheNode):
-    def __init__(self, key, parent=None):
+    def __init__(self, key, parent):
         self._key = key
-        self._parent = parent or DummyCacheNode()
+        self._parent = parent
         self._dependencies = dict()
 
     def parent(self):
@@ -35,6 +35,9 @@ class CacheNode(interfaces.ICacheNode):
         except KeyError:
             return dependencies.DummyDependency()
 
+    def __bool__(self):
+        return True
+
 
 class DummyCacheNode(interfaces.ICacheNode):
     """Using pattern Special Case"""
@@ -52,6 +55,9 @@ class DummyCacheNode(interfaces.ICacheNode):
 
     def get_dependency(self, version=None):
         return dependencies.DummyDependency()
+
+    def __bool__(self):
+        return False
 
 
 class RelationManager(interfaces.IRelationManager):

@@ -119,6 +119,14 @@ class ICacheNode(object):
         """
         raise NotImplementedError
 
+    def __bool__(self):
+        """
+        :rtype: bool
+        """
+
+    def __nonzero__(self):
+        return self.__bool__()
+
 
 class IRelationManager(object):
 
@@ -226,6 +234,14 @@ class ITransaction(object):
 
     def finish(self):
         raise NotImplementedError
+
+    def __bool__(self):
+        """
+        :rtype: bool
+        """
+
+    def __nonzero__(self):
+        return self.__bool__()
 
 
 class ITransactionManager(object):

@@ -23,6 +23,9 @@ class AbstractTransaction(interfaces.ITransaction):
     def _current_time():
         return time.time()
 
+    def __bool__(self):
+        return True
+
 
 class Transaction(AbstractTransaction):
     def __init__(self, lock):
@@ -114,6 +117,9 @@ class DummyTransaction(AbstractTransaction):
 
     def finish(self):
         pass
+
+    def __bool__(self):
+        return False
 
 
 class AbstractTransactionManager(interfaces.ITransactionManager):

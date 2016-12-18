@@ -120,6 +120,9 @@ class TransactionTestCase(AbstractTransactionTestCase):
         self.assertIs(args[1], self.transaction)
         self.assertEqual(args[2], 1)
 
+    def test_bool(self):
+        self.assertTrue(self.transaction)
+
 
 class SavePointTestCase(AbstractTransactionTestCase):
     def _make_transaction(self, lock, parent, current_time_accessor):
@@ -140,6 +143,9 @@ class SavePointTestCase(AbstractTransactionTestCase):
         self.transaction.add_dependency(self.dependency, 1)
         self.lock.acquire.assert_called_once_with(self.dependency, self.transaction, 1)
         self.parent.add_dependency.assert_called_once_with(self.dependency, 1)
+
+    def test_bool(self):
+        self.assertTrue(self.transaction)
 
 
 class DummyTransactionTestCase(AbstractTransactionTestCase):
@@ -170,6 +176,9 @@ class DummyTransactionTestCase(AbstractTransactionTestCase):
         time.sleep(1)
         self.assertAlmostEqual(self.transaction.get_end_time(), self.current_time.return_value)
         self.assertEqual(self.current_time.call_count, 2)
+
+    def test_bool(self):
+        self.assertFalse(self.transaction)
 
 
 class TransactionManagerTestCase(unittest.TestCase):

@@ -21,19 +21,7 @@ class AbstractCacheNodeTestCase(unittest.TestCase):
         return instance
 
 
-class InitCacheNodeTestCase(AbstractCacheNodeTestCase):
-    def setUp(self):
-        self.cache_key = 'key1'
-        self.cache_node = relations.CacheNode(self.cache_key)
-
-    def test_parent(self):
-        self.assertIsInstance(self.cache_node.parent(), relations.DummyCacheNode)
-
-    def test_get_dependency(self):
-        self.assertIsInstance(self.cache_node.get_dependency(), dependencies.DummyDependency)
-
-
-class NestedCacheNodeTestCase(AbstractCacheNodeTestCase):
+class CacheNodeTestCase(AbstractCacheNodeTestCase):
     def setUp(self):
         self.cache_key = 'key1'
         self.parent = mock.Mock(interfaces.ICacheNode)
@@ -75,6 +63,12 @@ class NestedCacheNodeTestCase(AbstractCacheNodeTestCase):
         self.assertEqual(len(dependency_1.delegates), 1)
         self.assertEqual(dependency_1.delegates[0].id, 3)
 
+    def test_get_dependency_none(self):
+        self.assertIsInstance(self.cache_node.get_dependency(), dependencies.DummyDependency)
+
+    def test_bool(self):
+        self.assertTrue(self.cache_node)
+
 
 class DummyCacheNodeTestCase(AbstractCacheNodeTestCase):
     def setUp(self):
@@ -88,6 +82,9 @@ class DummyCacheNodeTestCase(AbstractCacheNodeTestCase):
 
     def test_get_dependency(self):
         self.assertIsInstance(self.cache_node.get_dependency(), dependencies.DummyDependency)
+
+    def test_bool(self):
+        self.assertFalse(self.cache_node)
 
 
 class RelationManagerTestCase(unittest.TestCase):
