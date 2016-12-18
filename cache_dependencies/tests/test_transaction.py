@@ -1,6 +1,6 @@
 import time
 import unittest
-from cache_dependencies import interfaces, transaction, utils
+from cache_dependencies import interfaces, transaction
 
 try:
     from unittest import mock
