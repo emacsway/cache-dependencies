@@ -13,11 +13,11 @@ except NameError:
 class CacheNode(interfaces.ICacheNode):
     def __init__(self, key, parent=None):
         self._key = key
-        self._parent = parent
+        self._parent = parent or DummyCacheNode()
         self._dependencies = dict()
 
     def parent(self):
-        return self._parent or DummyCacheNode()
+        return self._parent
 
     def key(self):
         return self._key
@@ -42,7 +42,7 @@ class DummyCacheNode(interfaces.ICacheNode):
         pass
 
     def parent(self):
-        return DummyCacheNode()
+        return self
 
     def key(self):
         return 'DummyCache'
@@ -56,7 +56,7 @@ class DummyCacheNode(interfaces.ICacheNode):
 
 class RelationManager(interfaces.IRelationManager):
     def __init__(self):
-        self._current = None
+        self._current = DummyCacheNode()
         self._data = dict()  # recursive cache is not possible, so, using dict instead of stack.
 
     def get(self, key):
@@ -66,7 +66,7 @@ class RelationManager(interfaces.IRelationManager):
 
     def current(self, key_or_node=Undef):
         if key_or_node is Undef:
-            return self._current or DummyCacheNode()
+            return self._current
         if isinstance(key_or_node, string_types):
             node = self.get(key_or_node)
         else:
