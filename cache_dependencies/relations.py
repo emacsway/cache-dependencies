@@ -12,6 +12,10 @@ except NameError:
 
 class CacheNode(interfaces.ICacheNode):
     def __init__(self, key, parent):
+        """
+        :type key: str
+        :type parent: cache_dependencies.interfaces.ICacheNode
+        """
         self._key = key
         self._parent = parent
         self._dependencies = dict()

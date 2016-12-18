@@ -7,6 +7,9 @@ from cache_dependencies.utils import Undef
 
 class AbstractTransaction(interfaces.ITransaction):
     def __init__(self, lock):
+        """
+        :type lock: cache_dependencies.interfaces.IDependencyLock
+        """
         self._lock = lock
 
     def get_session_id(self):
@@ -22,9 +25,6 @@ class AbstractTransaction(interfaces.ITransaction):
     @staticmethod
     def _current_time():
         return time.time()
-
-    def __bool__(self):
-        return True
 
 
 class Transaction(AbstractTransaction):
@@ -63,6 +63,9 @@ class Transaction(AbstractTransaction):
         self._end_time = self._current_time()
         for version, dependency in self._dependencies.items():
             self._lock.release(dependency, self, version)
+
+    def __bool__(self):
+        return True
 
 
 class SavePoint(Transaction):
