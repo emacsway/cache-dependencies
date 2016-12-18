@@ -94,6 +94,7 @@ class RelationManager(interfaces.IRelationManager):
         return node
 
     def clear(self):
+        self._current = DummyCacheNode()
         self._data = dict()
 
 

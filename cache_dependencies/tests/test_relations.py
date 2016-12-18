@@ -132,3 +132,33 @@ class RelationManagerTestCase(unittest.TestCase):
 
     def test_pop_none(self):
         self.assertIsInstance(self.relation_manager.pop('key1'), relations.DummyCacheNode)
+
+    def test_pop_current(self):
+        self.relation_manager.current('key1')
+        init_node_key1 = self.relation_manager.get('key1')
+        self.relation_manager.current('key2')
+        init_node_key2 = self.relation_manager.get('key2')
+
+        node_key2 = self.relation_manager.pop('key2')
+        self.assertIs(node_key2, init_node_key2)
+        self.assertIs(self.relation_manager.current(), init_node_key1)
+
+    def test_pop_not_current(self):
+        self.relation_manager.current('key1')
+        init_node_key1 = self.relation_manager.get('key1')
+        self.relation_manager.current('key2')
+        init_node_key2 = self.relation_manager.get('key2')
+
+        node_key1 = self.relation_manager.pop('key1')
+        self.assertIs(node_key1, init_node_key1)
+        self.assertIs(self.relation_manager.current(), init_node_key2)
+
+    def test_clear(self):
+        self.relation_manager.current('key1')
+        init_node_key1 = self.relation_manager.get('key1')
+        self.assertIsInstance(self.relation_manager.current(), relations.CacheNode)
+
+        self.relation_manager.clear()
+        self.assertIsInstance(self.relation_manager.current(), relations.DummyCacheNode)
+        node_key1 = self.relation_manager.pop('key1')
+        self.assertIsNot(node_key1, init_node_key1)
