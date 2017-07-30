@@ -113,6 +113,7 @@ You can turn off this logic::
         except Exception:
             cache.abort('cachename')
 
+
 appname.caches.py file::
     
     # Variant 1. Using registry.register().
