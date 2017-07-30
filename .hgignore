@@ -14,5 +14,6 @@
 ^dist/
 ^cache_dependencies.egg-info/
 ^build/
+^docs/_build
 ^.eggs/
 ^TODO$
