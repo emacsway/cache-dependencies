@@ -282,7 +282,7 @@ Forked from https://github.com/Harut/django-cachecontrol
 
 See also articles:
 
-- "`About problems cache invalidation. Tagging cache. <https://emacsway.github.io/en/cache-dependencies/>`_"
+- "`About problems of cache invalidation. Cache tagging. <https://emacsway.github.io/en/cache-dependencies/>`_"
 - "`О проблемах инвалидации кэша. Тегирование кэша. <https://emacsway.github.io/ru/cache-dependencies/>`_"
 
 
