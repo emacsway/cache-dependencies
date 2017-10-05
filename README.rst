@@ -11,7 +11,7 @@ Then you will be able to invalidate all cache records tagged with a given tag (o
 Cache tagging allows to manage cached values and easily link them to Model signals.
 
 * Home Page: https://bitbucket.org/emacsway/cache-dependencies
-* Docs: http://cache-dependencies.readthedocs.io/
+* Docs: https://cache-dependencies.readthedocs.io/
 * Browse source code (canonical repo): https://bitbucket.org/emacsway/cache-dependencies/src
 * GitHub mirror: https://github.com/emacsway/cache-dependencies
 * Get source code (canonical repo): ``hg clone https://bitbucket.org/emacsway/cache-dependencies``
@@ -175,7 +175,7 @@ Support for `django-phased <https://github.com/codysoyland/django-phased>`_::
 
     {% comment %}
         Support for django-phased https://github.com/codysoyland/django-phased
-        See documentation for more details http://django-phased.readthedocs.org/
+        See documentation for more details https://django-phased.readthedocs.io/
     {% endcomment %}
     {% load cache_tagging_tags %}
     {% load phased_tags %}
