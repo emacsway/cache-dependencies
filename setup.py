@@ -3,9 +3,17 @@
 # Copyright (c) 2011-2013 Ivan Zakrevsky
 # Licensed under the terms of the BSD License (see LICENSE.txt)
 import os.path
+import codecs
 from setuptools import setup, find_packages
 
 app_name = os.path.basename(os.path.dirname(os.path.abspath(__file__)))
+
+
+def read(fname):
+    with codecs.open(os.path.join(os.path.dirname(__file__), fname), 'r', encoding='utf8') as f:
+        data = f.read()
+    return data
+
 
 setup(
     name = app_name,
@@ -17,7 +25,7 @@ setup(
     author = "Ivan Zakrevsky",
     author_email = "ivzak@yandex.ru",
     description = "Cache-dependencies (former Cache-tagging) allows you easily invalidate all cache records tagged with a given tag(s). Supports Django.",
-    long_description=open(os.path.join(os.path.dirname(__file__), 'README.rst')).read(),
+    long_description=read('README.rst'),
     license = "BSD License",
     keywords = "django cache dependencies tagging",
     tests_require = [
