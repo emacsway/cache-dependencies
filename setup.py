@@ -9,7 +9,7 @@ from setuptools import setup, find_packages
 app_name = os.path.basename(os.path.dirname(os.path.abspath(__file__)))
 
 setup(
-    name = app_name,
+    name = 'cache-dependencies',
     version = '0.7.7.48',
 
     packages = find_packages(),
