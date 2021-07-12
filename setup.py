@@ -10,7 +10,7 @@ app_name = os.path.basename(os.path.dirname(os.path.abspath(__file__)))
 
 setup(
     name='cache-dependencies',
-    version='0.7.7.49',
+    version='0.7.7.50',
 
     packages=find_packages(),
     include_package_data=True,
