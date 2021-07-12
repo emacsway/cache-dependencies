@@ -8,7 +8,7 @@ from django.conf import settings
 from django.core import signals as core_signals
 from django.core.cache import DEFAULT_CACHE_ALIAS
 from django.db.models import signals as model_signals
-from django.utils.functional import curry
+from funtools import partial as curry
 
 from cache_dependencies.tagging import CacheTagging
 from cache_dependencies.relations import RelationManager, ThreadSafeRelationManagerDecorator
