@@ -161,12 +161,12 @@ def autodiscover():
     Auto-discover INSTALLED_APPS cachecontrol.py modules
     and fail silently when not present.
     """
-    import imp
+    import importlib
     from django.conf import settings
     for app in settings.INSTALLED_APPS:
         try:
             __import__(app)
-            imp.find_module("caches", sys.modules[app].__path__)
+            importlib.util.find_spec("caches", sys.modules[app].__path__)
         except (ImportError, AttributeError):
             continue
         __import__("{0}.caches".format(app))
