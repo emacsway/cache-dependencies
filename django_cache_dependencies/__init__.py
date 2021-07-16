@@ -166,8 +166,8 @@ def autodiscover():
     for app in settings.INSTALLED_APPS:
         try:
             __import__(app)
-            importlib.util.find_spec("caches", sys.modules[app].__path__)
-        except (ImportError, AttributeError):
+            importlib.import_module("caches", sys.modules[app].__path__)
+        except (ImportError, ModuleNotFoundError):
             continue
         __import__("{0}.caches".format(app))
 
